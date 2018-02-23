@@ -81,9 +81,9 @@ struct ElementJunction
     double z;
 
     /*!
-     * \brief continuityIndex
+     * \brief continuityIndex -1 if not used to compute continuity greater than -1 if used.
      */
-    int heatContinuityIndex = -1;
+    int heatContinuityIndex;
 
     /*!
      * \brief soluteContinuityIndexes

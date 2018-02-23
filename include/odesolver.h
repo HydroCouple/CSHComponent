@@ -221,6 +221,7 @@ class ODESolver
     m_pgrow,
     m_pshrnk,
     m_errcon,
+    m_eps,
     m_relTol,
     m_absTol,
     *m_yscal,

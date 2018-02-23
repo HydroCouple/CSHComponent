@@ -32,7 +32,7 @@ STMModel::STMModel(STMComponent *component)
     m_timeStep(0.0001), //seconds
     m_maxTimeStep(0.5), //seconds
     m_minTimeStep(0.001), //seconds
-    m_timeStepRelaxationFactor(0.90),
+    m_timeStepRelaxationFactor(0.80),
     m_numInitFixedTimeSteps(2),
     m_numCurrentInitFixedTimeSteps(0),
     m_computeDispersion(false),
@@ -645,6 +645,49 @@ bool STMModel::initializeNetCDFOutputFile(std::list<string> &errors)
 void STMModel::prepareForNextTimeStep()
 {
 
+#ifdef USE_OPENMP
+#pragma omp parallel for
+#endif
+  for(size_t i = 0 ; i < m_elementJunctions.size(); i++)
+  {
+    ElementJunction *elementJunction = m_elementJunctions[i];
+
+//    if(!elementJunction->temperature.isBC)
+    {
+      elementJunction->prevTemperature.copy(elementJunction->temperature);
+    }
+
+    for(size_t j = 0; j < m_solutes.size(); j++)
+    {
+//      if(!elementJunction->soluteConcs[j].isBC)
+      {
+        elementJunction->prevSoluteConcs[j].copy(elementJunction->soluteConcs[j]);
+      }
+    }
+  }
+
+
+#ifdef USE_OPENMP
+#pragma omp parallel for
+#endif
+  for(size_t i = 0 ; i < m_elements.size(); i++)
+  {
+    Element *element = m_elements[i];
+
+//    if(!element->temperature.isBC)
+    {
+      element->prevTemperature.copy(element->temperature);
+    }
+
+    for(size_t j = 0; j < m_solutes.size(); j++)
+    {
+//      if(!element->soluteConcs[j].isBC)
+      {
+        element->prevSoluteConcs[j].copy(element->soluteConcs[j]);
+      }
+    }
+  }
+
 }
 
 void STMModel::applyInitialConditions()
@@ -787,7 +830,6 @@ void STMModel::computeLongDispersion()
 
 void STMModel::solveHeatTransport(double timeStep)
 {
-
   //Allocate memory to store inputs and outputs
   double *currentTemperatures = new double[m_elements.size()];
   double *outputTemperatures = new double[m_elements.size()];
@@ -808,7 +850,6 @@ void STMModel::solveHeatTransport(double timeStep)
   m_solver->solve(currentTemperatures, m_elements.size() , m_currentDateTime * 86400.0, timeStep,
                   outputTemperatures, &STMModel::computeDTDt, &solverUserData);
 
-
   //Apply computed values;
 #ifdef USE_OPENMP
 #pragma omp parallel for
@@ -816,14 +857,13 @@ void STMModel::solveHeatTransport(double timeStep)
   for(size_t i = 0 ; i < m_elements.size(); i++)
   {
     Element *element = m_elements[i];
-    element->temperature.value = outputTemperatures[element->index];
+    double outputTemperature = outputTemperatures[element->index];
+    element->temperature.value = outputTemperature;
   }
-
 
   //Delete allocated memory
   delete[] currentTemperatures;
   delete[] outputTemperatures;
-
 }
 
 void STMModel::solveSoluteTransport(int soluteIndex, double timeStep)
@@ -870,7 +910,7 @@ void STMModel::computeDTDt(double t, double y[], double dydt[], void* userData)
 
   SolverUserData *solverUserData = (SolverUserData*) userData;
   STMModel *modelInstance = solverUserData->model;
-  double dt = t - modelInstance->m_currentDateTime *  86400.0;
+  double dt = t - (modelInstance->m_currentDateTime *  86400.0);
 
 #ifdef USE_OPENMP
 #pragma omp parallel for

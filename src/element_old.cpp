@@ -15,15 +15,6 @@ Element::Element(const std::string &id, ElementJunction *upstream, ElementJuncti
     upstreamElement(nullptr),
     downstreamElement(nullptr),
     model(model),
-    length(0.0),
-    depth(0.0),
-    xSectionArea(0.0),
-    width(0.0),
-    flow(0.0),
-    slope(0.0),
-    externalHeatFluxes(0.0),
-    radiationFluxes(0.0),
-    pecletNumber(0.0),
     computeTempAdv(nullptr),
     computeSoluteAdv(nullptr)
 {

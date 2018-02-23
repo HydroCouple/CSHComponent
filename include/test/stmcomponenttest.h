@@ -44,6 +44,7 @@ class STMComponentTest : public QObject
     void solveODERKQS_Prob2();
 
 #ifdef USE_CVODE
+
     /*!
      * \brief solveODEAdam_Prob2
      */
@@ -53,6 +54,7 @@ class STMComponentTest : public QObject
      * \brief solveODEBDF_Prob2
      */
     void solveODEBDF_Prob2();
+
 #endif
 
     /*!

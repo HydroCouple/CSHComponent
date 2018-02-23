@@ -49,7 +49,20 @@ struct Element
     */
    std::string id;
 
-   double x, y, z;
+   /*!
+    * \brief x
+    */
+   double x;
+
+   /*!
+    * \brief y
+    */
+   double y;
+
+   /*!
+    * \brief z
+    */
+   double z;
 
    /*!
     * \brief temperature
@@ -124,7 +137,7 @@ struct Element
    /*!
     * \brief slope
     */
-   double slope = 0.000001;
+   double slope;
 
    /*!
     * \brief externalHeatFluxes of J / s
@@ -185,6 +198,12 @@ struct Element
     */
    double computeDTDt(double dt, double T[]);
 
+   /*!
+    * \brief computeDTDtDispersion
+    * \param dt
+    * \param T
+    * \return
+    */
    double computeDTDtDispersion(double dt, double T[]);
 
    /*!

@@ -10,18 +10,25 @@ struct Variable
     /*!
      * \brief value - Magnitude of the variable
      */
-    double value = 0;
+    double value;
 
     /*!
      * \brief associatedValue - A related value that may be stored with this variable.
      */
-    double associatedValue = 0;
+    double associatedValue;
 
     /*!
      * \brief isBC - Boolean indicating whether this variable is a boundary condition or not.
      */
-    bool isBC = false;
+    bool isBC;
 
+    Variable():
+       value(0.0),
+       associatedValue(0.0),
+       isBC(false)
+    {
+
+    }
 
     void copy(const Variable & variable)
     {

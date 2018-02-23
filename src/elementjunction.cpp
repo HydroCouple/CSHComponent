@@ -7,10 +7,12 @@
 
 ElementJunction::ElementJunction(const std::string &id, double x, double y, double z, STMModel *model)
   :id(id), x(x), y(y), z(z),
+   heatContinuityIndex(-1),
    soluteContinuityIndexes(nullptr),
    numSolutes(0),
    soluteConcs(nullptr),
    prevSoluteConcs(nullptr),
+   longDispersion(0.0),
    model(model)
 {
 

@@ -585,7 +585,7 @@ void STMComponentTest::versteegCase2_Upwind()
     model->setOutputCSVFile(QFileInfo("../../examples/Versteeg/case2/versteegcase2_upwind.csv"));
 
     //Set solver type
-    model->solver()->setSolverType(ODESolver::RKQS);
+    model->solver()->setSolverType(ODESolver::CVODE_ADAMS);
 
     //  Domain spatial discretization
     double x , y = 0, z = 0;
