@@ -1,5 +1,7 @@
 # STMComponent
-A one-dimensional stream solute and heat transport model.
+[![AUR](https://img.shields.io/aur/license/yaourt.svg)](https://github.com/HydroCouple/STMComponent/blob/master/LICENSE)
+
+A one-dimensional stream heat and solute transport model.
 
 ## Input File Specification
 ---------------------------------------
