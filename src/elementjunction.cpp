@@ -1,6 +1,9 @@
 #include "stdafx.h"
 #include "elementjunction.h"
 #include "element.h"
+#include "stmmodel.h"
+
+#include <math.h>
 
 ElementJunction::ElementJunction(const std::string &id, double x, double y, double z, STMModel *model)
   :id(id), x(x), y(y), z(z),
@@ -19,7 +22,6 @@ ElementJunction::~ElementJunction()
   {
     delete[] soluteConcs;
     delete[] prevSoluteConcs;
-    delete[] externalSoluteFluxes;
     delete[] soluteContinuityIndexes;
   }
 
@@ -36,22 +38,20 @@ ElementJunction::~ElementJunction()
   }
 }
 
-void ElementJunction::initializeSolutes(int numSolutes)
+void ElementJunction::initialize()
 {
-  if(numSolutes > 0 )
+  if(model->m_solutes.size() > 0 )
   {
     if(soluteConcs)
     {
       delete[] soluteConcs;
       delete[] prevSoluteConcs;
-      delete[] externalSoluteFluxes;
       delete[] soluteContinuityIndexes;
     }
 
-    this->numSolutes = numSolutes;
+    this->numSolutes = model->m_solutes.size();
     soluteConcs = new Variable[numSolutes];
     prevSoluteConcs = new Variable[numSolutes];
-    externalSoluteFluxes = new Variable[numSolutes];
     soluteContinuityIndexes = new int[numSolutes];
 
     for(int i = 0 ; i < numSolutes; i++)
@@ -149,95 +149,50 @@ void ElementJunction::interpSoluteConcs(int soluteIndex)
   this->soluteConcs[soluteIndex].value = sum_S_x / sum_x;
 }
 
-double ElementJunction::computeDTDt(double dt)
+void ElementJunction::solveHeatContinuity(double dt)
 {
-  double volume = 0;
-  double sumGradT = externalHeatFlux.value;
+  double sumQ = 0.0;
+  double sumQT = 0.0;
 
   for(Element *incomingElement : incomingElements)
   {
-    volume += incomingElement->length * incomingElement->xSectionArea / 2.0;
-    sumGradT += incomingElement->flow * incomingElement->temperature.value;
+    double q = std::max(0.0 , incomingElement->flow);
+    sumQ += q;
+    sumQT += q * incomingElement->temperature.value;
   }
 
   for(Element *outgoingElement : outgoingElements)
   {
-    volume += outgoingElement->length * outgoingElement->xSectionArea / 2.0;
-    sumGradT -= outgoingElement->flow * outgoingElement->temperature.value;
+    double q = fabs(std::min(0.0 , outgoingElement->flow));
+    sumQ += q;
+    sumQT += q * outgoingElement->temperature.value;
   }
 
-  sumGradT /= volume;
-
-  return sumGradT;
+  double temp = sumQ ? sumQT / sumQ : 0.0;
+  temperature.value = temp;
 }
 
-double ElementJunction::computeDSoluteDt(double dt, int soluteIndex)
+void ElementJunction::solveSoluteContinuity(int soluteIndex, double dt)
 {
-  double volume = 0;
-  double sumGradSolute = externalSoluteFluxes[soluteIndex].value;
+  double sumQ = 0.0;
+  double sumQT = 0.0;
 
   for(Element *incomingElement : incomingElements)
   {
-    volume += incomingElement->length * incomingElement->xSectionArea / 2.0;
-    sumGradSolute += incomingElement->flow * incomingElement->soluteConcs[soluteIndex].value;
+    double q = std::max(0.0 , incomingElement->flow);
+    sumQ += q;
+    sumQT += q * incomingElement->soluteConcs[soluteIndex].value;
   }
-
 
   for(Element *outgoingElement : outgoingElements)
   {
-    volume += outgoingElement->length * outgoingElement->xSectionArea / 2.0;
-    sumGradSolute -= outgoingElement->flow * outgoingElement->soluteConcs[soluteIndex].value;
+    double q = fabs(std::min(0.0 , outgoingElement->flow));
+    sumQ += q;
+    sumQT += q * outgoingElement->soluteConcs[soluteIndex].value;
   }
 
-  sumGradSolute /= volume;
-
-  return sumGradSolute;
-}
-
-double ElementJunction::computeDTDt(double dt, double T[])
-{
-  double volume = 0;
-  double sumGradT = T[heatContinuityIndex];
-
-  for(Element *incomingElement : incomingElements)
-  {
-    volume += incomingElement->length * incomingElement->xSectionArea / 2.0;
-    sumGradT += incomingElement->flow * incomingElement->temperature.value;
-  }
-
-
-  for(Element *outgoingElement : outgoingElements)
-  {
-    volume += outgoingElement->length * outgoingElement->xSectionArea / 2.0;
-    sumGradT -= outgoingElement->flow * outgoingElement->temperature.value;
-  }
-
-  sumGradT /= volume;
-
-  return sumGradT;
-}
-
-double ElementJunction::computeDSoluteDt(double dt, double S[], int soluteIndex)
-{
-  double volume = 0;
-  double sumGradSolute = S[soluteIndex];
-
-  for(Element *incomingElement : incomingElements)
-  {
-    volume += incomingElement->length * incomingElement->xSectionArea / 2.0;
-    sumGradSolute += incomingElement->flow * incomingElement->soluteConcs[soluteIndex].value;
-  }
-
-
-  for(Element *outgoingElement : outgoingElements)
-  {
-    volume += outgoingElement->length * outgoingElement->xSectionArea / 2.0;
-    sumGradSolute -= outgoingElement->flow * outgoingElement->soluteConcs[soluteIndex].value;
-  }
-
-  sumGradSolute /= volume;
-
-  return sumGradSolute;
+  double temp = sumQ ? sumQT / sumQ : 0.0;
+  soluteConcs[soluteIndex].value = temp;
 }
 
 void ElementJunction::copyVariablesToPrev()

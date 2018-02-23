@@ -22,6 +22,7 @@
 
 #include "stmcomponent_global.h"
 #include "spatial/network.h"
+#include "odesolver.h"
 
 #include <vector>
 #include <string>
@@ -33,7 +34,6 @@ class STMComponent;
 struct Element;
 struct ElementJunction;
 class Edge;
-class ODESolver;
 class STMModel;
 
 struct SolverUserData
@@ -59,22 +59,24 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
     };
 
     /*!
-     * \brief STMModel - Computational engine for the Stream Temperature Model
-     * \param component - Paremt model coupling component if being used for coupling.
+     * \brief STMModel - Constructor for the Computational engine for the Stream Temperature Model.
      */
     STMModel(STMComponent *component);
 
+    /*!
+     * \brief ~STMModel - Destructor for the Computational engine for the Stream Temperature Model.
+     */
     ~STMModel();
 
     /*!
-     * \brief minTimeStep
-     * \return
+     * \brief minTimeStep - Minimum timestep for the model in seconds.
+     * \return Returns the minimum timestep for the current model instance.
      */
     double minTimeStep() const;
 
     /*!
-     * \brief setMinTimeStep
-     * \param timeStep
+     * \brief setMinTimeStep - Sets the minimum timestep for the current model instance
+     * \param timeStep - Minimum timestep in seconds.
      */
     void setMinTimeStep(double timeStep);
 
@@ -101,6 +103,18 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
      * \param use
      */
     void setUseAdaptiveTimeStep(bool use);
+
+    /*!
+     * \brief timeStepRelaxationFactor
+     * \return
+     */
+    double timeStepRelaxationFactor() const;
+
+    /*!
+     * \brief setTimeStepRelaxationFactor
+     * \param tStepRelaxFactor
+     */
+    void setTimeStepRelaxationFactor(double tStepRelaxFactor);
 
     /*!
      * \brief currentTimeStep
@@ -133,12 +147,6 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
     void setEndDateTime(double dateTime);
 
     /*!
-     * \brief currentDateTime
-     * \return
-     */
-    double currentDateTime() const;
-
-    /*!
      * \brief outputInterval
      * \return
      */
@@ -149,6 +157,19 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
      * \param interval
      */
     void setOutputInterval(double interval);
+
+    /*!
+     * \brief currentDateTime
+     * \return
+     */
+    double currentDateTime() const;
+
+
+    /*!
+     * \brief solver
+     * \return
+     */
+    ODESolver *solver() const;
 
     /*!
      * \brief computeLongDispersion
@@ -337,6 +358,20 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
     bool initializeElements(std::list<std::string> &errors);
 
     /*!
+     * \brief initializeSolver
+     * \param errors
+     * \return
+     */
+    bool initializeSolver(std::list<std::string> & errors);
+
+    /*!
+     * \brief intializeOutputFiles
+     * \param errors
+     * \return
+     */
+    bool initializeOutputFiles(std::list<std::string> &errors);
+
+    /*!
      * \brief initializeCSVOutputFile
      * \param errors
      * \return
@@ -369,7 +404,7 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
      * \brief computeTimeStep
      * \return
      */
-    double computeTimeStep() const;
+    double computeTimeStep();
 
     /*!
      * \brief computeLongDispersion
@@ -377,50 +412,49 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
     void computeLongDispersion();
 
     /*!
-     * \brief solveJunctionHeatContinuity
+     * \brief solveHeat
      * \param timeStep
      */
-    void solveJunctionHeatContinuity(double timeStep, bool &converged);
+    void solveHeatTransport(double timeStep);
 
     /*!
-     * \brief solveJunctionSoluteContinuity
+     * \brief solveSoluteContinuity
      * \param soluteIndex
      * \param timeStep
      */
-    void solveJunctionSoluteContinuity(int soluteIndex, double timeStep, bool &converged);
+    void solveSoluteTransport(int soluteIndex, double timeStep);
 
     /*!
-     * \brief computeJunctionDYDt
+     * \brief computeDTDt
      * \param model
      * \param variableIndex
      * \param t
      * \param y
      * \param dydt
      */
-    static void computeJunctionDYDt(double t, double y[], double dydt[], void *userData);
+    static void computeDTDt(double t, double y[], double dydt[], void *userData);
 
     /*!
-     * \brief solveElementHeatTransport
-     * \param timeStep
-     */
-    void solveElementHeatTransport(double timeStep);
-
-    /*!
-     * \brief solveElementSoluteTransport
-     * \param soluteIndex
-     * \param timeStep
-     */
-    void solveElementSoluteTransport(int soluteIndex, double timeStep);
-
-    /*!
-     * \brief computeElementDYDt
-     * \param model
-     * \param variableIndex
+     * \brief computeSoluteDYDt
      * \param t
      * \param y
      * \param dydt
+     * \param userData
      */
-    static void computeElementDYDt(double t, double y[], double dydt[], void* userData);
+    static void computeDSoluteDt(double t, double y[], double dydt[], void *userData);
+
+    /*!
+     * \brief solveJunctionHeatContinuity Solve
+     * \param timeStep
+     */
+    void solveJunctionHeatContinuity(double timeStep);
+
+    /*!
+     * \brief solveJunctionSoluteContinuity Solve the junction continuity for solute.
+     * \param soluteIndex The index for the solute which is being solved.
+     * \param timeStep The time step over which to compute the junction solute concentration.
+     */
+    void solveJunctionSoluteContinuity(int soluteIndex, double timeStep);
 
     /*!
      * \brief writeOutput
@@ -458,25 +492,28 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
     std::vector<std::string> m_solutes; // Names of the solutes.
 
     //Time variables
-    double m_timeStep = 0.001, //seconds
-           m_startDateTime, //MJD
-           m_endDateTime, //MJD
-           m_currentDateTime, //MJD
-           m_maxTimeStep = 0.5, //seconds
-           m_minTimeStep = 0.001, //seconds
-           m_outputInterval, //seconds
-           m_nextOutputTime,//MJD
-           m_timeStepRelaxationFactor = 0.9; //
+    double m_timeStep, //seconds
+    m_startDateTime, //MJD
+    m_endDateTime, //MJD
+    m_currentDateTime, //MJD
+    m_maxTimeStep, //seconds
+    m_minTimeStep, //seconds
+    m_outputInterval, //seconds
+    m_nextOutputTime,//MJD
+    m_timeStepRelaxationFactor; //
 
+    //Number of initial fixed timeSteps of the minimum timestep to use when using the adaptive time step;
+    int m_numInitFixedTimeSteps,
+    m_numCurrentInitFixedTimeSteps;
 
-    bool m_computeDispersion = false,
-         m_useAdaptiveTimeStep = true,
-         m_converged = true;
+    bool m_computeDispersion,
+    m_useAdaptiveTimeStep,
+    m_converged;
 
     /*!
      * \brief m_advectionMode
      */
-    AdvectionDiscretizationMode m_advectionMode = AdvectionDiscretizationMode::Upwind;
+    AdvectionDiscretizationMode m_advectionMode;
 
     //Element junctions
     std::vector<ElementJunction*> m_elementJunctions;
@@ -487,21 +524,23 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
     std::unordered_map<std::string, Element*> m_elementsById; //added for fast lookup using identifiers instead of indexes.
 
     //Number of junctions where continuity needs to be enforced.
-    int m_numHeatContinuityElementJunctions = 0;
-    std::vector<int> m_numSoluteContinuityElementJunctions;
-
-    //Convergence tolerance
-    double m_convergenceTol = 1e-5;
-    int m_maxNumberOfIterations =  2;
+    int m_numHeatElementJunctions;
+    std::vector<int> m_numSoluteElementJunctions;
 
     //File input and output
     QFileInfo m_outputCSVFileInfo;
     QTextStream m_outputCSVStream;
-    STMComponent *m_component;
+
+    //Solver Object
+    ODESolver *m_solver = nullptr;
 
     //Global water properties
-    double m_waterDensity = 1.0; //kg/m^3
-    double m_cp = 1.0;// 4187.0; // J/kg/C
+    double m_waterDensity, //kg/m^3
+    m_cp;// 4187.0; // J/kg/C
+
+    //Parent component
+    STMComponent *m_component;
+
 };
 
 #endif // STMMODEL_H

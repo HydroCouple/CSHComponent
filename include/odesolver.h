@@ -22,6 +22,9 @@
 #ifndef ODESOLVER_H
 #define ODESOLVER_H
 
+#ifdef USE_CVODE
+#include <cvode/cvode.h>
+#endif
 
 #include <vector>
 
@@ -37,6 +40,17 @@ typedef void (*ComputeDerivatives)(double t, double y[], double dydt[], void* us
  */
 typedef int (ODESolver::*Solve)(double y[], int n, double t, double dt, double yout[], ComputeDerivatives derivs, void* userData);
 
+
+#ifdef USE_CVODE
+
+struct RedirectionData
+{
+    ComputeDerivatives deriv;
+    void *userData;
+};
+
+#endif
+
 class ODESolver
 {
 
@@ -45,7 +59,12 @@ class ODESolver
     enum SolverType
     {
       RK4,
-      RKQS
+      RKQS,
+
+#ifdef USE_CVODE
+      CVODE_ADAMS,
+      CVODE_BDF
+#endif
     };
 
     /*!
@@ -53,9 +72,37 @@ class ODESolver
      * \param maxSize
      * \param solverType
      */
-    ODESolver(int maxSize, SolverType solverType);
+    ODESolver(int size, SolverType solverType);
 
     ~ODESolver();
+
+    void initialize();
+
+    int size() const;
+
+    void setSize(int size);
+
+    SolverType solverType() const;
+
+    void setSolverType(SolverType solverType);
+
+    int maxIterations() const;
+
+    void setMaxIterations(int iterations);
+
+    int getIterations() const;
+
+    int order() const;
+
+    void setOrder(int order);
+
+    double relativeTolerance() const;
+
+    void setRelativeTolerance(double tolerance);
+
+    double absoluteTolerance() const;
+
+    void setAbsoluteTolerance(double tolerance);
 
     /*!
      * \brief solve
@@ -138,13 +185,57 @@ class ODESolver
      */
     void rkck(double t, double dydt[],  double yout[], int n, double dt, ComputeDerivatives deriv, void* userData);
 
+
+#ifdef USE_CVODE
+    /*!
+     * \brief solveCVODE
+     * \param y
+     * \param n
+     * \param t
+     * \param dt
+     * \param yout
+     * \param derivs
+     * \param userData
+     */
+    int solveCVODE(double y[], int n, double t, double dt, double yout[], ComputeDerivatives derivs, void* userData);
+
+    static int ComputeDerivatives_CVODE(realtype t, N_Vector y, N_Vector dydt, void *user_data);
+#endif
+
+    void clearMemory();
+
+  public:
+
+    bool m_print = false;
+
   private:
 
-    double m_safety = 0.9, m_pgrow = -0.2, m_pshrnk = -0.25, m_errcon = 1.89e-4, m_eps = 1e-4;
-    std::vector<double> m_yscal, m_yerr, m_ytemp, m_ak;
-    int m_maxSteps = 100000;
+
+    int m_size,
+    m_maxSteps,
+    m_order,
+    m_currentIterations;
+
+    //RK4 Parameters
+    double m_safety,
+    m_pgrow,
+    m_pshrnk,
+    m_errcon,
+    m_relTol,
+    m_absTol,
+    *m_yscal,
+    *m_yerr,
+    *m_ytemp,
+    *m_ak;
+
     SolverType m_solverType;
     Solve m_solver;
+
+#ifdef USE_CVODE
+    void* m_cvodeSolver;
+    N_Vector m_cvy;
+#endif
+
 };
 
 

@@ -238,3 +238,6 @@ CMakeLists.txt.user
 *.rpt
 *.out 
 *.testing
+
+[Bb]uild/
+[Ll]ib/

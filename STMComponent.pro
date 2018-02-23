@@ -15,6 +15,8 @@ QT += testlib
 #DEFINES += STMCOMPONENT_LIBRARY
 #DEFINES += USE_OPENMP
 DEFINES += USE_MPI
+DEFINES += USE_CVODE
+#DEFINES += USE_CVODE_OPENMP
 
 #Compile as library or executable
 contains(DEFINES,STMCOMPONENT_LIBRARY){
@@ -50,7 +52,7 @@ HEADERS += ./include/stdafx.h\
            ./include/odesolver.h \
            ./include/test/stmcomponenttest.h \
            ./include/variable.h \
-    include/element.h
+           ./include/element.h
 
 SOURCES +=./src/stdafx.cpp \
           ./src/stmcomponent.cpp \
@@ -67,6 +69,16 @@ macx{
 
     INCLUDEPATH += /usr/local \
                    /usr/local/include
+
+    contains(DEFINES, USE_CVODE){
+
+    message("CVODE enabled")
+
+    INCLUDEPATH += ../cvode-3.1.0/include
+#    LIBS += -L../cvode-3.1.0/builddir/src/cvode -lsundials_cvode
+    LIBS += -L/usr/local/lib -lsundials_cvode
+
+    }
 
     LIBS += -L/usr/local/lib -lnetcdf-cxx4
 
@@ -90,7 +102,7 @@ macx{
 
     contains(DEFINES,USE_MPI){
 
-        QMAKE_CC = /usr/local/bin/mpicc
+        QM
         QMAKE_CXX = /usr/local/bin/mpicxx
         QMAKE_LINK = /usr/local/bin/mpicxx
 
@@ -103,7 +115,9 @@ macx{
         message("MPI enabled")
 
     } else {
+
       message("MPI disabled")
+
     }
 }
 
@@ -136,8 +150,11 @@ INCLUDEPATH += /usr/include \
     LIBS += -L/usr/lib/x86_64-linux-gnu -lgomp
 
       message("OpenMP enabled")
+
     } else {
+
       message("OpenMP disabled")
+
     }
 }
 
@@ -150,17 +167,25 @@ win32{
         QMAKE_CXXFLAGS += -openmp
         QMAKE_CXXFLAGS_RELEASE = $$QMAKE_CXXFLAGS
         QMAKE_CXXFLAGS_DEBUG = $$QMAKE_CXXFLAGS
+
         message("OpenMP enabled")
+
      } else {
 
       message("OpenMP disabled")
+
      }
 
     contains(DEFINES,USE_MPI){
+
        LIBS += -L$$(MSMPI_LIB64)/ -lmsmpi
+
        message("MPI enabled")
+
      } else {
+
       message("MPI disabled")
+
      }
 }
 
@@ -174,20 +199,23 @@ CONFIG(debug, debug|release) {
 
    macx{
 
-   QMAKE_POST_LINK += "cp -a ./../HydroCoupleSDK/build/debug/*HydroCoupleSDK.* ./build/debug/";
+    QMAKE_POST_LINK += "cp -a ./../HydroCoupleSDK/build/debug/*HydroCoupleSDK.* ./build/debug/";
     LIBS += -L./../HydroCoupleSDK/build/debug -lHydroCoupleSDK.1.0.0
+
     }
 
    linux{
 
-   QMAKE_POST_LINK += "cp -a ./../HydroCoupleSDK/build/debug/*HydroCoupleSDK.* ./build/debug/";
+    QMAKE_POST_LINK += "cp -a ./../HydroCoupleSDK/build/debug/*HydroCoupleSDK.* ./build/debug/";
     LIBS += -L./../HydroCoupleSDK/build/debug -lHydroCoupleSDK.so.1.0.0
+
     }
 
    win32{
 
-   QMAKE_POST_LINK += "copy ./../HydroCoupleSDK/build/debug/*HydroCoupleSDK.* ./build/debug/";
+    QMAKE_POST_LINK += "copy ./../HydroCoupleSDK/build/debug/*HydroCoupleSDK.* ./build/debug/";
     LIBS += -L./../HydroCoupleSDK/build/debug -lHydroCoupleSDK1
+
     }
 }
 
