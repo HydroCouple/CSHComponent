@@ -10,7 +10,7 @@ The STMComponent requires two input files. The first input file defines the spat
 
 ```
 [OPTIONS]
-ADVECTION_MODE UPWIND/CENTRAL/HYBRID/ULTIMATE
+ADVECTION_MODE UPWIND/CENTRAL/HYBRID/etc
 START_DATETIME month/day/year hour/minute/second
 END_DATETIME month/day/year hour/minute/second
 REPORT_INTERVAL seconds
@@ -19,11 +19,11 @@ MIN_TIME_STEP seconds
 NUM_INITIAL_FIXED_STEPS value
 USE_ADAPTIVE_TIME_STEP YES/NO
 TIME_STEP_RELAXATION_FACTOR value
-TEMP_TRANSPORT YES/NO
 WATER_DENSITY value
 WATER_SPECIFIC_HEAT_CAPACITY value
 NUM_SOLUTES value
 VERBOSE YES/NO
+NUM_STEPS_PER_PRINT value
 
 [OUTPUTS]
 CSV "CSV output file path"
@@ -33,7 +33,7 @@ netCDF "NetCDF output file path"
 ;;SOLUTE_NAME
 ;;=================================================
 
-[INITIAL_CONDITIONS] <br/>
+[INITIAL_CONDITIONS]
 ;;CONDUIT    FLOW    XSECTION_AREA    DEPTH    WIDTH   TEMPERATURE    SOLUTE1    SOLUTE2
 ;;=======================================================================================
 

@@ -313,7 +313,7 @@ void STMComponentTest::solveODEBDF_Prob2()
 
 void STMComponentTest::versteegCase1_Upwind()
 {
-QBENCHMARK_ONCE
+  QBENCHMARK_ONCE
   {
 
     //Error messages
@@ -338,6 +338,11 @@ QBENCHMARK_ONCE
     //Set solver type
     model->solver()->setSolverType(ODESolver::CVODE_ADAMS);
 
+    //Set specific heat to 1.O
+    model->setNumSolutes(1);
+    model->setSoluteName(0, "TestSolute");
+    model->setSpecificHeatCapacityWater(1.0);
+
     //Domain spatial discretization
 
     //Element junction coordinates
@@ -359,11 +364,16 @@ QBENCHMARK_ONCE
       {
         eJunction->temperature.isBC = true;
         eJunction->temperature.value = 1.0;
+        eJunction->soluteConcs[0].isBC = true;
+        eJunction->soluteConcs[0].value = 1.0;
       }
       else if(i == numCells)
       {
+
         eJunction->temperature.isBC = true;
         eJunction->temperature.value = 0.0;
+        eJunction->soluteConcs[0].isBC = true;
+        eJunction->soluteConcs[0].value = 0.0;
       }
     }
 
@@ -382,8 +392,6 @@ QBENCHMARK_ONCE
     //initialize model
     if(model->initialize(errors))
     {
-
-
       //Perform timestep until completion
       while (model->currentDateTime() < model->endDateTime())
       {
@@ -402,7 +410,7 @@ QBENCHMARK_ONCE
 
 void STMComponentTest::versteegCase1_Central()
 {
-QBENCHMARK_ONCE
+  QBENCHMARK_ONCE
   {
     std::list<std::string> errors;
 
@@ -422,6 +430,9 @@ QBENCHMARK_ONCE
 
     //Set solver type
     model->solver()->setSolverType(ODESolver::CVODE_ADAMS);
+
+    //Set specific heat to 1.O
+    model->setSpecificHeatCapacityWater(1.0);
 
     //  Domain spatial discretization
     double x , y = 0, z = 0;
@@ -483,7 +494,7 @@ QBENCHMARK_ONCE
 
 void STMComponentTest::versteegCase1_Hybrid()
 {
-QBENCHMARK_ONCE
+  QBENCHMARK_ONCE
   {
     std::list<std::string> errors;
 
@@ -505,6 +516,9 @@ QBENCHMARK_ONCE
 
     //Set solver type
     model->solver()->setSolverType(ODESolver::CVODE_ADAMS);
+
+    //Set specific heat to 1.O
+    model->setSpecificHeatCapacityWater(1.0);
 
     //  Domain spatial discretization
     double x , y = 0, z = 0;
@@ -587,6 +601,9 @@ void STMComponentTest::versteegCase2_Upwind()
     //Set solver type
     model->solver()->setSolverType(ODESolver::CVODE_ADAMS);
 
+    //Set specific heat to 1.O
+    model->setSpecificHeatCapacityWater(1.0);
+
     //  Domain spatial discretization
     double x , y = 0, z = 0;
     int numCells = 5.0;
@@ -667,6 +684,9 @@ void STMComponentTest::versteegCase2_Central()
     //Set solver type
     model->solver()->setSolverType(ODESolver::CVODE_ADAMS);
 
+    //Set specific heat to 1.O
+    model->setSpecificHeatCapacityWater(1.0);
+
     //  Domain spatial discretization
     double x , y = 0, z = 0;
     int numCells = 5.0;
@@ -741,7 +761,7 @@ void STMComponentTest::versteegCase2_Hybrid()
     model->setMinTimeStep(0.0001); //seconds
     model->setStartDateTime(0); // Modified Julian DateTime
     model->setEndDateTime(1.0 / 1440.0);//1 minute
-    model->setOutputInterval(1.0); //1 second
+    model->setOutputInterval(4.0); //1 second
 
     //Output consider 1 date separate files easier. Cross tab
     model->setOutputCSVFile(QFileInfo("../../examples/Versteeg/case2/versteegcase2_hybrid.csv"));
@@ -749,11 +769,13 @@ void STMComponentTest::versteegCase2_Hybrid()
     //Set solver type
     model->solver()->setSolverType(ODESolver::CVODE_ADAMS);
 
-    //Domain spatial discretization
+    //Set specific heat to 1.O
+    model->setSpecificHeatCapacityWater(1.0);
 
+    //Domain spatial discretization
     //Element junction coordinates
     double x = 0, y = 0, z = 0;
-    int numCells = 5.0;
+    int numCells = 25.0;
 
     //grid size in x direction
     double dx = 1.0 / numCells;

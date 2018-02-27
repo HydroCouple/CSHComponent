@@ -1,9 +1,8 @@
-C
 #Author Caleb Amoa Buahin
 #Email caleb.buahin@gmail.com
 #Date 2018
 #License GNU General Public License (see <http: //www.gnu.org/licenses/> for details).
-#EPA SWMM Model Component
+#The STMComponent is a component-based stream heat and solute transport model
 
 TEMPLATE = lib
 VERSION = 1.0.0
@@ -62,7 +61,9 @@ SOURCES +=./src/stdafx.cpp \
           ./src/element.cpp \
           ./src/stmmodel.cpp \
           ./src/elementjunction.cpp \
-          ./src/test/stmcomponenttest.cpp
+          ./src/test/stmcomponenttest.cpp \
+          ./src/stmmodelio.cpp \
+          ./src/stmcompute.cpp
 
 
 macx{
@@ -102,7 +103,6 @@ macx{
 
     contains(DEFINES,USE_MPI){
 
-        QM
         QMAKE_CXX = /usr/local/bin/mpicxx
         QMAKE_LINK = /usr/local/bin/mpicxx
 

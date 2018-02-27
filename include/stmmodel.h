@@ -55,7 +55,18 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
     {
       Upwind,
       Central,
-      Hybrid
+
+      /*!
+       * \brief Spalding, D.B., 1972. A Novel Finite Difference Formulation for Differential
+       * Expressions Involving Both First and Second Derivatives.
+       * International Journal for Numerical Methods in Engineering 4:551–559.
+       */
+      Hybrid,
+
+      /*!
+       * \brief TVD schemes
+       */
+      TVD,
     };
 
     /*!
@@ -164,7 +175,6 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
      */
     double currentDateTime() const;
 
-
     /*!
      * \brief solver
      * \return
@@ -196,29 +206,54 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
     void setAdvectionDiscretizationMode(AdvectionDiscretizationMode advectionDiscretizationMode);
 
     /*!
+     * \brief waterDensity
+     * \return
+     */
+    double waterDensity() const;
+
+    /*!
+     * \brief setWaterDensity
+     * \param value
+     */
+    void setWaterDensity(double value);
+
+    /*!
+     * \brief specificHeatCapacityWater
+     * \return
+     */
+    double specificHeatCapacityWater() const;
+
+    /*!
+     * \brief setSpecificHeatCapacityWater
+     * \param value
+     */
+    void setSpecificHeatCapacityWater(double value);
+
+    /*!
      * \brief numSolutes
      * \return
      */
     int numSolutes() const;
 
     /*!
-     * \brief addSolute
-     * \param soluteName
-     * \return
+     * \brief setNumSolutes
+     * \param numSolutes
      */
-    bool addSolute(const std::string &soluteName);
+    void  setNumSolutes(int numSolutes);
 
     /*!
-     * \brief removeSolute
+     * \brief setSoluteNuame
+     * \param soluteIndex
      * \param soluteName
      */
-    void removeSolute(const std::string &soluteName);
+    void setSoluteName(int soluteIndex, const std::string &soluteName);
 
     /*!
-     * \brief solutes
+     * \brief solute
+     * \param soluteIndex
      * \return
      */
-    std::vector<std::string> solutes() const;
+    std::string solute(int soluteIndex) const;
 
     /*!
      * \brief numElementJunctions
@@ -304,6 +339,30 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
     Element *getElement(int index);
 
     /*!
+     * \brief discretizationFile
+     * \return
+     */
+    QFileInfo discretizationFile() const;
+
+    /*!
+     * \brief setDiscretizationFile
+     * \param discretizationFile
+     */
+    void setDiscretizationFile(const QFileInfo &discretizationFile);
+
+    /*!
+     * \brief hydrodynamicFile
+     * \return
+     */
+    QFileInfo hydrodynamicFile() const;
+
+    /*!
+     * \brief setHydrodynamicFile
+     * \param hydrodynamicFile
+     */
+    void setHydrodynamicFile(const QFileInfo &hydrodynamicFile);
+
+    /*!
      * \brief outputCSVFile
      * \return
      */
@@ -337,13 +396,6 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
   private:
 
     /*!
-     * \brief initializeInputFiles
-     * \param errors
-     * \return
-     */
-    bool initializeInputFiles(std::list<std::string> &errors);
-
-    /*!
      * \brief initializeTimeVariables
      * \param errors
      * \return
@@ -363,6 +415,13 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
      * \return
      */
     bool initializeSolver(std::list<std::string> & errors);
+
+    /*!
+     * \brief initializeInputFiles
+     * \param errors
+     * \return
+     */
+    bool initializeInputFiles(std::list<std::string> &errors);
 
     /*!
      * \brief intializeOutputFiles
@@ -527,16 +586,19 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
     int m_numHeatElementJunctions;
     std::vector<int> m_numSoluteElementJunctions;
 
-    //File input and output
-    QFileInfo m_outputCSVFileInfo;
-    QTextStream m_outputCSVStream;
-
     //Solver Object
     ODESolver *m_solver = nullptr;
 
     //Global water properties
     double m_waterDensity, //kg/m^3
     m_cp;// 4187.0; // J/kg/C
+
+    //File input and output
+    QFileInfo m_discretizationFile, //Geometric discretization file specified using the SWMM version file input file format
+    m_hydrodynamicFile, //File to specify hydrodynamic parameters, initial conditions, boundary conditions,
+    m_outputCSVFileInfo; //Output CSV filepath
+
+    QTextStream m_outputCSVStream; //Output CSV filestream
 
     //Parent component
     STMComponent *m_component;

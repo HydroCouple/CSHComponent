@@ -32,7 +32,7 @@ STMModel::STMModel(STMComponent *component)
     m_timeStep(0.0001), //seconds
     m_maxTimeStep(0.5), //seconds
     m_minTimeStep(0.001), //seconds
-    m_timeStepRelaxationFactor(0.80),
+    m_timeStepRelaxationFactor(0.8),
     m_numInitFixedTimeSteps(2),
     m_numCurrentInitFixedTimeSteps(0),
     m_computeDispersion(false),
@@ -42,7 +42,7 @@ STMModel::STMModel(STMComponent *component)
     m_numHeatElementJunctions(0),
     m_solver(nullptr),
     m_waterDensity(1.0), //kg/m^3
-    m_cp(1.0/*for testing*/), //4187.0 J/kg/C
+    m_cp(4187.0), //4187.0 J/kg/C
     m_component(component)
 {
   m_solver = new ODESolver(1, ODESolver::RKQS);
@@ -179,36 +179,70 @@ void STMModel::setAdvectionDiscretizationMode(AdvectionDiscretizationMode advect
   m_advectionMode = advectionDiscretizationMode;
 }
 
+double STMModel::waterDensity() const
+{
+  return m_waterDensity;
+}
+
+void STMModel::setWaterDensity(double value)
+{
+  m_waterDensity = value;
+}
+
+double STMModel::specificHeatCapacityWater() const
+{
+  return m_cp;
+}
+
+void STMModel::setSpecificHeatCapacityWater(double value)
+{
+  m_cp = value;
+}
+
 int STMModel::numSolutes() const
 {
   return (int)m_solutes.size();
 }
 
-bool STMModel::addSolute(const string &soluteName)
+void STMModel::setNumSolutes(int numSolutes)
 {
-  vector<string>::iterator it = find(m_solutes.begin() , m_solutes.end(), soluteName);
-
-  if(it == m_solutes.end())
+  if(numSolutes >= 0)
   {
-    m_solutes.push_back(soluteName);
-  }
+    m_solutes.resize(numSolutes);
 
-  return false;
+    for(size_t i = 0 ; i < m_solutes.size(); i++)
+    {
+      m_solutes[i] = "Solute_" + std::to_string(i + 1);
+    }
+
+#ifdef USE_OPENMP
+#pragma omp parallel for
+#endif
+    for(size_t i = 0 ; i < m_elements.size()  ; i++)
+    {
+      Element *element = m_elements[i];
+      element->initializeSolutes();
+    }
+
+#ifdef USE_OPENMP
+#pragma omp parallel for
+#endif
+    for(size_t i = 0 ; i < m_elementJunctions.size()  ; i++)
+    {
+      ElementJunction *elementJunction = m_elementJunctions[i];
+      elementJunction->initializeSolutes();
+    }
+  }
 }
 
-void STMModel::removeSolute(const string &soluteName)
+void STMModel::setSoluteName(int soluteIndex, const string &soluteName)
 {
-  vector<string>::iterator it = find(m_solutes.begin() , m_solutes.end(), soluteName);
-
-  if(it != m_solutes.end())
-  {
-    m_solutes.erase(it);
-  }
+  m_solutes[soluteIndex] = soluteName;
 }
 
-vector<string> STMModel::solutes() const
+string STMModel::solute(int soluteIndex) const
 {
-  return m_solutes;
+  return m_solutes[soluteIndex];
 }
 
 int STMModel::numElementJunctions() const
@@ -331,16 +365,6 @@ Element *STMModel::getElement(int index)
   return m_elements[index];
 }
 
-QFileInfo STMModel::outputCSVFile() const
-{
-  return m_outputCSVFileInfo;
-}
-
-void STMModel::setOutputCSVFile(const QFileInfo &outputFile)
-{
-  m_outputCSVFileInfo = outputFile;
-}
-
 bool STMModel::initialize(list<string> &errors)
 {
   bool initialized = initializeInputFiles(errors) &&
@@ -357,96 +381,9 @@ bool STMModel::initialize(list<string> &errors)
   return initialized;
 }
 
-void STMModel::update()
-{
-  if(m_currentDateTime < m_endDateTime)
-  {
-    prepareForNextTimeStep();
-
-    m_timeStep = computeTimeStep();
-
-    applyBoundaryConditions(m_currentDateTime + m_timeStep / 86400.0);
-
-    computeLongDispersion();
-
-    //Solve the transport for each element
-    {
-#ifdef USE_OPENMP
-#pragma omp parallel sections
-#endif
-      {
-#ifdef USE_OPENMP
-#pragma omp section
-#endif
-        {
-          //Solve heat transport first
-          solveHeatTransport(m_timeStep);
-        }
-
-#ifdef USE_OPENMP
-#pragma omp section
-#endif
-        {
-
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-          for(size_t i = 0 ; i < m_solutes.size(); i++)
-          {
-            solveSoluteTransport(i, m_timeStep);
-          }
-        }
-      }
-    }
-
-    //Solve continuity for each junction
-    {
-#ifdef USE_OPENMP
-#pragma omp parallel sections
-#endif
-      {
-#ifdef USE_OPENMP
-#pragma omp section
-#endif
-        {
-          //Solve heat transport first
-          solveJunctionHeatContinuity(m_timeStep);
-        }
-
-#ifdef USE_OPENMP
-#pragma omp section
-#endif
-        {
-
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-          for(size_t i = 0 ; i < m_solutes.size(); i++)
-          {
-            solveJunctionSoluteContinuity(i, m_timeStep);
-          }
-        }
-      }
-    }
-
-    m_currentDateTime +=  m_timeStep / 86400.0;
-
-    if(m_currentDateTime >= m_nextOutputTime)
-    {
-      writeOutput();
-      m_nextOutputTime += m_outputInterval / 86400.0;
-    }
-  }
-}
-
 bool STMModel::finalize(std::list<string> &errors)
 {
   closeOutputFiles();
-  return true;
-}
-
-bool STMModel::initializeInputFiles(std::list<string> &errors)
-{
   return true;
 }
 
@@ -533,7 +470,6 @@ bool STMModel::initializeElements(std::list<string> &errors)
   {
     ElementJunction *elementJunction = m_elementJunctions[i];
     elementJunction->index = i;
-    elementJunction->initialize();
 
     size_t numJunctions = elementJunction->outgoingElements.size() + elementJunction->incomingElements.size();
 
@@ -588,452 +524,4 @@ bool STMModel::initializeSolver(std::list<string> &errors)
   m_solver->initialize();
 
   return true;
-}
-
-bool STMModel::initializeOutputFiles(std::list<string> &errors)
-{
-  return initializeCSVOutputFile(errors) &&
-      initializeNetCDFOutputFile(errors);
-}
-
-bool STMModel::initializeCSVOutputFile(std::list<string> &errors)
-{
-  QString file = m_outputCSVFileInfo.absoluteFilePath();
-
-  if(!file.isEmpty() && !file.isNull() && !m_outputCSVFileInfo.dir().exists())
-  {
-    errors.push_back("Output shapefile directory does not exist: " + file.toStdString());
-    return false;
-  }
-
-  if(!file.isEmpty() && !file.isNull())
-  {
-    if(m_outputCSVStream.device() == nullptr)
-    {
-      QFile *device = new QFile(file, this);
-      m_outputCSVStream.setDevice( device);
-    }
-
-    if(m_outputCSVStream.device()->open(QIODevice::WriteOnly | QIODevice::Truncate))
-    {
-      m_outputCSVStream.setRealNumberPrecision(10);
-      m_outputCSVStream.setRealNumberNotation(QTextStream::SmartNotation);
-      //      m_outputCSVStream << "DateTime, ElementId, ElementIndex, x, y, z, Temperature";
-      m_outputCSVStream << "DateTime, ElementId, ElementIndex, x, y, z, Temperature, UpstreamJunctionTemperature, DownstreamJunctionTemperature";
-
-      for(size_t i = 0; i < m_solutes.size(); i++)
-      {
-        m_outputCSVStream << ", " << QString::fromStdString(m_solutes[i]);
-      }
-
-      m_outputCSVStream << endl;
-    }
-
-    m_outputCSVStream.flush();
-
-    return true;
-  }
-
-  return false;
-}
-
-bool STMModel::initializeNetCDFOutputFile(std::list<string> &errors)
-{
-  return true;
-}
-
-void STMModel::prepareForNextTimeStep()
-{
-
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-  for(size_t i = 0 ; i < m_elementJunctions.size(); i++)
-  {
-    ElementJunction *elementJunction = m_elementJunctions[i];
-
-//    if(!elementJunction->temperature.isBC)
-    {
-      elementJunction->prevTemperature.copy(elementJunction->temperature);
-    }
-
-    for(size_t j = 0; j < m_solutes.size(); j++)
-    {
-//      if(!elementJunction->soluteConcs[j].isBC)
-      {
-        elementJunction->prevSoluteConcs[j].copy(elementJunction->soluteConcs[j]);
-      }
-    }
-  }
-
-
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-  for(size_t i = 0 ; i < m_elements.size(); i++)
-  {
-    Element *element = m_elements[i];
-
-//    if(!element->temperature.isBC)
-    {
-      element->prevTemperature.copy(element->temperature);
-    }
-
-    for(size_t j = 0; j < m_solutes.size(); j++)
-    {
-//      if(!element->soluteConcs[j].isBC)
-      {
-        element->prevSoluteConcs[j].copy(element->soluteConcs[j]);
-      }
-    }
-  }
-
-}
-
-void STMModel::applyInitialConditions()
-{
-
-  //Interpolate nodal temperatures and solute concentrations
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-  for(size_t i = 0 ; i < m_elementJunctions.size(); i++)
-  {
-    ElementJunction *elementJunction = m_elementJunctions[i];
-
-    if(!elementJunction->temperature.isBC)
-    {
-      elementJunction->interpTemp();
-    }
-
-    for(size_t j = 0; j < m_solutes.size(); j++)
-    {
-      if(!elementJunction->soluteConcs[j].isBC)
-      {
-        elementJunction->interpSoluteConcs(j);
-      }
-    }
-  }
-
-  //Write initial output
-  writeOutput();
-
-  //Set next output time
-  m_nextOutputTime += m_outputInterval / 86400.0;
-}
-
-void STMModel::applyBoundaryConditions(double dateTime)
-{
-
-}
-
-double STMModel::computeTimeStep()
-{
-  double timeStep = m_maxTimeStep;
-
-  double maxCourantFactor = 0.0;// Δx / v (s^-1)
-
-  if(m_useAdaptiveTimeStep)
-  {
-
-
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-    for(size_t i = 0 ; i < m_elements.size()  ; i++)
-    {
-      Element *element = m_elements[i];
-      double courantFactor = element->computeCourantFactor();
-      //      double dispersionFactor = element->computeDispersionFactor();
-
-      if(courantFactor > maxCourantFactor)
-      {
-#ifdef USE_OPENMP
-#pragma omp atomic read
-#endif
-        maxCourantFactor = courantFactor;
-      }
-
-      //      if(dispersionFactor > maxCourantFactor)
-      //      {
-      //#ifdef USE_OPENMP
-      //#pragma omp atomic read
-      //#endif
-      //        maxCourantFactor = dispersionFactor;
-      //      }
-    }
-
-    timeStep = maxCourantFactor ? m_timeStepRelaxationFactor / maxCourantFactor : m_maxTimeStep;\
-
-    if(m_numCurrentInitFixedTimeSteps < m_numInitFixedTimeSteps)
-    {
-      timeStep = std::min(timeStep, m_minTimeStep);
-      m_numCurrentInitFixedTimeSteps++;
-    }
-  }
-
-  double nextTime = m_currentDateTime + timeStep / 86400.0;
-
-  if(nextTime > m_nextOutputTime)
-  {
-    timeStep = std::max(m_minTimeStep,  (m_nextOutputTime - m_currentDateTime) *  86400.0);
-  }
-
-  timeStep = std::min(std::max(timeStep, m_minTimeStep), m_maxTimeStep);
-
-  return timeStep;
-}
-
-void STMModel::computeLongDispersion()
-{
-  if(m_computeDispersion)
-  {
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-    for(size_t i = 0 ; i < m_elements.size(); i++)
-    {
-      Element *element = m_elements[i];
-      element->computeLongDispersion();
-    }
-  }
-
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-  for(size_t i = 0 ; i < m_elementJunctions.size(); i++)
-  {
-    ElementJunction *elementJunction = m_elementJunctions[i];
-    elementJunction->interpXSectionArea();
-    elementJunction->interpLongDispersion();
-  }
-
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-  for(size_t i = 0 ; i < m_elements.size(); i++)
-  {
-    Element *element = m_elements[i];
-    element->computePecletNumbers();
-  }
-
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-  for(size_t i = 0 ; i < m_elements.size(); i++)
-  {
-    Element *element = m_elements[i];
-    element->computeUpstreamPeclet();
-    element->computeDownstreamPeclet();
-  }
-}
-
-void STMModel::solveHeatTransport(double timeStep)
-{
-  //Allocate memory to store inputs and outputs
-  double *currentTemperatures = new double[m_elements.size()];
-  double *outputTemperatures = new double[m_elements.size()];
-
-  //Set initial input and output values to current values.
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-  for(size_t i = 0 ; i < m_elements.size(); i++)
-  {
-    Element *element = m_elements[i];
-    currentTemperatures[element->index] = element->temperature.value;
-    outputTemperatures[element->index] = element->temperature.value;
-  }
-
-  //Solve using ODE solver
-  SolverUserData solverUserData; solverUserData.model = this; solverUserData.variableIndex = -1;
-  m_solver->solve(currentTemperatures, m_elements.size() , m_currentDateTime * 86400.0, timeStep,
-                  outputTemperatures, &STMModel::computeDTDt, &solverUserData);
-
-  //Apply computed values;
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-  for(size_t i = 0 ; i < m_elements.size(); i++)
-  {
-    Element *element = m_elements[i];
-    double outputTemperature = outputTemperatures[element->index];
-    element->temperature.value = outputTemperature;
-  }
-
-  //Delete allocated memory
-  delete[] currentTemperatures;
-  delete[] outputTemperatures;
-}
-
-void STMModel::solveSoluteTransport(int soluteIndex, double timeStep)
-{
-  double *currentSoluteConcs = new double[m_elements.size()];
-  double *outputSoluteConcs = new double[m_elements.size()];
-
-  //Set initial values.
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-  for(size_t i = 0 ; i < m_elements.size(); i++)
-  {
-    Element *element = m_elements[i];
-    currentSoluteConcs[element->index] = element->soluteConcs[soluteIndex].value;
-    outputSoluteConcs[element->index] = element->soluteConcs[soluteIndex].value;
-  }
-
-  //Solve using ODE solver
-  SolverUserData solverUserData; solverUserData.model = this; solverUserData.variableIndex = -1;
-  m_solver->solve(outputSoluteConcs, m_elements.size() , m_currentDateTime * 86400.0, timeStep,
-                  outputSoluteConcs, &STMModel::computeDSoluteDt, &solverUserData);
-
-
-  //Apply computed values;
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-  for(size_t i = 0 ; i < m_elements.size(); i++)
-  {
-    Element *element = m_elements[i];
-    element->soluteConcs[soluteIndex].value = outputSoluteConcs[element->index];
-  }
-
-
-  //Delete allocated memory
-  delete[] currentSoluteConcs;
-  delete[] outputSoluteConcs;
-
-}
-
-void STMModel::computeDTDt(double t, double y[], double dydt[], void* userData)
-{
-
-  SolverUserData *solverUserData = (SolverUserData*) userData;
-  STMModel *modelInstance = solverUserData->model;
-  double dt = t - (modelInstance->m_currentDateTime *  86400.0);
-
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-  for(size_t i = 0 ; i < modelInstance->m_elements.size(); i++)
-  {
-    Element *element = modelInstance->m_elements[i];
-    double DTDt = element->computeDTDt(dt,y);
-    dydt[element->index] = DTDt;
-  }
-}
-
-void STMModel::computeDSoluteDt(double t, double y[], double dydt[], void *userData)
-{
-  SolverUserData *solverUserData = (SolverUserData*) userData;
-  STMModel *modelInstance = solverUserData->model;
-  double dt = t - modelInstance->m_currentDateTime *  86400.0;
-
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-  for(size_t i = 0 ; i < modelInstance->m_elements.size(); i++)
-  {
-    Element *element = modelInstance->m_elements[i];
-    double DTDt = element->computeDSoluteDt(dt,y,solverUserData->variableIndex);
-    dydt[element->index] = DTDt;
-  }
-
-}
-
-void STMModel::solveJunctionHeatContinuity(double timeStep)
-{
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-  for(size_t i = 0 ; i < m_elementJunctions.size(); i++)
-  {
-    ElementJunction *elementJunction = m_elementJunctions[i];
-
-    if(elementJunction->heatContinuityIndex > -1)
-    {
-      elementJunction->solveHeatContinuity(timeStep);
-    }
-    else if(!elementJunction->temperature.isBC)
-    {
-      elementJunction->interpTemp();
-    }
-  }
-}
-
-void STMModel::solveJunctionSoluteContinuity(int soluteIndex, double timeStep)
-{
-
-}
-
-void STMModel::writeOutput()
-{
-  writeCSVOutput();
-  writeNetCDFOutput();
-}
-
-void STMModel::writeCSVOutput()
-{
-  if(m_outputCSVStream.device()->isOpen())
-  {
-    for(size_t i = 0 ; i < m_elements.size() ; i++)
-    {
-      Element *element = m_elements[i];
-
-      m_outputCSVStream << m_currentDateTime << ", " << QString::fromStdString(element->id) << ", " << element->index
-                        << ", " << element->x << ", " << element->y << ", " << element->z
-                        <<  ", " << element->temperature.value << ", " << element->upstreamJunction->temperature.value << ", "
-                         << element->downstreamJunction->temperature.value;
-
-      for(size_t j = 0 ; j < m_solutes.size(); j++)
-      {
-        m_outputCSVStream << ", " << element->soluteConcs[j].value;
-      }
-
-      m_outputCSVStream << endl;
-    }
-  }
-}
-
-void STMModel::writeNetCDFOutput()
-{
-
-}
-
-void STMModel::closeOutputFiles()
-{
-#ifdef USE_OPENMP
-#pragma omp parallel sections
-#endif
-  {
-#ifdef USE_OPENMP
-#pragma omp section
-#endif
-    {
-      closeCSVOutputFile();
-    }
-
-#ifdef USE_OPENMP
-#pragma omp section
-#endif
-    {
-      closeOutputNetCDFFile();
-    }
-  }
-}
-
-void STMModel::closeCSVOutputFile()
-{
-  if(m_outputCSVStream.device()->isOpen())
-  {
-    m_outputCSVStream.flush();
-    m_outputCSVStream.device()->close();
-    delete m_outputCSVStream.device();
-    m_outputCSVStream.setDevice(nullptr);
-  }
-}
-
-void STMModel::closeOutputNetCDFFile()
-{
-
 }

@@ -5,16 +5,15 @@
 
 #include <math.h>
 
+using namespace std;
+
 Element::Element(const std::string &id, ElementJunction *upstream, ElementJunction *downstream,  STMModel *model)
   : id(id),
+    numSolutes(0),
     soluteConcs(nullptr),
     prevSoluteConcs(nullptr),
     upstreamJunction(upstream),
     downstreamJunction(downstream),
-    externalSoluteFluxes(nullptr),
-    upstreamElement(nullptr),
-    downstreamElement(nullptr),
-    model(model),
     length(0.0),
     depth(0.0),
     xSectionArea(0.0),
@@ -23,10 +22,17 @@ Element::Element(const std::string &id, ElementJunction *upstream, ElementJuncti
     slope(0.0),
     externalHeatFluxes(0.0),
     radiationFluxes(0.0),
+    externalSoluteFluxes(nullptr),
     pecletNumber(0.0),
+    upstreamElement(nullptr),
+    downstreamElement(nullptr),
+    model(model),
     computeTempAdv(nullptr),
     computeSoluteAdv(nullptr)
 {
+
+  initializeSolutes();
+
   upstream->outgoingElements.insert(this);
   downstream->incomingElements.insert(this);
 
@@ -54,21 +60,6 @@ Element::~Element()
 
 void Element::initialize()
 {
-  if(model->m_solutes.size() > 0 )
-  {
-    if(soluteConcs)
-    {
-      delete[] soluteConcs;
-      delete[] prevSoluteConcs;
-      delete[] externalSoluteFluxes;
-    }
-
-    numSolutes = model->m_solutes.size();
-    soluteConcs = new Variable[numSolutes];
-    prevSoluteConcs = new Variable[numSolutes];
-    externalSoluteFluxes = new double[numSolutes];
-  }
-
   //set upstream and downstream elements
   setUpstreamElement();
   setDownStreamElement();
@@ -87,12 +78,36 @@ void Element::initialize()
         computeSoluteAdv = &Element::computeDSoluteDtHybrid;
       }
       break;
+    case STMModel::AdvectionDiscretizationMode::TVD:
+      {
+        computeTempAdv = &Element::computeDTDtTVD;
+        computeSoluteAdv = &Element::computeDSoluteDtTVD;
+      }
+      break;
     default:
       {
         computeTempAdv = &Element::computeDTDtUpwind;
         computeSoluteAdv = &Element::computeDSoluteDtUpwind;
       }
       break;
+  }
+}
+
+void Element::initializeSolutes()
+{
+  if(soluteConcs)
+  {
+    delete[] soluteConcs; soluteConcs = nullptr;
+    delete[] prevSoluteConcs; prevSoluteConcs = nullptr;
+    delete[] externalSoluteFluxes; externalSoluteFluxes = nullptr;
+  }
+
+  if(model->m_solutes.size() > 0)
+  {
+    numSolutes = model->m_solutes.size();
+    soluteConcs = new Variable[numSolutes];
+    prevSoluteConcs = new Variable[numSolutes];
+    externalSoluteFluxes = new double[numSolutes];
   }
 }
 
@@ -168,7 +183,6 @@ double Element::computeDTDtUpwind(double dt, double T[])
     {
       incomingFlux = upstreamFlow * T[upstreamElement->index] / volume;
       outgoingFlux = flow * T[index] / volume;
-
     }
     else
     {
@@ -204,9 +218,12 @@ double Element::computeDTDtCentral(double dt, double T[])
 
   if(upstreamElement != nullptr && !upstreamJunction->temperature.isBC)
   {
+    double denom = (1.0 / upstreamElement->length / 2.0) + (1.0 / length/ 2.0);
+    double centerFactor = 1.0 / length / 2.0 / denom;
+    double upstreamFactor = 1.0 / upstreamElement->length / 2.0 / denom;
 
-    incomingFlux = upstreamFlow * (((T[upstreamElement->index] / upstreamElement->length / 2.0) +
-                                   (T[index]/ length / 2.0)) / ((1.0 / upstreamElement->length / 2.0) + (1.0 / length/ 2.0))) / volume;
+    incomingFlux = upstreamFlow * (T[upstreamElement->index] * centerFactor +
+                   T[index] * upstreamFactor) / volume;
   }
   else
   {
@@ -215,8 +232,13 @@ double Element::computeDTDtCentral(double dt, double T[])
 
   if(downstreamElement != nullptr && !downstreamJunction->temperature.isBC)
   {
-    outgoingFlux = downstreamFlow * (((T[downstreamElement->index] / downstreamElement->length / 2.0) +
-                                     (T[index]/ length / 2.0)) / ((1.0 / downstreamElement->length / 2.0) + (1.0 / length/ 2.0))) / volume;
+    double denom = (1.0 / downstreamElement->length / 2.0) + (1.0 / length/ 2.0);
+    double centerFactor = 1.0 / length / 2.0 / denom;
+    double downstreamFactor = 1.0 / downstreamElement->length / 2.0 / denom;
+
+
+    outgoingFlux = downstreamFlow * (T[downstreamElement->index] * downstreamFactor +
+                   T[index] * centerFactor) / volume;
   }
   else
   {
@@ -233,73 +255,141 @@ double Element::computeDTDtHybrid(double dt, double T[])
   double incomingFlux = 0;
   double outgoingFlux = 0;
 
-  if(upstreamElement != nullptr && !upstreamJunction->temperature.isBC)
+  bool hasUpstream = upstreamElement != nullptr && !upstreamJunction->temperature.isBC;
+  bool hasDownstream = downstreamElement != nullptr && !downstreamJunction->temperature.isBC;
+
+  //If peclet number is zero use central differencing
+  if(hasUpstream && fabs(upstreamPecletNumber - 0.0) > std::numeric_limits<double>::epsilon() == 0)
   {
-    //If peclet number is zero use central differencing
-    if(fabs(upstreamPecletNumber - 0.0) > std::numeric_limits<double>::epsilon() == 0)
-    {
-      incomingFlux = upstreamFlow * (((T[upstreamElement->index] / upstreamElement->length / 2.0) +
-                                     (T[index]/ length / 2.0)) / ((1.0 / upstreamElement->length / 2.0) + (1.0 / length/ 2.0))) / volume;
-    }
-    else if(upstreamPecletNumber >= 2.0)
-    {
-      incomingFlux = upstreamFlow * T[upstreamElement->index] / volume;
-    }
-    else if(upstreamPecletNumber <= -2.0)
-    {
-      incomingFlux = flow * T[index] / volume;
-    }
-    else
-    {
-      double upstreamFactor = 1.0 / upstreamElement->length / 2.0;
-      double centerFactor = 1.0 / length / 2.0;
+    double denom = (1.0 / upstreamElement->length / 2.0) + (1.0 / length/ 2.0);
+    double centerFactor = 1.0 / length / 2.0 / denom;
+    double upstreamFactor = 1.0 / upstreamElement->length / 2.0 / denom;
 
-      double idwDenomFactor = upstreamFactor + centerFactor;
+    incomingFlux = upstreamFlow * (T[upstreamElement->index] * centerFactor +
+                   T[index] * upstreamFactor) / volume;
+  }
+  else if(hasUpstream && upstreamPecletNumber >= 2.0)
+  {
+    incomingFlux = upstreamFlow * T[upstreamElement->index] / volume;
+  }
+  else if(upstreamPecletNumber <= -2.0)
+  {
+    incomingFlux = flow * T[index] / volume;
+  }
+  else if(hasUpstream)
+  {
+    double upstreamFactor = 1.0 / upstreamElement->length / 2.0;
+    double centerFactor = 1.0 / length / 2.0;
 
-      upstreamFactor = upstreamFactor / idwDenomFactor;
-      centerFactor   = centerFactor / idwDenomFactor;
+    double idwDenomFactor = upstreamFactor + centerFactor;
 
-      incomingFlux =  upstreamFlow * (((1 + (1.0 / upstreamPecletNumber / upstreamFactor)) * T[upstreamElement->index] * upstreamFactor) +
-                      (1 - (1.0 / upstreamPecletNumber / centerFactor)) * T[index] * centerFactor) / volume;
-    }
+    upstreamFactor = upstreamFactor / idwDenomFactor;
+    centerFactor   = centerFactor / idwDenomFactor;
+
+    upstreamFactor = (1 + (1.0 / upstreamPecletNumber / upstreamFactor)) * upstreamFactor;
+    centerFactor   = (1 - (1.0 / upstreamPecletNumber / centerFactor)) * centerFactor;
+
+    incomingFlux =  upstreamFlow * (T[upstreamElement->index] * upstreamFactor +
+                    T[index] * centerFactor) / volume;
   }
   else
   {
     incomingFlux = upstreamFlow * upstreamJunction->temperature.value / volume;
   }
 
-  if(downstreamElement != nullptr && !downstreamJunction->temperature.isBC)
+
+  if(hasDownstream && fabs(downstreamPecletNumber - 0.0) > std::numeric_limits<double>::epsilon() == 0)
   {
-    if(fabs(downstreamPecletNumber - 0.0) > std::numeric_limits<double>::epsilon() == 0)
-    {
-      outgoingFlux = downstreamFlow * (((T[downstreamElement->index] / downstreamElement->length / 2.0) +
-                                       (T[index]/ length / 2.0)) / ((1.0 / downstreamElement->length / 2.0) + (1.0 / length/ 2.0))) / volume;
-    }
-    else if(downstreamPecletNumber >= 2.0)
-    {
-      outgoingFlux = flow * T[index] / volume;
-    }
-    else if(downstreamPecletNumber <= -2.0)
-    {
-      outgoingFlux = downstreamFlow * T[downstreamElement->index] / volume;
-    }
-    else
-    {
-      double downstreamFactor = 1.0 / downstreamElement->length / 2.0;
-      double centerFactor = 1.0 / length / 2.0;
+    double denom = (1.0 / downstreamElement->length / 2.0) + (1.0 / length/ 2.0);
+    double centerFactor = 1.0 / length / 2.0 / denom;
+    double downstreamFactor = 1.0 / downstreamElement->length / 2.0 / denom;
 
-      double idwDenomFactor = centerFactor + downstreamFactor;
 
-      centerFactor /= idwDenomFactor;
-      downstreamFactor   /= idwDenomFactor;
+    outgoingFlux = downstreamFlow * (T[downstreamElement->index] * downstreamFactor +
+                   T[index] * centerFactor) / volume;
+  }
+  else if(downstreamPecletNumber >= 2.0)
+  {
+    outgoingFlux = flow * T[index] / volume;
+  }
+  else if(hasDownstream && downstreamPecletNumber <= -2.0)
+  {
+    outgoingFlux = downstreamFlow * T[downstreamElement->index] / volume;
+  }
+  else if(hasDownstream)
+  {
+    double downstreamFactor = 1.0 / downstreamElement->length / 2.0;
+    double centerFactor = 1.0 / length / 2.0;
 
-      outgoingFlux =  downstreamFlow * (((1 + (1.0 / downstreamPecletNumber/ centerFactor)) *  T[index] * centerFactor ) +
-                                        (1 - (1.0 / downstreamPecletNumber / downstreamFactor)) * T[downstreamElement->index] * downstreamFactor  ) / volume;
-    }
+    double idwDenomFactor = centerFactor + downstreamFactor;
+
+    centerFactor /= idwDenomFactor;
+    downstreamFactor   /= idwDenomFactor;
+
+    centerFactor = (1 + (1.0 / downstreamPecletNumber/ centerFactor)) * centerFactor;
+    downstreamFactor = (1 - (1.0 / downstreamPecletNumber / downstreamFactor)) * downstreamFactor;
+
+    outgoingFlux =  downstreamFlow * (T[index] * centerFactor +
+                                      T[downstreamElement->index] * downstreamFactor) / volume;
   }
   else
   {
     outgoingFlux = downstreamFlow * downstreamJunction->temperature.value / volume;
+  }
+
+  double DTDt = incomingFlux - outgoingFlux;
+
+  return DTDt;
+}
+
+double Element::computeDTDtTVD(double dt, double T[])
+{
+  double volume = xSectionArea * length;
+  double incomingFlux = 0;
+  double outgoingFlux = 0;
+
+  bool hasUpstream = upstreamElement != nullptr && !upstreamJunction->temperature.isBC;
+  bool hasDownstream = downstreamElement != nullptr && !downstreamJunction->temperature.isBC;
+
+  double f_pos = 0;
+  double f_neg = 0;
+
+  if(hasDownstream)
+  {
+    f_pos = (T[downstreamElement->index] - T[index]) * downstreamElement->length / 2.0 / ( (downstreamElement->length / 2.0) + (length / 2.0));
+  }
+  else
+  {
+    f_pos = downstreamJunction->temperature.value - T[index];
+  }
+
+
+  if(hasUpstream)
+  {
+    f_neg = (T[index] - T[upstreamElement->index]) * length / 2.0 / ( (upstreamElement->length / 2.0) + (length / 2.0));
+  }
+  else
+  {
+    f_neg = T[index] - upstreamJunction->temperature.value;
+  }
+
+
+  //  if(flow >= 0)
+  //  {
+  //    outgoingFlux = downstreamFlow * (T[index] + max(f_pos, f_neg)) / volume;
+  //  }
+  //  else
+  //  {
+  //    outgoingFlux = downstreamFlow * (T[index]- max(f_pos, f_neg)) / volume;
+  //  }
+
+  if(flow >= 0)
+  {
+    incomingFlux = downstreamFlow * (T[index] - min(f_pos, f_neg)) / volume;
+  }
+  else
+  {
+    incomingFlux = downstreamFlow * (T[index] + min(f_pos, f_neg)) / volume;
   }
 
 
@@ -308,25 +398,233 @@ double Element::computeDTDtHybrid(double dt, double T[])
 
 double Element::computeDSoluteDt(double dt, double S[], int soluteIndex)
 {
+  double DSoluteDt = 0;
+  double volume = xSectionArea * length;
+  double rho_vol = model->m_waterDensity * volume;
 
+  //Compute advection
+  DSoluteDt += (this->*computeSoluteAdv)(dt, S, soluteIndex);
+
+  //Compute dispersion
+  DSoluteDt += computeDSoluteDtDispersion(dt, S, soluteIndex);
+
+  //Add external sources
+  {
+    DSoluteDt += externalSoluteFluxes[soluteIndex] / rho_vol;
+  }
+
+  return DSoluteDt;
 }
 
-double Element::computeDSoluteDtDispersion(double dt, double t[])
+double Element::computeDSoluteDtDispersion(double dt, double S[], int soluteIndex)
 {
+  double volume = xSectionArea * length;
+  double DSoluteDt = 0.0;
 
+  //If upstream element exists and upstream junction is not a boundary condition
+  //use upstream element to compute derivative.
+  if(upstreamElement != nullptr && !upstreamJunction->soluteConcs[soluteIndex].isBC)
+  {
+
+    DSoluteDt += upstreamJunction->longDispersion * upstreamJunction->xSectionArea *
+                 (S[upstreamElement->index] - S[index]) / (volume * (length + upstreamElement->length) / 2.0);
+
+  }
+  //Otherwise use upstream junction to compute temperature derivate
+  else
+  {
+    DSoluteDt +=  upstreamJunction->longDispersion * upstreamJunction->xSectionArea *
+                  (upstreamJunction->soluteConcs[soluteIndex].value - S[index]) / (volume * length / 2.0);
+  }
+
+  //If downstream element exists and downstream junction element is not a boundary condition
+  //use downstream element to compute derivative.
+  if(downstreamElement != nullptr && !downstreamJunction->temperature.isBC)
+  {
+    DSoluteDt -= downstreamJunction->longDispersion * downstreamJunction->xSectionArea *
+                 (S[index] - S[downstreamElement->index]) / (volume * (length + downstreamElement->length) / 2.0);
+  }
+  //Otherwise use downstream element junction
+  else
+  {
+    DSoluteDt -= downstreamJunction->longDispersion * downstreamJunction->xSectionArea *
+                 (S[index] - downstreamJunction->soluteConcs[soluteIndex].value) / (volume * length / 2.0);
+  }
+
+  return DSoluteDt;
 }
 
 double Element::computeDSoluteDtUpwind(double dt, double S[], int soluteIndex)
 {
+  double volume = xSectionArea * length;
+  double incomingFlux = 0.0;
+  double outgoingFlux = 0.0;
 
+  //Flow goes from upstream to downstream
+  if(flow >= 0)
+  {
+    if(upstreamElement != nullptr && !upstreamJunction->soluteConcs[soluteIndex].isBC)
+    {
+      incomingFlux = upstreamFlow * S[upstreamElement->index] / volume;
+      outgoingFlux = flow * S[index] / volume;
+    }
+    else
+    {
+      incomingFlux = upstreamFlow * upstreamJunction->soluteConcs[soluteIndex].value / volume;
+      outgoingFlux = flow * S[index] / volume;
+    }
+  }
+  //Opposite Direction
+  else
+  {
+    if(downstreamElement != nullptr && !downstreamJunction->soluteConcs[soluteIndex].isBC)
+    {
+      incomingFlux = flow * S[index] / volume;
+      outgoingFlux = downstreamFlow *  S[downstreamElement->index] / volume ;
+    }
+    else
+    {
+      incomingFlux = flow * S[index] / volume;
+      outgoingFlux = downstreamFlow * downstreamJunction->soluteConcs[soluteIndex].value / volume ;
+    }
+  }
+
+  return incomingFlux - outgoingFlux;
 }
 
 double Element::computeDSoluteDtCentral(double dt, double S[], int soluteIndex)
 {
+  double volume = xSectionArea * length;
+  double incomingFlux = 0;
+  double outgoingFlux = 0;
 
+  if(upstreamElement != nullptr && !upstreamJunction->soluteConcs[soluteIndex].isBC)
+  {
+    double denom = (1.0 / upstreamElement->length / 2.0) + (1.0 / length/ 2.0);
+    double centerFactor = 1.0 / length / 2.0 / denom;
+    double upstreamFactor = 1.0 / upstreamElement->length / 2.0 / denom;
+
+    incomingFlux = upstreamFlow * (S[upstreamElement->index] * centerFactor +
+                   S[index] * upstreamFactor) / volume;
+  }
+  else
+  {
+    incomingFlux = upstreamFlow * upstreamJunction->soluteConcs[soluteIndex].value / volume;
+  }
+
+  if(downstreamElement != nullptr && !downstreamJunction->soluteConcs[soluteIndex].isBC)
+  {
+    double denom = (1.0 / downstreamElement->length / 2.0) + (1.0 / length/ 2.0);
+    double centerFactor = 1.0 / length / 2.0 / denom;
+    double downstreamFactor = 1.0 / downstreamElement->length / 2.0 / denom;
+
+
+    outgoingFlux = downstreamFlow * (S[downstreamElement->index] * downstreamFactor +
+                   S[index] * centerFactor) / volume;
+  }
+  else
+  {
+    outgoingFlux = downstreamFlow * downstreamJunction->soluteConcs[soluteIndex].value / volume;
+  }
+
+
+  return incomingFlux - outgoingFlux;
 }
 
 double Element::computeDSoluteDtHybrid(double dt, double S[], int soluteIndex)
+{
+  double volume = xSectionArea * length;
+  double incomingFlux = 0;
+  double outgoingFlux = 0;
+
+  bool hasUpstream = upstreamElement != nullptr && !upstreamJunction->soluteConcs[soluteIndex].isBC;
+  bool hasDownstream = downstreamElement != nullptr && !downstreamJunction->soluteConcs[soluteIndex].isBC;
+
+  //If peclet number is zero use central differencing
+  if(hasUpstream && fabs(upstreamPecletNumber - 0.0) > std::numeric_limits<double>::epsilon() == 0)
+  {
+    double denom = (1.0 / upstreamElement->length / 2.0) + (1.0 / length/ 2.0);
+    double centerFactor = 1.0 / length / 2.0 / denom;
+    double upstreamFactor = 1.0 / upstreamElement->length / 2.0 / denom;
+
+    incomingFlux = upstreamFlow * (S[upstreamElement->index] * centerFactor +
+                   S[index] * upstreamFactor) / volume;
+  }
+  else if(hasUpstream && upstreamPecletNumber >= 2.0)
+  {
+    incomingFlux = upstreamFlow * S[upstreamElement->index] / volume;
+  }
+  else if(upstreamPecletNumber <= -2.0)
+  {
+    incomingFlux = flow * S[index] / volume;
+  }
+  else if(hasUpstream)
+  {
+    double upstreamFactor = 1.0 / upstreamElement->length / 2.0;
+    double centerFactor = 1.0 / length / 2.0;
+
+    double idwDenomFactor = upstreamFactor + centerFactor;
+
+    upstreamFactor = upstreamFactor / idwDenomFactor;
+    centerFactor   = centerFactor / idwDenomFactor;
+
+    upstreamFactor = (1 + (1.0 / upstreamPecletNumber / upstreamFactor)) * upstreamFactor;
+    centerFactor   = (1 - (1.0 / upstreamPecletNumber / centerFactor)) * centerFactor;
+
+    incomingFlux =  upstreamFlow * (S[upstreamElement->index] * upstreamFactor +
+                    S[index] * centerFactor) / volume;
+  }
+  else
+  {
+    incomingFlux = upstreamFlow * upstreamJunction->soluteConcs[soluteIndex].value / volume;
+  }
+
+
+  if(hasDownstream && fabs(downstreamPecletNumber - 0.0) > std::numeric_limits<double>::epsilon() == 0)
+  {
+    double denom = (1.0 / downstreamElement->length / 2.0) + (1.0 / length/ 2.0);
+    double centerFactor = 1.0 / length / 2.0 / denom;
+    double downstreamFactor = 1.0 / downstreamElement->length / 2.0 / denom;
+
+
+    outgoingFlux = downstreamFlow * (S[downstreamElement->index] * downstreamFactor +
+                   S[index] * centerFactor) / volume;
+  }
+  else if(downstreamPecletNumber >= 2.0)
+  {
+    outgoingFlux = flow * S[index] / volume;
+  }
+  else if(hasDownstream && downstreamPecletNumber <= -2.0)
+  {
+    outgoingFlux = downstreamFlow * S[downstreamElement->index] / volume;
+  }
+  else if(hasDownstream)
+  {
+    double downstreamFactor = 1.0 / downstreamElement->length / 2.0;
+    double centerFactor = 1.0 / length / 2.0;
+
+    double idwDenomFactor = centerFactor + downstreamFactor;
+
+    centerFactor /= idwDenomFactor;
+    downstreamFactor   /= idwDenomFactor;
+
+    centerFactor = (1 + (1.0 / downstreamPecletNumber/ centerFactor)) * centerFactor;
+    downstreamFactor = (1 - (1.0 / downstreamPecletNumber / downstreamFactor)) * downstreamFactor;
+
+    outgoingFlux =  downstreamFlow * (S[index] * centerFactor +
+                                      S[downstreamElement->index] * downstreamFactor) / volume;
+  }
+  else
+  {
+    outgoingFlux = downstreamFlow * downstreamJunction->soluteConcs[soluteIndex].value / volume;
+  }
+
+  double DSoluteDt = incomingFlux - outgoingFlux;
+
+  return DSoluteDt;
+}
+
+double Element::computeDSoluteDtTVD(double dt, double S[], int soluteIndex)
 {
 
 }

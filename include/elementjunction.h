@@ -154,7 +154,7 @@ struct ElementJunction
      * \brief initializeSolutes
      * \param numSolutes
      */
-    void initialize();
+    void initializeSolutes();
 
     /*!
      * \brief interpLongDispersion

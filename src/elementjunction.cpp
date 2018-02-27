@@ -7,15 +7,15 @@
 
 ElementJunction::ElementJunction(const std::string &id, double x, double y, double z, STMModel *model)
   :id(id), x(x), y(y), z(z),
-   heatContinuityIndex(-1),
-   soluteContinuityIndexes(nullptr),
-   numSolutes(0),
-   soluteConcs(nullptr),
-   prevSoluteConcs(nullptr),
-   longDispersion(0.0),
-   model(model)
+    heatContinuityIndex(-1),
+    soluteContinuityIndexes(nullptr),
+    numSolutes(0),
+    soluteConcs(nullptr),
+    prevSoluteConcs(nullptr),
+    longDispersion(0.0),
+    model(model)
 {
-
+  initializeSolutes();
 }
 
 ElementJunction::~ElementJunction()
@@ -40,18 +40,19 @@ ElementJunction::~ElementJunction()
   }
 }
 
-void ElementJunction::initialize()
+void ElementJunction::initializeSolutes()
 {
+
+  if(soluteConcs)
+  {
+    delete[] soluteConcs; soluteConcs = nullptr;
+    delete[] prevSoluteConcs; prevSoluteConcs = nullptr;
+    delete[] soluteContinuityIndexes; soluteContinuityIndexes = nullptr;
+  }
+
   if(model->m_solutes.size() > 0 )
   {
-    if(soluteConcs)
-    {
-      delete[] soluteConcs;
-      delete[] prevSoluteConcs;
-      delete[] soluteContinuityIndexes;
-    }
-
-    this->numSolutes = model->m_solutes.size();
+    numSolutes = model->m_solutes.size();
     soluteConcs = new Variable[numSolutes];
     prevSoluteConcs = new Variable[numSolutes];
     soluteContinuityIndexes = new int[numSolutes];
