@@ -1,5 +1,5 @@
 /*!
-*  \file    stmproject.cpp
+*  \file    elementjunction.h
 *  \author  Caleb Amoa Buahin <caleb.buahin@gmail.com>
 *  \version 1.0.0
 *  \section Description
@@ -20,10 +20,11 @@
 #ifndef ELEMENJUNCTION_H
 #define ELEMENJUNCTION_H
 
+#include "variable.h"
+#include "stmcomponent_global.h"
+
 #include <string>
 #include <set>
-
-#include "variable.h"
 
 class STMModel;
 class HCVertex;
@@ -32,7 +33,7 @@ struct Element;
 /*!
  * \brief The ElementJunction struct represents the
  */
-struct ElementJunction
+struct  STMCOMPONENT_EXPORT ElementJunction
 {
 
     enum JunctionType

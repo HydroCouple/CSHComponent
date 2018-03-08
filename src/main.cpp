@@ -19,19 +19,132 @@
 
 #include "stdafx.h"
 #include "elementjunction.h"
+#include "stmmodel.h"
 #include "test/stmcomponenttest.h"
+
+#include <QCoreApplication>
+#include <QCommandLineParser>
+
+void initializeCommandLineParser(QCommandLineParser &commandLineParser)
+{
+  commandLineParser.setApplicationDescription("STMComponent");
+  commandLineParser.setSingleDashWordOptionMode(QCommandLineParser::ParseAsLongOptions);
+  commandLineParser.addHelpOption();
+  commandLineParser.addVersionOption();
+
+  commandLineParser.addPositionalArgument("file","The composition file to open/run.");
+
+  const QCommandLineOption runOption({"r","run","execute"},"Execute action. Executes the composition <file> specified to completion.","file");
+  commandLineParser.addOption(runOption);
+
+  const QCommandLineOption runTest({"t","test"},"Execute tests");
+  commandLineParser.addOption(runTest);
+}
 
 int main(int argc, char** argv)
 {
+  QCoreApplication *application = new QCoreApplication(argc, argv);
+  application->setOrganizationName("hydrocouple");
+  application->setOrganizationDomain("hydrocouple.org");
+  application->setApplicationName("stmcomponent");
+  application->setApplicationVersion("1.0.0");
 
-  int status = 0;
+  QCommandLineParser commandLineParser;
+  initializeCommandLineParser(commandLineParser);
+  commandLineParser.parse(application->arguments());
 
-  //Test One
+  //version
+  if(commandLineParser.isSet("version"))
   {
-    STMComponentTest modelTest;
-    status |= QTest::qExec(&modelTest, argc, argv);
+    printf("Application Name: %s\nApplication Version: %s\n", "HydroCoupleComposer",
+           qPrintable(QCoreApplication::applicationVersion()));
+  }
+  //help
+  else if (commandLineParser.isSet("help"))
+  {
+    commandLineParser.showHelp();
+  }
+  //execute specified file
+  else if(!commandLineParser.positionalArguments().isEmpty() && QFile::exists(commandLineParser.positionalArguments().first()))
+  {
+    //Error messages
+    std::list<std::string> errors;
+
+    //Stream temperature model instance
+    STMModel *model = new STMModel(nullptr);
+    model->setInputFile(QFileInfo(commandLineParser.positionalArguments().first()));
+
+    //initialize model
+    if(model->initialize(errors))
+    {
+      //Perform timestep until completion
+      while (model->currentDateTime() < model->endDateTime())
+      {
+        model->update();
+      }
+    }
+    else
+    {
+      printf("Errors found!\n");
+
+      for(std::string error : errors)
+      {
+        printf("%s\n" , error.c_str());
+      }
+    }
+
+    //finalize model
+    model->finalize(errors);
+
+    delete model;
+  }
+  else if(commandLineParser.isSet("r") && commandLineParser.value("r").size() && QFile::exists(commandLineParser.value("r")))
+  {
+    //Error messages
+    std::list<std::string> errors;
+
+    //Stream temperature model instance
+    STMModel *model = new STMModel(nullptr);
+    model->setInputFile(QFileInfo(commandLineParser.positionalArguments().first()));
+
+    //initialize model
+    if(model->initialize(errors))
+    {
+      //Perform timestep until completion
+      while (model->currentDateTime() < model->endDateTime())
+      {
+        model->update();
+      }
+    }
+    else
+    {
+      printf("Errors found!\n");
+
+      for(std::string error : errors)
+      {
+        printf("%s\n" , error.c_str());
+      }
+    }
+
+    //finalize model
+    model->finalize(errors);
+
+    delete model;
+  }
+  else
+  {
+
+    int status = 0;
+
+    //Test One
+    {
+
+      STMComponentTest modelTest;
+      status |= QTest::qExec(&modelTest, argc, argv);
+    }
   }
 
-  return status;
+  application->quit();
 
+  return 0;
 }

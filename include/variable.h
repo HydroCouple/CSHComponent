@@ -20,10 +20,12 @@
 #ifndef VARIABLE_H
 #define VARIABLE_H
 
+#include "stmcomponent_global.h"
+
 /*!
  * \brief The Variable struct represents a variable value
  */
-struct Variable
+struct STMCOMPONENT_EXPORT Variable
 {
 
     /*!

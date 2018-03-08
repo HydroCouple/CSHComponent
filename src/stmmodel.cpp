@@ -1,5 +1,5 @@
 /*!
-*  \file    stmproject.cpp
+*  \file    stmmodel.cpp
 *  \author  Caleb Amoa Buahin <caleb.buahin@gmail.com>
 *  \version 1.0.0
 *  \section Description
@@ -24,6 +24,7 @@
 #include "element.h"
 #include "elementjunction.h"
 #include "spatial/edge.h"
+#include "iboundarycondition.h"
 
 using namespace std;
 
@@ -31,21 +32,29 @@ STMModel::STMModel(STMComponent *component)
   : QObject(component),
     m_timeStep(0.0001), //seconds
     m_maxTimeStep(0.5), //seconds
-    m_minTimeStep(0.001), //seconds
+    m_minTimeStep(0.001), //seconds,
     m_timeStepRelaxationFactor(0.8),
     m_numInitFixedTimeSteps(2),
     m_numCurrentInitFixedTimeSteps(0),
+    m_printFrequency(10),
+    m_currentPrintCount(0),
+    m_flushToDiskFrequency(10),
+    m_currentflushToDiskCount(0),
     m_computeDispersion(false),
     m_useAdaptiveTimeStep(true),
-    m_converged(false),
+    m_verbose(false),
     m_advectionMode(AdvectionDiscretizationMode::Upwind),
     m_numHeatElementJunctions(0),
-    m_solver(nullptr),
-    m_waterDensity(1.0), //kg/m^3
+    m_heatSolver(nullptr),
+    m_waterDensity(1000.0), //kg/m^3
     m_cp(4187.0), //4187.0 J/kg/C
+    #ifdef USE_NETCDF
+    m_outputNetCDF(nullptr),
+    #endif
+    m_retrieveCouplingDataFunction(nullptr),
     m_component(component)
 {
-  m_solver = new ODESolver(1, ODESolver::RKQS);
+  m_heatSolver = new ODESolver(1, ODESolver::CVODE_ADAMS);
 }
 
 STMModel::~STMModel()
@@ -64,8 +73,22 @@ STMModel::~STMModel()
   m_elementJunctions.clear();
   m_elementJunctionsById.clear();
 
-  if(m_solver)
-    delete m_solver;
+  if(m_heatSolver)
+    delete m_heatSolver;
+
+  for(size_t i = 0; i < m_soluteSolvers.size(); i++)
+  {
+    delete m_soluteSolvers[i];
+  }
+
+  m_soluteSolvers.clear();
+
+  closeOutputFiles();
+
+  for(IBoundaryCondition *boundaryCondition : m_boundaryConditions)
+    delete boundaryCondition;
+
+  m_boundaryConditions.clear();
 }
 
 double STMModel::minTimeStep() const
@@ -149,9 +172,14 @@ double STMModel::currentDateTime() const
   return m_currentDateTime;
 }
 
-ODESolver *STMModel::solver() const
+ODESolver *STMModel::heatSolver() const
 {
-  return m_solver;
+  return m_heatSolver;
+}
+
+std::vector<ODESolver*> STMModel::soluteSolvers() const
+{
+  return m_soluteSolvers;
 }
 
 bool STMModel::computeLongDispersion() const
@@ -208,10 +236,22 @@ void STMModel::setNumSolutes(int numSolutes)
 {
   if(numSolutes >= 0)
   {
+
+    for(size_t i = 0; i < m_soluteSolvers.size(); i++)
+    {
+      delete m_soluteSolvers[i];
+    }
+
+    m_soluteSolvers.clear();
+
     m_solutes.resize(numSolutes);
+    m_maxSolute.resize(numSolutes);
+    m_minSolute.resize(numSolutes);
+    m_soluteMassBalance.resize(numSolutes);
 
     for(size_t i = 0 ; i < m_solutes.size(); i++)
     {
+      m_soluteSolvers.push_back(new ODESolver(m_elements.size(), ODESolver::CVODE_ADAMS));
       m_solutes[i] = "Solute_" + std::to_string(i + 1);
     }
 
@@ -365,13 +405,25 @@ Element *STMModel::getElement(int index)
   return m_elements[index];
 }
 
+RetrieveCouplingData STMModel::retrieveCouplingDataFunction() const
+{
+  return m_retrieveCouplingDataFunction;
+}
+
+void STMModel::setRetrieveCouplingDataFunction(RetrieveCouplingData retrieveCouplingDataFunction)
+{
+  m_retrieveCouplingDataFunction = retrieveCouplingDataFunction;
+}
+
 bool STMModel::initialize(list<string> &errors)
 {
   bool initialized = initializeInputFiles(errors) &&
                      initializeTimeVariables(errors) &&
                      initializeElements(errors) &&
                      initializeSolver(errors) &&
-                     initializeOutputFiles(errors);
+                     initializeOutputFiles(errors) &&
+                     initializeBoundaryConditions(errors);
+
 
   if(initialized)
   {
@@ -384,6 +436,12 @@ bool STMModel::initialize(list<string> &errors)
 bool STMModel::finalize(std::list<string> &errors)
 {
   closeOutputFiles();
+
+  for(IBoundaryCondition *boundaryCondition : m_boundaryConditions)
+    delete boundaryCondition;
+
+  m_boundaryConditions.clear();
+
   return true;
 }
 
@@ -417,6 +475,9 @@ bool STMModel::initializeTimeVariables(std::list<string> &errors)
 
   m_currentDateTime = m_startDateTime;
   m_nextOutputTime = m_currentDateTime;
+
+  m_currentPrintCount = 0;
+  m_currentflushToDiskCount = 0;
 
   return true;
 }
@@ -520,8 +581,48 @@ bool STMModel::initializeElements(std::list<string> &errors)
 
 bool STMModel::initializeSolver(std::list<string> &errors)
 {
-  m_solver->setSize(m_elements.size());
-  m_solver->initialize();
+  m_heatSolver->setSize(m_elements.size());
+  m_heatSolver->initialize();
+
+  for(size_t i = 0; i < m_soluteSolvers.size(); i++)
+  {
+    ODESolver *solver =  m_soluteSolvers[i];
+    solver->setSize(m_elements.size());
+    solver->initialize();
+  }
 
   return true;
+}
+
+bool STMModel::initializeBoundaryConditions(std::list<string> &errors)
+{
+  for(size_t i = 0; i < m_boundaryConditions.size() ; i++)
+  {
+    IBoundaryCondition *boundaryCondition = m_boundaryConditions[i];
+    boundaryCondition->clear();
+    boundaryCondition->findAssociatedGeometries();
+    boundaryCondition->prepare();
+  }
+
+  return true;
+}
+
+bool STMModel::findProfile(Element *from, Element *to, std::list<Element *> &profile)
+{
+  for(Element *outgoing : from->downstreamJunction->outgoingElements)
+  {
+    if(outgoing == to)
+    {
+      profile.push_back(from);
+      profile.push_back(outgoing);
+      return true;
+    }
+    else if(findProfile(outgoing, to, profile))
+    {
+      profile.push_front(from);
+      return true;
+    }
+  }
+
+  return false;
 }

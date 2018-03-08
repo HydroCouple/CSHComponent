@@ -1,3 +1,22 @@
+/*!
+*  \file    stmcomponenttest.cpp
+*  \author  Caleb Amoa Buahin <caleb.buahin@gmail.com>
+*  \version 1.0.0
+*  \section Description
+*  This file and its associated files and libraries are free software;
+*  you can redistribute it and/or modify it under the terms of the
+*  Lesser GNU General Public License as published by the Free Software Foundation;
+*  either version 3 of the License, or (at your option) any later version.
+*  fvhmcompopnent.h its associated files is distributed in the hope that it will be useful,
+*  but WITHOUT ANY WARRANTY; without even the implied warranty of
+*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.(see <http://www.gnu.org/licenses/> for details)
+*  \date 2018
+*  \pre
+*  \bug
+*  \todo Test transport on branching networks
+*  \warning
+*/
+
 #include "stdafx.h"
 #include "test/stmcomponenttest.h"
 #include "odesolver.h"
@@ -316,95 +335,30 @@ void STMComponentTest::versteegCase1_Upwind()
   QBENCHMARK_ONCE
   {
 
-    //Error messages
-    std::list<std::string> errors;
+//    //Error messages
+//    std::list<std::string> errors;
 
-    //Stream temperature model instance
-    STMModel *model = new STMModel(nullptr);
+//    //Stream temperature model instance
+//    STMModel *model = new STMModel(nullptr);
 
-    //Set advection discretization mode
-    model->setAdvectionDiscretizationMode(STMModel::AdvectionDiscretizationMode::Upwind);
+//    model->setInputFile(QFileInfo("../../examples/Versteeg/case1/versteegcase1_upwind.inp"));
 
-    //set time and output variables
-    model->setMaxTimeStep(0.5); //seconds
-    model->setMinTimeStep(0.0001); //seconds
-    model->setStartDateTime(0); // Modified Julian DateTime
-    model->setEndDateTime(1.0 / 1440.0);//1 minute
-    model->setOutputInterval(1.0); //1 second
+//    //initialize model
+//    if(model->initialize(errors))
+//    {
+//      //Perform timestep until completion
+//      while (model->currentDateTime() < model->endDateTime())
+//      {
+//        model->update();
+//      }
+//    }
 
-    //Output consider 1 date separate files easier. Cross tab
-    model->setOutputCSVFile(QFileInfo("../../examples/Versteeg/case1/versteegcase1_upwind.csv"));
+//    //compare results
 
-    //Set solver type
-    model->solver()->setSolverType(ODESolver::CVODE_ADAMS);
+//    //finalize model
+//    model->finalize(errors);
 
-    //Set specific heat to 1.O
-    model->setNumSolutes(1);
-    model->setSoluteName(0, "TestSolute");
-    model->setSpecificHeatCapacityWater(1.0);
-
-    //Domain spatial discretization
-
-    //Element junction coordinates
-    double x , y = 0, z = 0;
-
-    int numCells = 5.0;
-
-    //grid size in x direction
-    double dx = 1.0 / numCells;
-
-    //Channel Junctions con. Nice diagram illustrating the control volumes. Junctions and elements. Consider changing.
-    for(int i = 0; i <= numCells; i++)
-    {
-      //Make it explicit what each variable means
-      x = i * dx;
-      ElementJunction *eJunction = model->addElementJunction(QString::number(i).toStdString(), x, y, z);
-
-      if(i == 0)
-      {
-        eJunction->temperature.isBC = true;
-        eJunction->temperature.value = 1.0;
-        eJunction->soluteConcs[0].isBC = true;
-        eJunction->soluteConcs[0].value = 1.0;
-      }
-      else if(i == numCells)
-      {
-
-        eJunction->temperature.isBC = true;
-        eJunction->temperature.value = 0.0;
-        eJunction->soluteConcs[0].isBC = true;
-        eJunction->soluteConcs[0].value = 0.0;
-      }
-    }
-
-    //Channels
-    for(int i = 0; i < numCells ; i++)
-    {
-      Element *element = model->addElement(QString::number(i).toStdString(), model->getElementJunction(i), model->getElementJunction(i+1));
-      element->xSectionArea = 0.1;
-      element->length = dx;
-      element->flow = element->xSectionArea * 0.1;
-      element->depth = 0.1;
-      element->longDispersion.isBC = true;
-      element->longDispersion.value = 0.1;
-    }
-
-    //initialize model
-    if(model->initialize(errors))
-    {
-      //Perform timestep until completion
-      while (model->currentDateTime() < model->endDateTime())
-      {
-        model->update();
-      }
-    }
-
-    //compare results
-
-    //finalize model
-    model->finalize(errors);
-
-    delete model;
+//    delete model;
   }
 }
 
@@ -427,9 +381,10 @@ void STMComponentTest::versteegCase1_Central()
 
     //Output consider 1 date separate files easier. Cross tab
     model->setOutputCSVFile(QFileInfo("../../examples/Versteeg/case1/versteegcase1_central.csv"));
+    model->setOutputNetCDFFile(QFileInfo("../../examples/Versteeg/case1/versteegcase1_central.nc"));
 
     //Set solver type
-    model->solver()->setSolverType(ODESolver::CVODE_ADAMS);
+    model->heatSolver()->setSolverType(ODESolver::CVODE_ADAMS);
 
     //Set specific heat to 1.O
     model->setSpecificHeatCapacityWater(1.0);
@@ -473,9 +428,6 @@ void STMComponentTest::versteegCase1_Central()
     //initialize model
     if(model->initialize(errors))
     {
-
-
-
       //Perform timestep until completion
       while (model->currentDateTime() < model->endDateTime())
       {
@@ -515,7 +467,7 @@ void STMComponentTest::versteegCase1_Hybrid()
     model->setOutputCSVFile(QFileInfo("../../examples/Versteeg/case1/versteegcase1_hybrid.csv"));
 
     //Set solver type
-    model->solver()->setSolverType(ODESolver::CVODE_ADAMS);
+    model->heatSolver()->setSolverType(ODESolver::CVODE_ADAMS);
 
     //Set specific heat to 1.O
     model->setSpecificHeatCapacityWater(1.0);
@@ -599,7 +551,7 @@ void STMComponentTest::versteegCase2_Upwind()
     model->setOutputCSVFile(QFileInfo("../../examples/Versteeg/case2/versteegcase2_upwind.csv"));
 
     //Set solver type
-    model->solver()->setSolverType(ODESolver::CVODE_ADAMS);
+    model->heatSolver()->setSolverType(ODESolver::CVODE_ADAMS);
 
     //Set specific heat to 1.O
     model->setSpecificHeatCapacityWater(1.0);
@@ -682,7 +634,7 @@ void STMComponentTest::versteegCase2_Central()
     model->setOutputCSVFile(QFileInfo("../../examples/Versteeg/case2/versteegcase2_central.csv"));
 
     //Set solver type
-    model->solver()->setSolverType(ODESolver::CVODE_ADAMS);
+    model->heatSolver()->setSolverType(ODESolver::CVODE_ADAMS);
 
     //Set specific heat to 1.O
     model->setSpecificHeatCapacityWater(1.0);
@@ -765,9 +717,10 @@ void STMComponentTest::versteegCase2_Hybrid()
 
     //Output consider 1 date separate files easier. Cross tab
     model->setOutputCSVFile(QFileInfo("../../examples/Versteeg/case2/versteegcase2_hybrid.csv"));
+    model->setOutputNetCDFFile(QFileInfo("../../examples/Versteeg/case2/versteegcase2_hybrid.nc"));
 
     //Set solver type
-    model->solver()->setSolverType(ODESolver::CVODE_ADAMS);
+    model->heatSolver()->setSolverType(ODESolver::CVODE_ADAMS);
 
     //Set specific heat to 1.O
     model->setSpecificHeatCapacityWater(1.0);
@@ -823,6 +776,38 @@ void STMComponentTest::versteegCase2_Hybrid()
         model->update();
       }
     }
+
+    //finalize model
+    model->finalize(errors);
+
+    delete model;
+  }
+}
+
+void STMComponentTest::green_river_test()
+{
+  QBENCHMARK_ONCE
+  {
+
+    //Error messages
+    std::list<std::string> errors;
+
+    //Stream temperature model instance
+    STMModel *model = new STMModel(nullptr);
+
+    model->setInputFile(QFileInfo("../../examples/green_river_test/green_river_test.inp"));
+
+    //initialize model
+    if(model->initialize(errors))
+    {
+      //Perform timestep until completion
+      while (model->currentDateTime() < model->endDateTime())
+      {
+        model->update();
+      }
+    }
+
+    //compare results
 
     //finalize model
     model->finalize(errors);

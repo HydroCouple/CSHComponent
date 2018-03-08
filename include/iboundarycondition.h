@@ -1,7 +1,3 @@
-#ifndef IBOUNDARYCONDITION_H
-#define IBOUNDARYCONDITION_H
-
-
 /*!
 *  \file  iboundarycondition.h
 *  \author  Caleb Amoa Buahin <caleb.buahin@gmail.com>
@@ -21,24 +17,28 @@
 *  \warning
 */
 
+#ifndef IBOUNDARYCONDITION_H
+#define IBOUNDARYCONDITION_H
 
-class IBoundaryCondition
+#include "stmcomponent_global.h"
+
+class STMCOMPONENT_EXPORT IBoundaryCondition
 {
   public:
 
     virtual ~IBoundaryCondition(){}
 
-    virtual void findAssociatedCVGeometries() = 0;
+    virtual void findAssociatedGeometries() = 0;
 
     virtual void prepare() = 0;
 
-    virtual void applyBoundaryConditions(double dateTime, double prevTimeStep) = 0;
+    virtual void applyBoundaryConditions(double dateTime) = 0;
 
     virtual void clear() = 0;
 
 };
 
-Q_DECLARE_INTERFACE(IBoundaryCondition, "FVHMComponent::IBoundaryCondition")
+//Q_DECLARE_INTERFACE(IBoundaryCondition, "STMModel::IBoundaryCondition")
 
 #endif // BOUNDARYCONDITION_H
 

@@ -15,6 +15,7 @@ QT += testlib
 #DEFINES += USE_OPENMP
 DEFINES += USE_MPI
 DEFINES += USE_CVODE
+DEFINES += USE_NETCDF
 #DEFINES += USE_CVODE_OPENMP
 
 #Compile as library or executable
@@ -51,7 +52,14 @@ HEADERS += ./include/stdafx.h\
            ./include/odesolver.h \
            ./include/test/stmcomponenttest.h \
            ./include/variable.h \
-           ./include/element.h
+           ./include/element.h \
+           ./include/iboundarycondition.h \
+           ./include/abstracttimeseriesbc.h \
+           ./include/junctiontimeseriesbc.h \
+           ./include/radiativefluxtimeseriesbc.h \
+           ./include/hydraulicstimeseriesbc.h \
+           ./include/pointsrctimeseriesbc.h \
+    include/nonpointsrctimeseriesbc.h
 
 SOURCES +=./src/stdafx.cpp \
           ./src/stmcomponent.cpp \
@@ -63,7 +71,13 @@ SOURCES +=./src/stdafx.cpp \
           ./src/elementjunction.cpp \
           ./src/test/stmcomponenttest.cpp \
           ./src/stmmodelio.cpp \
-          ./src/stmcompute.cpp
+          ./src/stmcompute.cpp \
+          ./src/abstracttimeseriesbc.cpp \
+          ./src/junctiontimeseriesbc.cpp \
+          ./src/radiativefluxtimeseriesbc.cpp \
+          ./src/hydraulicstimeseriesbc.cpp \
+          ./src/pointsrctimeseriesbc.cpp \
+    src/nonpointsrctimeseriesbc.cpp
 
 
 macx{
@@ -76,12 +90,16 @@ macx{
     message("CVODE enabled")
 
     INCLUDEPATH += ../cvode-3.1.0/include
-#    LIBS += -L../cvode-3.1.0/builddir/src/cvode -lsundials_cvode
     LIBS += -L/usr/local/lib -lsundials_cvode
 
     }
 
+    contains(DEFINES, USE_NETCDF){
+
+    message("NetCDF enabled")
     LIBS += -L/usr/local/lib -lnetcdf-cxx4
+
+    }
 
     contains(DEFINES,USE_OPENMP){
 

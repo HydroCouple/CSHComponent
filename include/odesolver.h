@@ -22,6 +22,8 @@
 #ifndef ODESOLVER_H
 #define ODESOLVER_H
 
+#include "stmcomponent_global.h"
+
 #ifdef USE_CVODE
 #include <cvode/cvode.h>
 #endif
@@ -43,7 +45,7 @@ typedef int (ODESolver::*Solve)(double y[], int n, double t, double dt, double y
 
 #ifdef USE_CVODE
 
-struct RedirectionData
+struct STMCOMPONENT_EXPORT RedirectionData
 {
     ComputeDerivatives deriv;
     void *userData;

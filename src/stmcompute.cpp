@@ -1,16 +1,46 @@
+/*!
+*  \file    stmcompute.cpp
+*  \author  Caleb Amoa Buahin <caleb.buahin@gmail.com>
+*  \version 1.0.0
+*  \section Description
+*  This file and its associated files and libraries are free software;
+*  you can redistribute it and/or modify it under the terms of the
+*  Lesser GNU General Public License as published by the Free Software Foundation;
+*  either version 3 of the License, or (at your option) any later version.
+*  fvhmcompopnent.h its associated files is distributed in the hope that it will be useful,
+*  but WITHOUT ANY WARRANTY; without even the implied warranty of
+*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.(see <http://www.gnu.org/licenses/> for details)
+*  \date 2018
+*  \pre
+*  \bug
+*  \todo
+*  \warning
+*/
+
+
 #include "stmmodel.h"
 #include "element.h"
 #include "elementjunction.h"
+#include "iboundarycondition.h"
+
+using namespace std;
 
 void STMModel::update()
 {
   if(m_currentDateTime < m_endDateTime)
   {
-    prepareForNextTimeStep();
-
     m_timeStep = computeTimeStep();
 
-    applyBoundaryConditions(m_currentDateTime + m_timeStep / 86400.0);
+    double tempCurrentDateTime = m_currentDateTime + m_timeStep / 86400.0;
+
+    applyBoundaryConditions(tempCurrentDateTime);
+
+    //Retrieve external data from other coupled models
+
+    if(m_retrieveCouplingDataFunction)
+    {
+      (*m_retrieveCouplingDataFunction)(this, tempCurrentDateTime);
+    }
 
     computeLongDispersion();
 
@@ -74,12 +104,20 @@ void STMModel::update()
       }
     }
 
-    m_currentDateTime +=  m_timeStep / 86400.0;
+    m_prevDateTime = m_currentDateTime;
+    m_currentDateTime = tempCurrentDateTime;
+
+    prepareForNextTimeStep();
 
     if(m_currentDateTime >= m_nextOutputTime)
     {
       writeOutput();
       m_nextOutputTime += m_outputInterval / 86400.0;
+    }
+
+    if(m_verbose)
+    {
+      printStatus();
     }
   }
 }
@@ -93,19 +131,60 @@ void STMModel::prepareForNextTimeStep()
   for(size_t i = 0 ; i < m_elementJunctions.size(); i++)
   {
     ElementJunction *elementJunction = m_elementJunctions[i];
-
-    {
-      elementJunction->prevTemperature.copy(elementJunction->temperature);
-    }
+    elementJunction->prevTemperature.copy(elementJunction->temperature);
 
     for(size_t j = 0; j < m_solutes.size(); j++)
     {
-      {
-        elementJunction->prevSoluteConcs[j].copy(elementJunction->soluteConcs[j]);
-      }
+      elementJunction->prevSoluteConcs[j].copy(elementJunction->soluteConcs[j]);
     }
   }
 
+  m_minTemp = std::numeric_limits<double>::max();
+  m_maxTemp = std::numeric_limits<double>::lowest();
+
+  std::fill(m_maxSolute.begin(), m_maxSolute.end(), m_maxTemp);
+  std::fill(m_minSolute.begin(), m_minSolute.end(), m_minTemp);
+
+  for(size_t i = 0 ; i < m_elements.size(); i++)
+  {
+    Element *element = m_elements[i];
+
+    element->computeHeatBalance();
+    m_heatBalance += element->heatBalance;
+
+    element->prevTemperature.copy(element->temperature);
+
+    element->radiationFluxes = 0.0;
+    element->externalHeatFluxes = 0.0;
+
+    m_minTemp = min(m_minTemp , element->temperature.value);
+    m_maxTemp = max(m_maxTemp , element->temperature.value);
+
+    for(size_t j = 0; j < m_solutes.size(); j++)
+    {
+      element->computeSoluteBalance(j);
+      m_soluteMassBalance[j] += element->soluteMassBalance[j];
+
+      element->prevSoluteConcs[j].copy(element->soluteConcs[j]);
+
+      element->externalSoluteFluxes[j] = 0.0;
+
+      m_minSolute[j] = min(m_minSolute[j] , element->soluteConcs[j].value);
+      m_maxSolute[j] = max(m_maxSolute[j] , element->soluteConcs[j].value);
+    }
+  }
+}
+
+void STMModel::applyInitialConditions()
+{
+
+  //Initialize heat and solute balance trackers
+  m_heatBalance = 0.0;
+
+  for(size_t i = 0; i < m_solutes.size(); i++)
+  {
+    m_soluteMassBalance[i] = 0.0;
+  }
 
 #ifdef USE_OPENMP
 #pragma omp parallel for
@@ -113,23 +192,13 @@ void STMModel::prepareForNextTimeStep()
   for(size_t i = 0 ; i < m_elements.size(); i++)
   {
     Element *element = m_elements[i];
-
-    {
-      element->prevTemperature.copy(element->temperature);
-    }
+    element->heatBalance = 0.0;
 
     for(size_t j = 0; j < m_solutes.size(); j++)
     {
-      {
-        element->prevSoluteConcs[j].copy(element->soluteConcs[j]);
-      }
+      element->soluteMassBalance[j] = 0.0;
     }
   }
-
-}
-
-void STMModel::applyInitialConditions()
-{
 
   //Interpolate nodal temperatures and solute concentrations
 #ifdef USE_OPENMP
@@ -153,6 +222,8 @@ void STMModel::applyInitialConditions()
     }
   }
 
+  applyBoundaryConditions(m_currentDateTime);
+
   //Write initial output
   writeOutput();
 
@@ -162,7 +233,30 @@ void STMModel::applyInitialConditions()
 
 void STMModel::applyBoundaryConditions(double dateTime)
 {
+  //reset external fluxes
+#ifdef USE_OPENMMP
+#pragma omp parallel for
+#endif
+  for(size_t i = 0 ; i < m_elements.size(); i++)
+  {
+    Element *element = m_elements[i];
+    element->externalHeatFluxes = 0.0;
+    element->radiationFluxes = 0.0;
 
+    for(size_t j = 0; j < m_solutes.size(); j++)
+    {
+      element->externalSoluteFluxes[j] = 0.0;
+    }
+  }
+
+#ifdef USE_OPENMMP
+#pragma omp parallel for
+#endif
+  for(size_t i = 0; i < m_boundaryConditions.size() ; i++)
+  {
+    IBoundaryCondition *boundaryCondition = m_boundaryConditions[i];
+    boundaryCondition->applyBoundaryConditions(dateTime);
+  }
 }
 
 double STMModel::computeTimeStep()
@@ -174,7 +268,6 @@ double STMModel::computeTimeStep()
   if(m_useAdaptiveTimeStep)
   {
 
-
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
@@ -182,7 +275,7 @@ double STMModel::computeTimeStep()
     {
       Element *element = m_elements[i];
       double courantFactor = element->computeCourantFactor();
-      //      double dispersionFactor = element->computeDispersionFactor();
+      //double dispersionFactor = element->computeDispersionFactor();
 
       if(courantFactor > maxCourantFactor)
       {
@@ -285,8 +378,8 @@ void STMModel::solveHeatTransport(double timeStep)
 
   //Solve using ODE solver
   SolverUserData solverUserData; solverUserData.model = this; solverUserData.variableIndex = -1;
-  m_solver->solve(currentTemperatures, m_elements.size() , m_currentDateTime * 86400.0, timeStep,
-                  outputTemperatures, &STMModel::computeDTDt, &solverUserData);
+  m_heatSolver->solve(currentTemperatures, m_elements.size() , m_currentDateTime * 86400.0, timeStep,
+                      outputTemperatures, &STMModel::computeDTDt, &solverUserData);
 
   //Apply computed values;
 #ifdef USE_OPENMP
@@ -322,8 +415,8 @@ void STMModel::solveSoluteTransport(int soluteIndex, double timeStep)
 
   //Solve using ODE solver
   SolverUserData solverUserData; solverUserData.model = this; solverUserData.variableIndex = soluteIndex;
-  m_solver->solve(outputSoluteConcs, m_elements.size() , m_currentDateTime * 86400.0, timeStep,
-                  outputSoluteConcs, &STMModel::computeDSoluteDt, &solverUserData);
+  m_soluteSolvers[soluteIndex]->solve(outputSoluteConcs, m_elements.size() , m_currentDateTime * 86400.0, timeStep,
+                                      outputSoluteConcs, &STMModel::computeDSoluteDt, &solverUserData);
 
 
   //Apply computed values;
@@ -356,8 +449,7 @@ void STMModel::computeDTDt(double t, double y[], double dydt[], void* userData)
   for(size_t i = 0 ; i < modelInstance->m_elements.size(); i++)
   {
     Element *element = modelInstance->m_elements[i];
-    double DTDt = element->computeDTDt(dt,y);
-    dydt[element->index] = DTDt;
+    dydt[element->index] = element->computeDTDt(dt,y);
   }
 }
 
@@ -368,13 +460,12 @@ void STMModel::computeDSoluteDt(double t, double y[], double dydt[], void *userD
   double dt = t - modelInstance->m_currentDateTime *  86400.0;
 
 #ifdef USE_OPENMP
-#pragma omp parallel for
+  //#pragma omp parallel for
 #endif
   for(size_t i = 0 ; i < modelInstance->m_elements.size(); i++)
   {
     Element *element = modelInstance->m_elements[i];
-    double DSoluteDt = element->computeDSoluteDt(dt,y,solverUserData->variableIndex);
-    dydt[element->index] = DSoluteDt;
+    dydt[element->index] = element->computeDSoluteDt(dt,y,solverUserData->variableIndex);
   }
 
 }

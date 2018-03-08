@@ -24,7 +24,6 @@
 #include "stmcomponentinfo.h"
 #include "core/abstractmodelcomponent.h"
 
-
 class STMCOMPONENT_EXPORT STMComponent : public AbstractModelComponent
 {
     Q_OBJECT

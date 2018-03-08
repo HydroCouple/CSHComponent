@@ -1,9 +1,30 @@
+/*!
+*  \file    element.h
+*  \author  Caleb Amoa Buahin <caleb.buahin@gmail.com>
+*  \version 1.0.0
+*  \section Description
+*  This file and its associated files and libraries are free software;
+*  you can redistribute it and/or modify it under the terms of the
+*  Lesser GNU General Public License as published by the Free Software Foundation;
+*  either version 3 of the License, or (at your option) any later version.
+*  fvhmcompopnent.h its associated files is distributed in the hope that it will be useful,
+*  but WITHOUT ANY WARRANTY; without even the implied warranty of
+*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.(see <http://www.gnu.org/licenses/> for details)
+*  \date 2018
+*  \pre
+*  \bug
+*  \todo Test transport on branching networks
+*  \warning
+*/
+
 #ifndef ELEMENT_H
 #define ELEMENT_H
 
-#include <string>
 
 #include "variable.h"
+#include "stmcomponent_global.h"
+
+#include <string>
 
 struct Element;
 struct ElementJunction;
@@ -22,7 +43,7 @@ typedef double (Element::*ComputeSoluteAdv)(double dt, double S[], int soluteInd
 /*!
  * \brief This struct represents the channel control volume
  */
-struct Element
+struct  STMCOMPONENT_EXPORT Element
 {
     /*!
     * \brief Element - Creates an instance of the control volume element used to represent a computational
@@ -73,11 +94,6 @@ struct Element
     * \brief prevTemperature
     */
    Variable prevTemperature;
-
-   //   /*!
-   //    * \brief DTDx
-   //    */
-   //   Variable DTDx;
 
    /*!
     * \brief numSolutes
@@ -150,9 +166,19 @@ struct Element
    double radiationFluxes;
 
    /*!
-    * \brief externalSoluteFluxes of the form m^3. C / s
+    * \brief externalSoluteFluxes of the form kg / s
     */
    double *externalSoluteFluxes;
+
+   /*!
+    * \brief heatBalance
+    */
+   double heatBalance;
+
+   /*!
+    * \brief soluteMassBalance
+    */
+   double *soluteMassBalance;
 
    /*!
     * \brief pecletNumber
@@ -288,7 +314,6 @@ struct Element
     */
    double computeDSoluteDtHybrid(double dt, double S[], int soluteIndex);
 
-
    /*!
     * \brief computeDSoluteDtENO
     * \param dt
@@ -329,6 +354,17 @@ struct Element
     * \brief calculateDownstreamPeclet
     */
    void computeDownstreamPeclet();
+
+   /*!
+    * \brief computeHeatBalance
+    */
+   void computeHeatBalance();
+
+   /*!
+    * \brief computeSoluteBalance
+    * \param soluteIndex
+    */
+   void computeSoluteBalance(int soluteIndex);
 
   private:
 

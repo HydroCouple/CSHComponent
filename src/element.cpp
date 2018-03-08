@@ -1,3 +1,22 @@
+/*!
+*  \file    element.cpp
+*  \author  Caleb Amoa Buahin <caleb.buahin@gmail.com>
+*  \version 1.0.0
+*  \section Description
+*  This file and its associated files and libraries are free software;
+*  you can redistribute it and/or modify it under the terms of the
+*  Lesser GNU General Public License as published by the Free Software Foundation;
+*  either version 3 of the License, or (at your option) any later version.
+*  fvhmcompopnent.h its associated files is distributed in the hope that it will be useful,
+*  but WITHOUT ANY WARRANTY; without even the implied warranty of
+*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.(see <http://www.gnu.org/licenses/> for details)
+*  \date 2018
+*  \pre
+*  \bug
+*  \todo
+*  \warning
+*/
+
 #include "stdafx.h"
 #include "element.h"
 #include "elementjunction.h"
@@ -23,6 +42,8 @@ Element::Element(const std::string &id, ElementJunction *upstream, ElementJuncti
     externalHeatFluxes(0.0),
     radiationFluxes(0.0),
     externalSoluteFluxes(nullptr),
+    heatBalance(0.0),
+    soluteMassBalance(nullptr),
     pecletNumber(0.0),
     upstreamElement(nullptr),
     downstreamElement(nullptr),
@@ -51,6 +72,7 @@ Element::~Element()
     delete[] soluteConcs;
     delete[] prevSoluteConcs;
     delete[] externalSoluteFluxes;
+    delete[] soluteMassBalance;
   }
 
   upstreamJunction->outgoingElements.erase(this);
@@ -100,6 +122,7 @@ void Element::initializeSolutes()
     delete[] soluteConcs; soluteConcs = nullptr;
     delete[] prevSoluteConcs; prevSoluteConcs = nullptr;
     delete[] externalSoluteFluxes; externalSoluteFluxes = nullptr;
+    delete[] soluteMassBalance; soluteMassBalance = nullptr;
   }
 
   if(model->m_solutes.size() > 0)
@@ -108,6 +131,7 @@ void Element::initializeSolutes()
     soluteConcs = new Variable[numSolutes];
     prevSoluteConcs = new Variable[numSolutes];
     externalSoluteFluxes = new double[numSolutes];
+    soluteMassBalance = new double[numSolutes]();
   }
 }
 
@@ -115,7 +139,8 @@ double Element::computeDTDt(double dt, double T[])
 {
   double DTDt = 0;
   double volume = xSectionArea * length;
-  double rho_cp_vol = model->m_waterDensity * model->m_cp * volume;
+  double rho_cp = model->m_waterDensity * model->m_cp;
+  double rho_cp_vol = rho_cp * volume;
 
   //Compute advection
   DTDt += (this->*computeTempAdv)(dt, T);
@@ -125,7 +150,7 @@ double Element::computeDTDt(double dt, double T[])
 
   //Add external sources
   {
-    DTDt += radiationFluxes / depth / rho_cp_vol;
+    DTDt += radiationFluxes / depth / rho_cp;
     DTDt += externalHeatFluxes / rho_cp_vol;
   }
 
@@ -644,7 +669,7 @@ void Element::computeLongDispersion()
   double vel = flow / xSectionArea;
 
   double fricVel = sqrt(9.81 * depth * slope);
-  double dispFischer = 0.011 * vel * vel * width * width / (depth * fricVel);
+  double dispFischer = 0.11 * vel * vel * width * width / (depth * fricVel);
 
   double dispNumerical = fabs( vel * length / 2.0);
 
@@ -686,6 +711,16 @@ void Element::computeDownstreamPeclet()
   {
     downstreamPecletNumber = pecletNumber;
   }
+}
+
+void Element::computeHeatBalance()
+{
+  heatBalance +=  model->m_waterDensity * model->m_cp * xSectionArea * length * (temperature.value - prevTemperature.value) / 1000.000;
+}
+
+void Element::computeSoluteBalance(int soluteIndex)
+{
+  soluteMassBalance[soluteIndex] += xSectionArea * length * (soluteConcs[soluteIndex].value - prevSoluteConcs[soluteIndex].value);
 }
 
 void Element::setUpstreamElement()

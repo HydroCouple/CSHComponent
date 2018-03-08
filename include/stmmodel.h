@@ -26,21 +26,29 @@
 
 #include <vector>
 #include <string>
-#include <unordered_map>
+#include <set>
 #include <QFileInfo>
 #include <QTextStream>
+#include <unordered_map>
+
+#ifdef USE_NETCDF
+#include <netcdf>
+#endif
 
 class STMComponent;
 struct Element;
 struct ElementJunction;
 class Edge;
 class STMModel;
+class IBoundaryCondition;
 
-struct SolverUserData
+struct STMCOMPONENT_EXPORT SolverUserData
 {
     STMModel *model = nullptr;
     int variableIndex = -1;
 };
+
+typedef void (*RetrieveCouplingData)(STMModel *model, double dateTime);
 
 class STMCOMPONENT_EXPORT STMModel : public QObject
 {
@@ -48,12 +56,22 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
 
     friend struct ElementJunction;
     friend struct Element;
+    friend class RadiativeFluxTimeSeriesBC;
+    friend class NonPointSrcTimeSeriesBC;
 
   public:
 
     enum AdvectionDiscretizationMode
     {
+
+      /*!
+       * \brief Upwind discretization scheme.
+       */
       Upwind,
+
+      /*!
+       * \brief Central discretization scheme.
+       */
       Central,
 
       /*!
@@ -179,7 +197,13 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
      * \brief solver
      * \return
      */
-    ODESolver *solver() const;
+    ODESolver *heatSolver() const;
+
+    /*!
+     * \brief soluteSolvers
+     * \return
+     */
+    std::vector<ODESolver*> soluteSolvers() const;
 
     /*!
      * \brief computeLongDispersion
@@ -254,6 +278,42 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
      * \return
      */
     std::string solute(int soluteIndex) const;
+
+    /*!
+     * \brief verbose
+     * \return
+     */
+    bool verbose() const;
+
+    /*!
+     * \brief setVerbose
+     * \param verbose
+     */
+    void setVerbose(bool verbose);
+
+    /*!
+     * \brief printFrequency
+     * \return
+     */
+    int printFrequency() const;
+
+    /*!
+     * \brief setPrintFrequency
+     * \param printFreq
+     */
+    void setPrintFrequency(int printFreq);
+
+    /*!
+     * \brief flushToDiskFrequency
+     * \return
+     */
+    int flushToDiskFrequency() const;
+
+    /*!
+     * \brief setFlushToDiskFrequency
+     * \param diskFlushFrequency
+     */
+    void setFlushToDiskFrequency(int diskFlushFrequency);
 
     /*!
      * \brief numElementJunctions
@@ -339,28 +399,16 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
     Element *getElement(int index);
 
     /*!
-     * \brief discretizationFile
+     * \brief inputFile
      * \return
      */
-    QFileInfo discretizationFile() const;
+    QFileInfo inputFile() const;
 
     /*!
-     * \brief setDiscretizationFile
-     * \param discretizationFile
+     * \brief setInputFile
+     * \param inputFile
      */
-    void setDiscretizationFile(const QFileInfo &discretizationFile);
-
-    /*!
-     * \brief hydrodynamicFile
-     * \return
-     */
-    QFileInfo hydrodynamicFile() const;
-
-    /*!
-     * \brief setHydrodynamicFile
-     * \param hydrodynamicFile
-     */
-    void setHydrodynamicFile(const QFileInfo &hydrodynamicFile);
+    void setInputFile(const QFileInfo &inputFile);
 
     /*!
      * \brief outputCSVFile
@@ -373,6 +421,29 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
      * \param outputFile
      */
     void setOutputCSVFile(const QFileInfo &outputFile);
+
+    /*!
+     * \brief outputNetCDFFile
+     * \return
+     */
+    QFileInfo outputNetCDFFile() const;
+
+    /*!
+     * \brief setOutputNetCDFFile
+     * \param outputNetCDFFile
+     */
+    void setOutputNetCDFFile(const QFileInfo &outputNetCDFFile);
+
+    /*!
+     * \brief retrieveCouplingDataFunction
+     * \return
+     */
+    RetrieveCouplingData retrieveCouplingDataFunction() const;
+
+    /*!
+     * \brief setRetrieveCouplingDataFunction
+     */
+    void setRetrieveCouplingDataFunction(RetrieveCouplingData retrieveCouplingDataFunction);
 
     /*!
      * \brief initialize
@@ -393,7 +464,19 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
      */
     bool finalize(std::list<std::string> &errors);
 
+    /*!
+     * \brief printStatus
+     */
+    void printStatus();
+
   private:
+
+    /*!
+     * \brief initializeInputFiles
+     * \param errors
+     * \return
+     */
+    bool initializeInputFiles(std::list<std::string> &errors);
 
     /*!
      * \brief initializeTimeVariables
@@ -417,13 +500,6 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
     bool initializeSolver(std::list<std::string> & errors);
 
     /*!
-     * \brief initializeInputFiles
-     * \param errors
-     * \return
-     */
-    bool initializeInputFiles(std::list<std::string> &errors);
-
-    /*!
      * \brief intializeOutputFiles
      * \param errors
      * \return
@@ -443,6 +519,13 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
      * \return
      */
     bool initializeNetCDFOutputFile(std::list<std::string> &errors);
+
+    /*!
+     * \brief initializeBoundaryConditions
+     * \param errors
+     * \return
+     */
+    bool initializeBoundaryConditions(std::list<std::string> &errors);
 
     /*!
      * \brief prepareForNextTimeStep
@@ -516,6 +599,68 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
     void solveJunctionSoluteContinuity(int soluteIndex, double timeStep);
 
     /*!
+     * \brief readInputFileOptionTag
+     * \param line
+     */
+    bool readInputFileOptionTag(const QString &line, QString &errorMessage);
+
+    /*!
+     * \brief readInputFileOutputTag
+     * \param line
+     */
+    bool readInputFileOutputTag(const QString &line, QString &errorMessage);
+
+    /*!
+     * \brief readInputFileSolutesTag
+     * \param line
+     */
+    bool readInputFileSolutesTag(const QString &line, QString &errorMessage);
+
+    /*!
+     * \brief readInputFileJunctionsTag
+     * \param line
+     */
+    bool readInputFileJunctionsTag(const QString &line, QString &errorMessage);
+
+    /*!
+     * \brief readInputFileElementsTag
+     * \param line
+     */
+    bool readInputFileElementsTag(const QString &line, QString &errorMessage);
+
+    /*!
+     * \brief readInputFileBoundaryConditionsTag
+     * \param line
+     */
+    bool readInputFileBoundaryConditionsTag(const QString &line, QString &errorMessage);
+
+    /*!
+     * \brief readInputFilePointSourcesTag
+     * \param line
+     */
+    bool readInputFilePointSourcesTag(const QString &line, QString &errorMessage);
+
+    /*!
+     * \brief readInputFileNonPointSourcesTag
+     * \param line
+     */
+    bool readInputFileNonPointSourcesTag(const QString &line, QString &errorMessage);
+
+    /*!
+     * \brief readInputFileTimeVaryingHydraulicsTag
+     * \param line
+     */
+    bool readInputFileTimeVaryingHydraulicsTag(const QString &line, QString &errorMessage);
+
+    /*!
+     * \brief readInputFileRadiativeFluxesTag
+     * \param line
+     * \param errorMessage
+     * \return
+     */
+    bool readInputFileRadiativeFluxesTag(const QString &line, QString &errorMessage);
+
+    /*!
      * \brief writeOutput
      */
     void writeOutput();
@@ -545,29 +690,65 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
      */
     void closeOutputNetCDFFile();
 
+    /*!
+     * \brief relativePathtoAbsolute
+     * \param inputFile
+     * \return
+     */
+    QFileInfo relativePathToAbsolute(const QFileInfo& fileInfo);
+
+    /*!
+     * \brief readTimeSeries
+     * \param fileInfo
+     * \param timeSeriesValues
+     * \param headers
+     * \return
+     */
+    static bool readTimeSeries(const QFileInfo &fileInfo,  std::map<double, std::vector<double>>& timeSeriesValues, std::vector<std::string>& headers);
+
+    /*!
+     * \brief findProfile
+     * \param from
+     * \param to
+     * \param m_profile
+     * \return
+     */
+    bool findProfile(Element *from, Element *to, std::list<Element*> &profile);
+
   private:
 
-    //Solute variable names;
     std::vector<std::string> m_solutes; // Names of the solutes.
 
     //Time variables
     double m_timeStep, //seconds
-    m_startDateTime, //MJD
-    m_endDateTime, //MJD
-    m_currentDateTime, //MJD
+    m_startDateTime, //Julian Day
+    m_endDateTime, //Julian Day
+    m_currentDateTime, //Julian Day
+    m_prevDateTime, //Julian Day
     m_maxTimeStep, //seconds
     m_minTimeStep, //seconds
     m_outputInterval, //seconds
-    m_nextOutputTime,//MJD
-    m_timeStepRelaxationFactor; //
+    m_nextOutputTime,//Julian Day
+    m_timeStepRelaxationFactor,
+    m_maxTemp, //Tracks maximum temperature so far
+    m_minTemp; //Tracks minimum temperature so far
 
-    //Number of initial fixed timeSteps of the minimum timestep to use when using the adaptive time step;
-    int m_numInitFixedTimeSteps,
-    m_numCurrentInitFixedTimeSteps;
+    std::vector<double> m_maxSolute, //array for tracking maximum solute concentrations
+    m_minSolute, //array for tracking minimum solute concentrations
+    m_soluteMassBalance; // Tracks mass balance of solutes (kg)
 
-    bool m_computeDispersion,
-    m_useAdaptiveTimeStep,
-    m_converged;
+    int m_numInitFixedTimeSteps, //Number of initial fixed timeSteps of the minimum timestep to use when using the adaptive time step;
+    m_numCurrentInitFixedTimeSteps, //Count number of initial minimum timesteps that have been used
+    m_printFrequency, //Number of timesteps before printing
+    m_currentPrintCount, // Number of timesteps
+    m_flushToDiskFrequency, // Number of times to write output stored in memory to disk
+    m_currentflushToDiskCount, //Number of timesteps that have been stored in memory so far since the last flush to disk
+    m_addedSoluteCount;
+
+    bool m_computeDispersion, //Override user provided dispersion and compute dispersion based on Fisher
+    m_useAdaptiveTimeStep, //Use the adaptive time step option
+    m_verbose, //Print simulation information to console
+    m_flushToDisk; //Write output saved in memory to disk
 
     /*!
      * \brief m_advectionMode
@@ -582,23 +763,44 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
     std::vector<Element*> m_elements;
     std::unordered_map<std::string, Element*> m_elementsById; //added for fast lookup using identifiers instead of indexes.
 
+    //Boundary conditions list
+    std::vector<IBoundaryCondition*> m_boundaryConditions;
+
     //Number of junctions where continuity needs to be enforced.
     int m_numHeatElementJunctions;
     std::vector<int> m_numSoluteElementJunctions;
 
-    //Solver Object
-    ODESolver *m_solver = nullptr;
+    //Solver Objects
+    ODESolver *m_heatSolver = nullptr; //Heat solver
+    std::vector<ODESolver*> m_soluteSolvers; //Solute solvers
 
     //Global water properties
     double m_waterDensity, //kg/m^3
-    m_cp;// 4187.0; // J/kg/C
+    m_cp,// 4187.0; // J/kg/C
+    m_heatBalance; //Tracks heat accumulation (J)
 
     //File input and output
-    QFileInfo m_discretizationFile, //Geometric discretization file specified using the SWMM version file input file format
-    m_hydrodynamicFile, //File to specify hydrodynamic parameters, initial conditions, boundary conditions,
-    m_outputCSVFileInfo; //Output CSV filepath
+    QFileInfo m_inputFile, //Input filepath
+    m_outputCSVFileInfo, //Output CSV filepath
+    m_outputNetCDFFileInfo; //Output NetCDF filepath
+
+
+
+#ifdef USE_NETCDF
+    netCDF::NcFile *m_outputNetCDF = nullptr; //NetCDF output file object
+#endif
 
     QTextStream m_outputCSVStream; //Output CSV filestream
+    static const std::unordered_map<std::string, int> m_inputFileFlags, //Input file flags
+    m_optionsFlags, //Input file flags
+    m_advectionFlags, //Advection type flags
+    m_solverTypeFlags, //Solver type flags
+    m_hydraulicVariableFlags;
+
+    QRegExp m_delimiters; //Regex delimiter
+
+    //Function to retrieve and apply coupling data
+    RetrieveCouplingData m_retrieveCouplingDataFunction;
 
     //Parent component
     STMComponent *m_component;

@@ -25,7 +25,7 @@
 #include <nvector/nvector_openmp.h>
 #include <nvector/nvector_serial.h>
 
-#ifdef USE_OPENMP
+#if defined(USE_OPENMP) || defined(USE_CVODE_OPENMP)
 #include <omp.h>
 #endif
 
@@ -80,6 +80,8 @@ void ODESolver::initialize()
       {
 
         m_cvodeSolver = CVodeCreate(CV_ADAMS, CV_FUNCTIONAL);
+        CVodeSetMaxHnilWarns(m_cvodeSolver,0);
+
         m_solver = &ODESolver::solveCVODE;
 
 #ifdef USE_CVODE_OPENMP
@@ -100,6 +102,7 @@ void ODESolver::initialize()
       {
 
         m_cvodeSolver = CVodeCreate(CV_BDF, CV_FUNCTIONAL);
+        CVodeSetMaxHnilWarns(m_cvodeSolver,0);
         m_solver = &ODESolver::solveCVODE;
 
 #ifdef USE_CVODE_OPENMP
@@ -517,9 +520,6 @@ int ODESolver::solveCVODE(double y[], int n, double t, double dt, double yout[],
   CVodeGetNumSteps(m_cvodeSolver, &currentIterations);
 
   m_currentIterations = currentIterations;
-
-  if(m_print)
-    N_VPrint_Serial(ycvout);
 
 #ifdef USE_CVODE_OPENMP
   N_VDestroy_OpenMP(ycvout);

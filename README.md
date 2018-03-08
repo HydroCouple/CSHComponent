@@ -6,59 +6,7 @@ A one-dimensional stream heat and solute transport model.
 ## Input File Specification
 ---------------------------------------
 
-The STMComponent requires two input files. The first input file defines the spatial descritzation for the model and is defined using the SWMM input file format. The second input file is used to specify the hydrodynamic parameters, initial conditions, boundary conditions, and time varying hydraulic inputs. The conventions for the second file are similar to the SWMM file conventions and are as follows:
-
-```
-[OPTIONS]
-ADVECTION_MODE UPWIND/CENTRAL/HYBRID/etc
-START_DATETIME month/day/year hour/minute/second
-END_DATETIME month/day/year hour/minute/second
-REPORT_INTERVAL seconds
-MAX_TIME_STEP seconds
-MIN_TIME_STEP seconds
-NUM_INITIAL_FIXED_STEPS value
-USE_ADAPTIVE_TIME_STEP YES/NO
-TIME_STEP_RELAXATION_FACTOR value
-WATER_DENSITY value
-WATER_SPECIFIC_HEAT_CAPACITY value
-NUM_SOLUTES value
-VERBOSE YES/NO
-NUM_STEPS_PER_PRINT value
-
-[OUTPUTS]
-CSV "CSV output file path"
-netCDF "NetCDF output file path"
-
-[SOLUTES]
-;;SOLUTE_NAME
-;;=================================================
-
-[INITIAL_CONDITIONS]
-;;CONDUIT    FLOW    XSECTION_AREA    DEPTH    WIDTH   TEMPERATURE    SOLUTE1    SOLUTE2
-;;=======================================================================================
-
-[BOUNDARY_CONDITIONS]
-;;JUNCTION  TEMPERATURE SOLUTE1 SOLUTE2
-;;=====================================
-
-[POINT_SOURCES]
-;;CONDUIT  HEAT_FLUX SOLUTE1_FLUX SOLUTE2_FLUX
-;;============================================
-
-
-[NON_POINT_SOURCES]
-;;START_CONDUIT  END_CONDUIT  HEAT_FLUX_PER_UNIT_LENGTH SOLUTE1_FLUX_PER_UNIT_LENGTH
-;;==================================================================================
-
-[TIME_VARYING_HYDRAULICS]
-csvfile path
-```
-As with SWMM all lines beginning with ";;" are comment lines and will not be read. The time varying hydraulics input file is optional and can be provided in a csv format with the following conventions:
-
-```
-Conduit, DateTime           , Flow, Cross-sectional Area, Depth, Width
-C1     , 02/02/2018 02/02/45, 2   , 0.1                 , 0.1  , 0.1
-```
+The STMComponent can be initialized from an input file described in the documents or initialized programmatically as shown in the following code.
 
 ## Sample Code
 ---------------------------------------
@@ -144,3 +92,6 @@ C1     , 02/02/2018 02/02/45, 2   , 0.1                 , 0.1  , 0.1
     delete model;
 
 ```
+
+## Publications
+---------------------------------------
