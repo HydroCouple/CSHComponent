@@ -21,9 +21,15 @@
 #include "stdafx.h"
 #include "odesolver.h"
 
+#ifdef USE_CVODE
 #include <cvode/cvode.h>
-#include <nvector/nvector_openmp.h>
 #include <nvector/nvector_serial.h>
+#endif
+
+#ifdef USE_CVODE_OPENMP
+    #include <nvector/nvector_openmp.h>
+#endif
+
 
 #if defined(USE_OPENMP) || defined(USE_CVODE_OPENMP)
 #include <omp.h>

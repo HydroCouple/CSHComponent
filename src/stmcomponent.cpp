@@ -67,6 +67,7 @@ void STMComponent::createArguments()
 bool STMComponent::initializeArguments(QString &message)
 {
 
+  return true;
 }
 
 void STMComponent::createInputs()

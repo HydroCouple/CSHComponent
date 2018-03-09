@@ -123,6 +123,7 @@ void Element::initializeSolutes()
     delete[] prevSoluteConcs; prevSoluteConcs = nullptr;
     delete[] externalSoluteFluxes; externalSoluteFluxes = nullptr;
     delete[] soluteMassBalance; soluteMassBalance = nullptr;
+    
   }
 
   if(model->m_solutes.size() > 0)
@@ -652,6 +653,7 @@ double Element::computeDSoluteDtHybrid(double dt, double S[], int soluteIndex)
 double Element::computeDSoluteDtTVD(double dt, double S[], int soluteIndex)
 {
 
+    return 0.0;
 }
 
 double Element::computeCourantFactor() const
@@ -715,6 +717,7 @@ void Element::computeDownstreamPeclet()
 
 void Element::computeHeatBalance()
 {
+  //KJ
   heatBalance +=  model->m_waterDensity * model->m_cp * xSectionArea * length * (temperature.value - prevTemperature.value) / 1000.000;
 }
 

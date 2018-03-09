@@ -11,6 +11,12 @@ QT -= gui
 QT += testlib
 
 
+#Added for faster compilation
+*msvc* { # visual studio spec filter
+      QMAKE_CXXFLAGS += /MP /O2
+  }
+
+
 #DEFINES += STMCOMPONENT_LIBRARY
 #DEFINES += USE_OPENMP
 DEFINES += USE_MPI
@@ -59,7 +65,7 @@ HEADERS += ./include/stdafx.h\
            ./include/radiativefluxtimeseriesbc.h \
            ./include/hydraulicstimeseriesbc.h \
            ./include/pointsrctimeseriesbc.h \
-    include/nonpointsrctimeseriesbc.h
+           ./include/nonpointsrctimeseriesbc.h
 
 SOURCES +=./src/stdafx.cpp \
           ./src/stmcomponent.cpp \
@@ -77,7 +83,7 @@ SOURCES +=./src/stdafx.cpp \
           ./src/radiativefluxtimeseriesbc.cpp \
           ./src/hydraulicstimeseriesbc.cpp \
           ./src/pointsrctimeseriesbc.cpp \
-    src/nonpointsrctimeseriesbc.cpp
+          ./src/nonpointsrctimeseriesbc.cpp
 
 
 macx{
@@ -86,19 +92,14 @@ macx{
                    /usr/local/include
 
     contains(DEFINES, USE_CVODE){
-
     message("CVODE enabled")
-
     INCLUDEPATH += ../cvode-3.1.0/include
     LIBS += -L/usr/local/lib -lsundials_cvode
-
     }
 
     contains(DEFINES, USE_NETCDF){
-
     message("NetCDF enabled")
     LIBS += -L/usr/local/lib -lnetcdf-cxx4
-
     }
 
     contains(DEFINES,USE_OPENMP){
@@ -178,11 +179,43 @@ INCLUDEPATH += /usr/include \
 
 win32{
 
+    #Windows vspkg package manager installation path
+    VSPKGDIR = C:/vcpkg/installed/x64-windows
+
+    INCLUDEPATH += $${VSPKGDIR}/include \
+                   $${VSPKGDIR}/include/gdal
+
+    CONFIG(debug, debug|release) {
+    LIBS += -L$${VSPKGDIR}/debug/lib -lgdald
+        } else {
+    LIBS += -L$${VSPKGDIR}/lib -lgdal
+    }
+
+    contains(DEFINES, USE_CVODE){
+    message("CVODE enabled")
+    CONFIG(debug, debug|release) {
+        LIBS += -L$${VSPKGDIR}/debug/lib -lsundials_cvode
+        } else {
+        LIBS += -L$${VSPKGDIR}/lib -lsundials_cvode
+        }
+    }
+
+    contains(DEFINES, USE_NETCDF){
+    message("NetCDF enabled")
+    CONFIG(release, debug|release) {
+        LIBS += -L$${VSPKGDIR}/lib -lnetcdf \
+                -L$${VSPKGDIR}/lib -lnetcdf-cxx4
+        } else {
+        LIBS += -L$${VSPKGDIR}/debug/lib -lnetcdf \
+                -L$${VSPKGDIR}/debug/lib -lnetcdf-cxx4
+        }
+    }
+
     contains(DEFINES,USE_OPENMP){
 
-        QMAKE_CFLAGS += -openmp
-        QMAKE_LFLAGS += -openmp
-        QMAKE_CXXFLAGS += -openmp
+        QMAKE_CFLAGS += /openmp
+        QMAKE_LFLAGS += /openmp
+        QMAKE_CXXFLAGS += /openmp
         QMAKE_CXXFLAGS_RELEASE = $$QMAKE_CXXFLAGS
         QMAKE_CXXFLAGS_DEBUG = $$QMAKE_CXXFLAGS
 
