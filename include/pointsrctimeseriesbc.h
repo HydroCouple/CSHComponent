@@ -36,6 +36,10 @@ class STMCOMPONENT_EXPORT PointSrcTimeSeriesBC : public AbstractTimeSeriesBC
 
     void applyBoundaryConditions(double dateTime) override final;
 
+    Element *element() const;
+
+    void setElement(Element *element);
+
   private:
 
     Element *m_element;

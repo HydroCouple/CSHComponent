@@ -28,7 +28,7 @@ class STMCOMPONENT_EXPORT JunctionTimeSeriesBC : public AbstractTimeSeriesBC
 {
   public:
 
-    JunctionTimeSeriesBC(ElementJunction *junction, int variableIndex, STMModel *model);
+    JunctionTimeSeriesBC(ElementJunction *elementJunction, int variableIndex, STMModel *model);
 
     virtual ~JunctionTimeSeriesBC();
 
@@ -38,9 +38,13 @@ class STMCOMPONENT_EXPORT JunctionTimeSeriesBC : public AbstractTimeSeriesBC
 
     void applyBoundaryConditions(double dateTime) override final;
 
+    ElementJunction *elementJunction() const;
+
+    void setElementJunction(ElementJunction *elementJunction);
+
   private:
 
-    ElementJunction *m_junction;
+    ElementJunction *m_elementJunction;
     int m_variableIndex;
 };
 

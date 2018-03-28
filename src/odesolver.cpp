@@ -264,6 +264,8 @@ int ODESolver::rk4(double y[], int n, double t, double dt, double yout[], Comput
     yout[i] = y[i] + dt6 * (dydt[i] + dyt[i] + 2.0 * dym[i]); //weights.
   }
 
+  m_currentIterations = 1;
+
   delete[] yt;
   delete[] dyt;
   delete[] dym;

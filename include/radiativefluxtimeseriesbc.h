@@ -26,7 +26,7 @@ class STMCOMPONENT_EXPORT RadiativeFluxTimeSeriesBC : public AbstractTimeSeriesB
 {
   public:
 
-    RadiativeFluxTimeSeriesBC(Element *startElement, Element *endElement, STMModel *model);
+    RadiativeFluxTimeSeriesBC(Element *element, STMModel *model);
 
     virtual ~RadiativeFluxTimeSeriesBC();
 
@@ -36,9 +36,44 @@ class STMCOMPONENT_EXPORT RadiativeFluxTimeSeriesBC : public AbstractTimeSeriesB
 
     void applyBoundaryConditions(double dateTime) override final;
 
+    Element *element() const;
+
+    void setElement(Element *element);
+
   private:
+
+    Element *m_element;
+
+};
+
+
+class STMCOMPONENT_EXPORT UniformRadiativeFluxTimeSeriesBC : public AbstractTimeSeriesBC
+{
+  public:
+
+    UniformRadiativeFluxTimeSeriesBC(Element *startElement, Element *endElement, STMModel *model);
+
+    virtual ~UniformRadiativeFluxTimeSeriesBC();
+
+    void  findAssociatedGeometries() override final;
+
+    void prepare() override final;
+
+    void applyBoundaryConditions(double dateTime) override final;
+
+    Element *startElement() const;
+
+    void setStartElement(Element *element);
+
+    Element *endElement() const;
+
+    void setEndElement(Element *element);
+
+  private:
+
     std::list<Element*> m_profile;
     Element *m_startElement, *m_endElement;
+
 };
 
 

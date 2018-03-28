@@ -26,7 +26,9 @@ class STMCOMPONENT_EXPORT NonPointSrcTimeSeriesBC : public AbstractTimeSeriesBC
 {
   public:
 
-    NonPointSrcTimeSeriesBC(Element *startElement, Element *endElement, int variableIndex, STMModel *model);
+    NonPointSrcTimeSeriesBC(Element *startElement, double startElementLFactor,
+                            Element *endElement, double endElementLFactor,
+                            int variableIndex, STMModel *model);
 
     virtual ~NonPointSrcTimeSeriesBC();
 
@@ -36,9 +38,26 @@ class STMCOMPONENT_EXPORT NonPointSrcTimeSeriesBC : public AbstractTimeSeriesBC
 
     void applyBoundaryConditions(double dateTime) override final;
 
+    Element *startElement() const;
+
+    void setStartElement(Element *element);
+
+    double startElementLFactor() const;
+
+    void setStartElementLFactor(double factor);
+
+    Element *endElement() const;
+
+    void setEndElement(Element *element);
+
+    double endElementLFactor() const;
+
+    void setEndElementLFactor(double factor);
+
   private:
     std::list<Element*> m_profile;
     Element *m_startElement, *m_endElement;
+    double m_startElementLFactor, m_endElementLFactor;
     int m_variableIndex;
 };
 

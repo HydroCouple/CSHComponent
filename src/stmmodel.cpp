@@ -47,7 +47,10 @@ STMModel::STMModel(STMComponent *component)
     m_numHeatElementJunctions(0),
     m_heatSolver(nullptr),
     m_waterDensity(1000.0), //kg/m^3
-    m_cp(4187.0), //4187.0 J/kg/C
+    m_cp(4184.0), //4187.0 J/kg/C
+    m_evapWindFuncCoeffA(1.505e-8),
+    m_evapWindFuncCoeffB(1.600e-8),
+    m_bowensCoeff(0.06266151315),
     #ifdef USE_NETCDF
     m_outputNetCDF(nullptr),
     #endif
@@ -247,7 +250,9 @@ void STMModel::setNumSolutes(int numSolutes)
     m_solutes.resize(numSolutes);
     m_maxSolute.resize(numSolutes);
     m_minSolute.resize(numSolutes);
-    m_soluteMassBalance.resize(numSolutes);
+    m_totalSoluteMassBalance.resize(numSolutes);
+    m_totalAdvDispSoluteMassBalance.resize(numSolutes);
+    m_totalExternalSoluteFluxMassBalance.resize(numSolutes);
 
     for(size_t i = 0 ; i < m_solutes.size(); i++)
     {

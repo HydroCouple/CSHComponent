@@ -37,11 +37,46 @@ class STMCOMPONENT_EXPORT HydraulicsTimeSeriesBC : public AbstractTimeSeriesBC
 
     void applyBoundaryConditions(double dateTime) override final;
 
+    Element *element() const;
+
+    void setElement(Element *element);
+
   private:
 
     Element *m_element;
     int m_variableIndex;
 };
+
+class STMCOMPONENT_EXPORT UniformHydraulicsTimeSeriesBC : public AbstractTimeSeriesBC
+{
+  public:
+
+    UniformHydraulicsTimeSeriesBC(Element *startElement, Element *endElement, int variableIndex, STMModel *model);
+
+    virtual ~UniformHydraulicsTimeSeriesBC();
+
+    void  findAssociatedGeometries() override final;
+
+    void prepare() override final;
+
+    void applyBoundaryConditions(double dateTime) override final;
+
+    Element *startElement() const;
+
+    void setStartElement(Element *element);
+
+    Element *endElement() const;
+
+    void setEndElement(Element *element);
+
+  private:
+    std::list<Element*> m_profile;
+    Element *m_startElement, *m_endElement;
+    int m_variableIndex;
+
+};
+
+
 
 
 #endif // HYDRAULICSTIMESERIESBC_H

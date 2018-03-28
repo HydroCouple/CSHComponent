@@ -335,30 +335,28 @@ void STMComponentTest::versteegCase1_Upwind()
   QBENCHMARK_ONCE
   {
 
-//    //Error messages
-//    std::list<std::string> errors;
+    //Error messages
+    std::list<std::string> errors;
 
-//    //Stream temperature model instance
-//    STMModel *model = new STMModel(nullptr);
+    //Stream temperature model instance
+    STMModel *model = new STMModel(nullptr);
 
-//    model->setInputFile(QFileInfo("../../examples/Versteeg/case1/versteegcase1_upwind.inp"));
+    model->setInputFile(QFileInfo("../../examples/Versteeg/case1/versteegcase1_upwind.inp"));
 
-//    //initialize model
-//    if(model->initialize(errors))
-//    {
-//      //Perform timestep until completion
-//      while (model->currentDateTime() < model->endDateTime())
-//      {
-//        model->update();
-//      }
-//    }
+    //initialize model
+    if(model->initialize(errors))
+    {
+      //Perform timestep until completion
+      while (model->currentDateTime() < model->endDateTime())
+      {
+        model->update();
+      }
+    }
 
-//    //compare results
+    //finalize model
+    model->finalize(errors);
 
-//    //finalize model
-//    model->finalize(errors);
-
-//    delete model;
+    delete model;
   }
 }
 
@@ -595,8 +593,6 @@ void STMComponentTest::versteegCase2_Upwind()
     //initialize model
     if(model->initialize(errors))
     {
-
-
       //Perform timestep until completion
       while (model->currentDateTime() < model->endDateTime())
       {
@@ -789,13 +785,90 @@ void STMComponentTest::green_river_test()
   QBENCHMARK_ONCE
   {
 
+    //    //Error messages
+    //    std::list<std::string> errors;
+
+    //    //Stream temperature model instance
+    //    STMModel *model = new STMModel(nullptr);
+
+    //    model->setInputFile(QFileInfo("../../examples/green_river_test/green_river_test.inp"));
+
+    //    //initialize model
+    //    if(model->initialize(errors))
+    //    {
+    //      //Perform timestep until completion
+    //      while (model->currentDateTime() < model->endDateTime())
+    //      {
+    //        model->update();
+    //      }
+    //    }
+    //    else
+    //    {
+    //      for(std::string error : errors)
+    //      {
+    //        printf("%s\n", error.c_str());
+    //      }
+    //    }
+
+
+    //    //compare results
+
+    //    //finalize model
+    //    model->finalize(errors);
+
+    //    delete model;
+  }
+}
+
+void STMComponentTest::green_river_test1()
+{
+  QBENCHMARK_ONCE
+  {
+
+    //    //Error messages
+    //    std::list<std::string> errors;
+
+    //    //Stream temperature model instance
+    //    STMModel *model = new STMModel(nullptr);
+
+    //    model->setInputFile(QFileInfo("../../examples/green_river_test1/green_river_test1.inp"));
+
+    //    //initialize model
+    //    if(model->initialize(errors))
+    //    {
+    //      //Perform timestep until completion
+    //      while (model->currentDateTime() < model->endDateTime())
+    //      {
+    //        model->update();
+    //      }
+    //    }
+    //    else
+    //    {
+    //      for(std::string error : errors)
+    //      {
+    //        printf("%s\n", error.c_str());
+    //      }
+    //    }
+
+    //    //finalize model
+    //    model->finalize(errors);
+
+    //    delete model;
+  }
+}
+
+void STMComponentTest::green_river_test2()
+{
+  QBENCHMARK_ONCE
+  {
+
     //Error messages
     std::list<std::string> errors;
 
     //Stream temperature model instance
     STMModel *model = new STMModel(nullptr);
 
-    model->setInputFile(QFileInfo("../../examples/green_river_test/green_river_test.inp"));
+    model->setInputFile(QFileInfo("../../examples/green_river_test2/green_river_test2.inp"));
 
     //initialize model
     if(model->initialize(errors))
@@ -806,8 +879,13 @@ void STMComponentTest::green_river_test()
         model->update();
       }
     }
-
-    //compare results
+    else
+    {
+      for(std::string error : errors)
+      {
+        printf("%s\n", error.c_str());
+      }
+    }
 
     //finalize model
     model->finalize(errors);

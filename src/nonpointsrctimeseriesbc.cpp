@@ -21,10 +21,14 @@
 #include "element.h"
 #include "stmmodel.h"
 
-NonPointSrcTimeSeriesBC::NonPointSrcTimeSeriesBC(Element *startElement, Element *endElement, int variableIndex, STMModel *model)
+NonPointSrcTimeSeriesBC::NonPointSrcTimeSeriesBC(Element *startElement, double startElementLFactor,
+                                                 Element *endElement, double endElementLFactor,
+                                                 int variableIndex, STMModel *model)
   :AbstractTimeSeriesBC(model),
    m_startElement(startElement),
    m_endElement(endElement),
+   m_startElementLFactor(startElementLFactor),
+   m_endElementLFactor(endElementLFactor),
    m_variableIndex(variableIndex)
 {
 
@@ -59,15 +63,88 @@ void NonPointSrcTimeSeriesBC::applyBoundaryConditions(double dateTime)
       case -1:
         for(Element *element : m_profile)
         {
-          element->externalHeatFluxes += value * element->length;
+          if(element == m_startElement)
+          {
+            element->externalHeatFluxes += value * element->length * m_endElementLFactor;
+
+          }
+          else if(element == m_endElement)
+          {
+            element->externalHeatFluxes += value * element->length * m_endElementLFactor;
+          }
+          else
+          {
+            element->externalHeatFluxes += value * element->length;
+          }
         }
         break;
       default:
         for(Element *element : m_profile)
         {
+          if(element == m_startElement)
+          {
+            element->externalSoluteFluxes[m_variableIndex] += value * element->length * m_endElementLFactor;
+
+          }
+          else if(element == m_endElement)
+          {
+            element->externalSoluteFluxes[m_variableIndex] += value * element->length * m_endElementLFactor;
+          }
+          else
+          {
+            element->externalSoluteFluxes[m_variableIndex] += value * element->length;
+          }
+
           element->externalSoluteFluxes[m_variableIndex] += value * element->length;
         }
         break;
     }
   }
+}
+
+
+Element *NonPointSrcTimeSeriesBC::startElement() const
+{
+  return m_startElement;
+}
+
+void NonPointSrcTimeSeriesBC::setStartElement(Element *element)
+{
+  m_startElement = element;
+}
+
+
+double NonPointSrcTimeSeriesBC::startElementLFactor() const
+{
+  return m_startElementLFactor;
+}
+
+
+void NonPointSrcTimeSeriesBC::setStartElementLFactor(double factor)
+{
+  m_startElementLFactor = factor;
+}
+
+
+Element *NonPointSrcTimeSeriesBC::endElement() const
+{
+  return m_endElement;
+}
+
+
+void NonPointSrcTimeSeriesBC::setEndElement(Element *element)
+{
+  m_endElement = element;
+}
+
+
+double NonPointSrcTimeSeriesBC::endElementLFactor() const
+{
+  return m_endElementLFactor;
+}
+
+
+void NonPointSrcTimeSeriesBC::setEndElementLFactor(double factor)
+{
+  m_endElementLFactor = factor;
 }

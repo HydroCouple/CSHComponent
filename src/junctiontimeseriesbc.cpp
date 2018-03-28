@@ -20,10 +20,10 @@
 #include "junctiontimeseriesbc.h"
 #include "elementjunction.h"
 
-JunctionTimeSeriesBC::JunctionTimeSeriesBC(ElementJunction *junction, int variableIndex, STMModel *model)
+JunctionTimeSeriesBC::JunctionTimeSeriesBC(ElementJunction *elementJunction, int variableIndex, STMModel *model)
   :AbstractTimeSeriesBC(model),
-   m_junction(junction),
-   m_variableIndex(variableIndex)
+    m_elementJunction(elementJunction),
+    m_variableIndex(variableIndex)
 {
 
 }
@@ -43,11 +43,13 @@ void JunctionTimeSeriesBC::prepare()
   switch (m_variableIndex)
   {
     case -1:
-      m_junction->temperature.isBC = true;
+      {
+        m_elementJunction->temperature.isBC = true;
+      }
       break;
     default:
       {
-        m_junction->soluteConcs[m_variableIndex].isBC = true;
+        m_elementJunction->soluteConcs[m_variableIndex].isBC = true;
       }
       break;
   }
@@ -63,13 +65,25 @@ void JunctionTimeSeriesBC::applyBoundaryConditions(double dateTime)
     switch (m_variableIndex)
     {
       case -1:
-        m_junction->temperature.value = value;
+        {
+          m_elementJunction->temperature.value = value;
+        }
         break;
       default:
         {
-          m_junction->soluteConcs[m_variableIndex].value = value;
+          m_elementJunction->soluteConcs[m_variableIndex].value = value;
         }
         break;
     }
   }
+}
+
+ElementJunction *JunctionTimeSeriesBC::elementJunction() const
+{
+  return m_elementJunction;
+}
+
+void JunctionTimeSeriesBC::setElementJunction(ElementJunction *elementJunction)
+{
+  m_elementJunction = elementJunction;
 }

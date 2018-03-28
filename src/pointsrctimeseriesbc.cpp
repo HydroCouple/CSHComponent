@@ -63,3 +63,8 @@ void PointSrcTimeSeriesBC::applyBoundaryConditions(double dateTime)
     }
   }
 }
+
+Element *PointSrcTimeSeriesBC::element() const
+{
+  return m_element;
+}

@@ -43,7 +43,7 @@ typedef double (Element::*ComputeSoluteAdv)(double dt, double S[], int soluteInd
 /*!
  * \brief This struct represents the channel control volume
  */
-struct  STMCOMPONENT_EXPORT Element
+struct STMCOMPONENT_EXPORT Element
 {
     /*!
     * \brief Element - Creates an instance of the control volume element used to represent a computational
@@ -156,6 +156,56 @@ struct  STMCOMPONENT_EXPORT Element
    double slope;
 
    /*!
+    * \brief relativeHumidity
+    */
+   double relativeHumidity;
+
+   /*!
+    * \brief evaporationRate
+    */
+   double evaporationRate;
+
+   /*!
+    * \brief evaporationHeatFlux
+    */
+   double evaporationHeatFlux;
+
+   /*!
+    * \brief saturationVaporPressure
+    */
+   double saturationVaporPressure;
+
+   /*!
+    * \brief saturationVaporPressure
+    */
+   double saturationVaporPressureWater;
+
+   /*!
+    * \brief vaporPressure
+    */
+   double vaporPressure;
+
+   /*!
+    * \brief vaporPressureWater
+    */
+   double vaporPressureWater;
+
+   /*!
+    * \brief windVelocity
+    */
+   double windSpeed;
+
+   /*!
+    * \brief airTemperature
+    */
+   double airTemperature;
+
+   /*!
+    * \brief convectionHeatFlux
+    */
+   double convectionHeatFlux;
+
+   /*!
     * \brief externalHeatFluxes of J / s
     */
    double externalHeatFluxes;
@@ -173,12 +223,47 @@ struct  STMCOMPONENT_EXPORT Element
    /*!
     * \brief heatBalance
     */
-   double heatBalance;
+   double totalHeatBalance;
+
+   /*!
+    * \brief totalAdvDispHeatBalance
+    */
+   double totalAdvDispHeatBalance;
+
+   /*!
+    * \brief totalRadiationHeatBalance
+    */
+   double totalRadiationFluxesHeatBalance;
+
+   /*!
+    * \brief totalExternalHeatFluxesBalance
+    */
+   double totalExternalHeatFluxesBalance;
+
+   /*!
+    * \brief totalEvaporativeHeatFluxesBalance
+    */
+   double totalEvaporativeHeatFluxesBalance;
+
+   /*!
+    * \brief totalConvectiveHeatFluxesBalance
+    */
+   double totalConvectiveHeatFluxesBalance;
 
    /*!
     * \brief soluteMassBalance
     */
-   double *soluteMassBalance;
+   double *totalSoluteMassBalance;
+
+   /*!
+    * \brief totalAdvDispSoluteMassBalance
+    */
+   double *totalAdvDispSoluteMassBalance;
+
+   /*!
+    * \brief totalExternalSoluteFluxesMassBalance
+    */
+   double *totalExternalSoluteFluxesMassBalance;
 
    /*!
     * \brief pecletNumber
@@ -270,6 +355,22 @@ struct  STMCOMPONENT_EXPORT Element
    double computeDTDtTVD(double dt, double T[]);
 
    /*!
+    * \brief computeEvaporation
+    * \param dt
+    * \param T
+    * \return
+    */
+   double computeDTDtEvaporation(double dt, double T[]);
+
+   /*!
+    * \brief computeConvection
+    * \param dt
+    * \param T
+    * \return
+    */
+   double computeDTDtConvection(double dt, double T[]);
+
+   /*!
     * \brief computeDSoluteDt
     * \param dt
     * \param S
@@ -358,13 +459,13 @@ struct  STMCOMPONENT_EXPORT Element
    /*!
     * \brief computeHeatBalance
     */
-   void computeHeatBalance();
+   void computeHeatBalance(double timeStep);
 
    /*!
     * \brief computeSoluteBalance
     * \param soluteIndex
     */
-   void computeSoluteBalance(int soluteIndex);
+   void computeSoluteBalance(double timeStep, int soluteIndex);
 
   private:
 

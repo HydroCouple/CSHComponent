@@ -56,8 +56,10 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
 
     friend struct ElementJunction;
     friend struct Element;
-    friend class RadiativeFluxTimeSeriesBC;
+    friend class UniformRadiativeFluxTimeSeriesBC;
     friend class NonPointSrcTimeSeriesBC;
+    friend class UniformHydraulicsTimeSeriesBC;
+    friend class UniformMeteorologyTimeSeriesBC;
 
   public:
 
@@ -140,37 +142,37 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
     double timeStepRelaxationFactor() const;
 
     /*!
-     * \brief setTimeStepRelaxationFactor
+     * \brief setTimeStepRelaxationFactor - Adaptive time-step relaxation factor
      * \param tStepRelaxFactor
      */
     void setTimeStepRelaxationFactor(double tStepRelaxFactor);
 
     /*!
-     * \brief currentTimeStep
+     * \brief currentTimeStep - Current time step in seconds
      * \return
      */
     double currentTimeStep() const;
 
     /*!
-     * \brief startDateTime
+     * \brief startDateTime - Start date and time specified as a modified julian date
      * \return
      */
     double startDateTime() const;
 
     /*!
-     * \brief setStartDate
-     * \param dateTime
+     * \brief setStartDate - Sets the value of the start date and time
+     * \param dateTime - Start date and time specified as modified julian date
      */
     void setStartDateTime(double dateTime);
 
     /*!
-     * \brief endDateTime
+     * \brief endDateTime - End datetime specified as
      * \return
      */
     double endDateTime() const;
 
     /*!
-     * \brief setEndDateTime
+     * \brief setEndDateTime Sets the value of the end datetime
      * \param dateTime
      */
     void setEndDateTime(double dateTime);
@@ -617,10 +619,10 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
     bool readInputFileSolutesTag(const QString &line, QString &errorMessage);
 
     /*!
-     * \brief readInputFileJunctionsTag
+     * \brief readInputFileElementJunctionsTag
      * \param line
      */
-    bool readInputFileJunctionsTag(const QString &line, QString &errorMessage);
+    bool readInputFileElementJunctionsTag(const QString &line, QString &errorMessage);
 
     /*!
      * \brief readInputFileElementsTag
@@ -647,10 +649,18 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
     bool readInputFileNonPointSourcesTag(const QString &line, QString &errorMessage);
 
     /*!
-     * \brief readInputFileTimeVaryingHydraulicsTag
+     * \brief readInputFileUniformHydraulicsTag
+     * \param line
+     * \param errorMessage
+     * \return
+     */
+    bool readInputFileUniformHydraulicsTag(const QString &line, QString &errorMessage);
+
+    /*!
+     * \brief readInputFileNonUniformHydraulicsTag
      * \param line
      */
-    bool readInputFileTimeVaryingHydraulicsTag(const QString &line, QString &errorMessage);
+    bool readInputFileNonUniformHydraulicsTag(const QString &line, QString &errorMessage);
 
     /*!
      * \brief readInputFileRadiativeFluxesTag
@@ -658,7 +668,31 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
      * \param errorMessage
      * \return
      */
-    bool readInputFileRadiativeFluxesTag(const QString &line, QString &errorMessage);
+    bool readInputFileUniformRadiativeFluxesTag(const QString &line, QString &errorMessage);
+
+    /*!
+     * \brief readInputFileNonUniformRadiativeFluxesTag
+     * \param line
+     * \param errorMessage
+     * \return
+     */
+    bool readInputFileNonUniformRadiativeFluxesTag(const QString &line, QString &errorMessage);
+
+    /*!
+     * \brief readInputFileUniformMeteorologyTag
+     * \param line
+     * \param errorMessage
+     * \return
+     */
+    bool readInputFileUniformMeteorologyTag(const QString &line, QString &errorMessage);
+
+    /*!
+     * \brief readInputFileNonUniformMeteorologyTag
+     * \param line
+     * \param errorMessage
+     * \return
+     */
+    bool readInputFileNonUniformMeteorologyTag(const QString &line, QString &errorMessage);
 
     /*!
      * \brief writeOutput
@@ -707,6 +741,14 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
     static bool readTimeSeries(const QFileInfo &fileInfo,  std::map<double, std::vector<double>>& timeSeriesValues, std::vector<std::string>& headers);
 
     /*!
+     * \brief tryParse
+     * \param dateTimeString
+     * \param dateTime
+     * \return
+     */
+    static bool tryParse(const QString &dateTimeString, QDateTime &dateTime);
+
+    /*!
      * \brief findProfile
      * \param from
      * \param to
@@ -721,10 +763,10 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
 
     //Time variables
     double m_timeStep, //seconds
-    m_startDateTime, //Julian Day
-    m_endDateTime, //Julian Day
-    m_currentDateTime, //Julian Day
-    m_prevDateTime, //Julian Day
+    m_startDateTime, //Modified Julian Day
+    m_endDateTime, //Modified Julian Day
+    m_currentDateTime, //Modified Julian Day
+    m_prevDateTime, //Modified Julian Day
     m_maxTimeStep, //seconds
     m_minTimeStep, //seconds
     m_outputInterval, //seconds
@@ -735,7 +777,9 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
 
     std::vector<double> m_maxSolute, //array for tracking maximum solute concentrations
     m_minSolute, //array for tracking minimum solute concentrations
-    m_soluteMassBalance; // Tracks mass balance of solutes (kg)
+    m_totalSoluteMassBalance, // Tracks total mass balance of solutes (kg)
+    m_totalAdvDispSoluteMassBalance, //Tracks total mass balance from advection and dispersion (kg)
+    m_totalExternalSoluteFluxMassBalance; //Tracks total mass balance from external sources (kg)
 
     int m_numInitFixedTimeSteps, //Number of initial fixed timeSteps of the minimum timestep to use when using the adaptive time step;
     m_numCurrentInitFixedTimeSteps, //Count number of initial minimum timesteps that have been used
@@ -748,7 +792,9 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
     bool m_computeDispersion, //Override user provided dispersion and compute dispersion based on Fisher
     m_useAdaptiveTimeStep, //Use the adaptive time step option
     m_verbose, //Print simulation information to console
-    m_flushToDisk; //Write output saved in memory to disk
+    m_flushToDisk, //Write output saved in memory to disk
+    m_useEvaporation,
+    m_useConvection;
 
     /*!
      * \brief m_advectionMode
@@ -777,14 +823,20 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
     //Global water properties
     double m_waterDensity, //kg/m^3
     m_cp,// 4187.0; // J/kg/C
-    m_heatBalance; //Tracks heat accumulation (J)
+    m_totalHeatBalance, //Tracks total heat accumulation (KJ)
+    m_totalRadiationHeatBalance, //Track total heat accumulation from radiation (KJ)
+    m_totalEvaporationHeatBalance, //Track total heat accumulation from evaporation (KJ)
+    m_totalConvectiveHeatBalance, //Track total heat accumulation from evaporation (KJ)
+    m_totalExternalHeatFluxBalance, //Track total heat accumulation from external heat sources (KJ)
+    m_totalAdvDispHeatBalance, //Tracks total heat accumulation from advection and dispersion (KJ)
+    m_evapWindFuncCoeffA, //Evaporation wind function coefficient
+    m_evapWindFuncCoeffB, //Evaporation wind function coefficient
+    m_bowensCoeff; //Bowen coefficient
 
     //File input and output
     QFileInfo m_inputFile, //Input filepath
     m_outputCSVFileInfo, //Output CSV filepath
     m_outputNetCDFFileInfo; //Output NetCDF filepath
-
-
 
 #ifdef USE_NETCDF
     netCDF::NcFile *m_outputNetCDF = nullptr; //NetCDF output file object
@@ -795,7 +847,10 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
     m_optionsFlags, //Input file flags
     m_advectionFlags, //Advection type flags
     m_solverTypeFlags, //Solver type flags
-    m_hydraulicVariableFlags;
+    m_hydraulicVariableFlags, //Hydraulic variable flags
+    m_meteorologicalVariableFlags; //Meteorology variables
+
+    static const QRegExp m_dateTimeDelim;
 
     QRegExp m_delimiters; //Regex delimiter
 
@@ -804,7 +859,6 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
 
     //Parent component
     STMComponent *m_component;
-
 };
 
 #endif // STMMODEL_H

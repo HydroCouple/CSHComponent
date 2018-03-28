@@ -33,6 +33,7 @@ ElementJunction::ElementJunction(const std::string &id, double x, double y, doub
     soluteConcs(nullptr),
     prevSoluteConcs(nullptr),
     longDispersion(0.0),
+    longDispersion_length(0.0),
     model(model)
 {
   initializeSolutes();
