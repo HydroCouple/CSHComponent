@@ -17,8 +17,9 @@ QT += testlib
   }
 
 
-#DEFINES += STMCOMPONENT_LIBRARY
+DEFINES += STMCOMPONENT_LIBRARY
 #DEFINES += USE_OPENMPRV
+DEFINES += USE_OPENMP
 DEFINES += USE_MPI
 DEFINES += USE_CVODE
 DEFINES += USE_NETCDF
@@ -66,7 +67,9 @@ HEADERS += ./include/stdafx.h\
            ./include/hydraulicstimeseriesbc.h \
            ./include/pointsrctimeseriesbc.h \
            ./include/nonpointsrctimeseriesbc.h \
-           ./include/meteorologytimeseriesbc.h
+           ./include/meteorologytimeseriesbc.h \
+           ./include/elementinput.h \
+           ./include/elementoutput.h
 
 SOURCES +=./src/stdafx.cpp \
           ./src/stmcomponent.cpp \
@@ -85,7 +88,9 @@ SOURCES +=./src/stdafx.cpp \
           ./src/hydraulicstimeseriesbc.cpp \
           ./src/pointsrctimeseriesbc.cpp \
           ./src/nonpointsrctimeseriesbc.cpp \
-          ./src/meteorologytimeseriesbc.cpp
+          ./src/meteorologytimeseriesbc.cpp \
+          ./src/elementinput.cpp \
+          ./src/elementoutput.cpp
 
 
 macx{

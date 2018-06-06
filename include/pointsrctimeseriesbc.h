@@ -26,7 +26,14 @@ class STMCOMPONENT_EXPORT PointSrcTimeSeriesBC : public AbstractTimeSeriesBC
 {
   public:
 
-    PointSrcTimeSeriesBC(Element *element, int variableIndex, STMModel *model);
+    enum VariableType
+    {
+      HeatSource,
+      FlowSource,
+      SoluteSource,
+    };
+
+    PointSrcTimeSeriesBC(Element *element, VariableType variableType, STMModel *model);
 
     virtual ~PointSrcTimeSeriesBC();
 
@@ -40,10 +47,14 @@ class STMCOMPONENT_EXPORT PointSrcTimeSeriesBC : public AbstractTimeSeriesBC
 
     void setElement(Element *element);
 
-  private:
+    int soluteIndex() const;
 
+    void setSoluteIndex(int soluteIndex);
+
+  private:
     Element *m_element;
-    int m_variableIndex;
+    VariableType m_variableType;
+    int m_soluteIndex;
 };
 
 

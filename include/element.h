@@ -30,6 +30,7 @@ struct Element;
 struct ElementJunction;
 class STMModel;
 
+
 /*!
  *\brief Function pointer to calculate temperature advection to eliminate costly if else function calls
  */
@@ -86,12 +87,12 @@ struct STMCOMPONENT_EXPORT Element
    double z;
 
    /*!
-    * \brief temperature
+    * \brief temperature (°C)
     */
    Variable temperature;
 
    /*!
-    * \brief prevTemperature
+    * \brief prevTemperature (°C)
     */
    Variable prevTemperature;
 
@@ -101,17 +102,17 @@ struct STMCOMPONENT_EXPORT Element
    int numSolutes = 0;
 
    /*!
-    * \brief soluteConcs
+    * \brief soluteConcs (kg/m^3)
     */
    Variable *soluteConcs;
 
    /*!
-    * \brief prevSoluteConcs
+    * \brief prevSoluteConcs (kg/m^3)
     */
    Variable *prevSoluteConcs;
 
    /*!
-    * \brief longDispersion
+    * \brief longDispersion (m^2/s)
     */
    Variable longDispersion;
 
@@ -126,27 +127,27 @@ struct STMCOMPONENT_EXPORT Element
    ElementJunction *downstreamJunction;
 
    /*!
-    * \brief length
+    * \brief length (m)
     */
    double length;
 
    /*!
-    * \brief depth
+    * \brief depth (m)
     */
    double depth;
 
    /*!
-    * \brief xSectionArea
+    * \brief xSectionArea (m^2)
     */
    double xSectionArea;
 
    /*!
-    * \brief width
+    * \brief width (m)
     */
    double width;
 
    /*!
-    * \brief flow
+    * \brief flow (m^3/s)
     */
    double flow;
 
@@ -155,113 +156,121 @@ struct STMCOMPONENT_EXPORT Element
     */
    double slope;
 
+
    /*!
-    * \brief relativeHumidity
+    * \brief relativeHumidity (%)
     */
    double relativeHumidity;
 
+
    /*!
-    * \brief evaporationRate
+    * \brief windFunction
+    */
+   double windFunction;
+
+   /*!
+    * \brief evaporationRate (m/s)
     */
    double evaporationRate;
 
    /*!
-    * \brief evaporationHeatFlux
+    * \brief evaporationHeatFlux J/s
     */
    double evaporationHeatFlux;
 
    /*!
-    * \brief saturationVaporPressure
+    * \brief saturationVaporPressure (kPa)
     */
-   double saturationVaporPressure;
+   double saturationVaporPressureAir;
 
    /*!
-    * \brief saturationVaporPressure
+    * \brief saturationVaporPressureWater (kPa)
     */
    double saturationVaporPressureWater;
 
    /*!
-    * \brief vaporPressure
+    * \brief vaporPressure (kPa)
     */
-   double vaporPressure;
+   double vaporPressureAir;
 
    /*!
-    * \brief vaporPressureWater
+    * \brief vaporPressureWater (kPa)
     */
    double vaporPressureWater;
 
    /*!
-    * \brief windVelocity
+    * \brief windVelocity (m/s)
     */
    double windSpeed;
 
    /*!
-    * \brief airTemperature
+    * \brief airTemperature (°C)
     */
    double airTemperature;
 
    /*!
-    * \brief convectionHeatFlux
+    * \brief convectionHeatFlux in units of (J/s)
     */
    double convectionHeatFlux;
 
    /*!
-    * \brief externalHeatFluxes of J / s
+    * \brief externalHeatFluxes in units of (J/s)
     */
    double externalHeatFluxes;
 
    /*!
-    * \brief externalSoluteFluxes W/m^2
+    * \brief externalSoluteFluxes (W/m^2)
     */
    double radiationFluxes;
 
    /*!
-    * \brief externalSoluteFluxes of the form kg / s
+    * \brief externalSoluteFluxes of the form (kg/s)
     */
    double *externalSoluteFluxes;
 
    /*!
-    * \brief heatBalance
+    * \brief heatBalance (KJ)
     */
    double totalHeatBalance;
 
    /*!
-    * \brief totalAdvDispHeatBalance
+    * \brief totalAdvDispHeatBalance (KJ)
     */
    double totalAdvDispHeatBalance;
 
    /*!
-    * \brief totalRadiationHeatBalance
+    * \brief totalRadiationHeatBalance  (KJ)
     */
    double totalRadiationFluxesHeatBalance;
 
    /*!
-    * \brief totalExternalHeatFluxesBalance
+    * \brief totalExternalHeatFluxesBalance  (KJ)
     */
    double totalExternalHeatFluxesBalance;
 
+
    /*!
-    * \brief totalEvaporativeHeatFluxesBalance
+    * \brief totalEvaporativeHeatFluxesBalance  (KJ)
     */
    double totalEvaporativeHeatFluxesBalance;
 
    /*!
-    * \brief totalConvectiveHeatFluxesBalance
+    * \brief totalConvectiveHeatFluxesBalance  (KJ)
     */
    double totalConvectiveHeatFluxesBalance;
 
    /*!
-    * \brief soluteMassBalance
+    * \brief soluteMassBalance  (kg)
     */
    double *totalSoluteMassBalance;
 
    /*!
-    * \brief totalAdvDispSoluteMassBalance
+    * \brief totalAdvDispSoluteMassBalance  (kg)
     */
    double *totalAdvDispSoluteMassBalance;
 
    /*!
-    * \brief totalExternalSoluteFluxesMassBalance
+    * \brief totalExternalSoluteFluxesMassBalance  (kg)
     */
    double *totalExternalSoluteFluxesMassBalance;
 
@@ -353,6 +362,14 @@ struct STMCOMPONENT_EXPORT Element
     * \return
     */
    double computeDTDtTVD(double dt, double T[]);
+
+   /*!
+    * \brief computeDTDtBackWaterRadiation
+    * \param dt
+    * \param T
+    * \return
+    */
+   double computeDTDtBackWaterRadiation(double dt, double T[]);
 
    /*!
     * \brief computeEvaporation

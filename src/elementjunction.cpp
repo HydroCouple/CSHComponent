@@ -175,6 +175,7 @@ void ElementJunction::interpSoluteConcs(int soluteIndex)
 
 void ElementJunction::solveHeatContinuity(double dt)
 {
+
   double sumQ = 0.0;
   double sumQT = 0.0;
 

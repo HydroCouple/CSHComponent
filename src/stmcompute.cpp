@@ -22,6 +22,7 @@
 #include "element.h"
 #include "elementjunction.h"
 #include "iboundarycondition.h"
+#include "stmcomponent.h"
 
 using namespace std;
 
@@ -29,18 +30,21 @@ void STMModel::update()
 {
   if(m_currentDateTime < m_endDateTime)
   {
-    m_timeStep = computeTimeStep();
-
     applyBoundaryConditions(m_currentDateTime);
 
     //Retrieve external data from other coupled models
 
-    if(m_retrieveCouplingDataFunction)
-    {
-      (*m_retrieveCouplingDataFunction)(this, m_currentDateTime);
-    }
+    //    if(m_retrieveCouplingDataFunction)
+    //    {
+    //      (*m_retrieveCouplingDataFunction)(this, m_currentDateTime);
+    //    }
+
+    if(m_component)
+      m_component->applyInputValues();
 
     computeLongDispersion();
+
+    m_timeStep = computeTimeStep();
 
     //Solve the transport for each element
     {
@@ -271,7 +275,7 @@ double STMModel::computeTimeStep()
       double courantFactor = element->computeCourantFactor();
       //double dispersionFactor = element->computeDispersionFactor();
 
-      if(courantFactor > maxCourantFactor)
+      if(!isinf(courantFactor) && courantFactor > maxCourantFactor)
       {
 #ifdef USE_OPENMP
 #pragma omp atomic read

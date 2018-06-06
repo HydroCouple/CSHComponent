@@ -80,11 +80,13 @@ double AbstractTimeSeriesBC::interpolate(double dateTime, bool &worked)
     }
     else
     {
-      double dateFactor = (dateTime -  m_dateTimes[index])/ (m_dateTimes[index + 1] - m_dateTimes[index]);
-      double upValue = m_values[index + 1];
+      double downDate = m_dateTimes[index];
+      double upDate = m_dateTimes[index + 1];
       double downValue = m_values[index];
-      interpValue = downValue + dateFactor * (upValue - downValue);
+      double upValue = m_values[index + 1];
+      interpValue = downValue + (upValue - downValue) / (upDate - downDate) * (dateTime -  downDate);
     }
+
     worked = true;
     return interpValue;
   }

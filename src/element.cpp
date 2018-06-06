@@ -42,9 +42,9 @@ Element::Element(const std::string &id, ElementJunction *upstream, ElementJuncti
     relativeHumidity(0.0),
     evaporationRate(0.0),
     evaporationHeatFlux(0.0),
-    saturationVaporPressure(0.0),
+    saturationVaporPressureAir(0.0),
     saturationVaporPressureWater(0.0),
-    vaporPressure(0.0),
+    vaporPressureAir(0.0),
     vaporPressureWater(0.0),
     windSpeed(0.0),
     airTemperature(0.0),
@@ -65,6 +65,11 @@ Element::Element(const std::string &id, ElementJunction *upstream, ElementJuncti
     upstreamElement(nullptr),
     downstreamElement(nullptr),
     model(model),
+    downstreamPecletNumber(1.0),
+    downstreamFlow(0.0),
+    downstreamVelocity(0.0),
+    upstreamPecletNumber(1.0),
+    upstreamFlow(0.0),
     computeTempAdv(nullptr),
     computeSoluteAdv(nullptr)
 {
@@ -136,8 +141,8 @@ void Element::initialize()
   totalHeatBalance =  totalAdvDispHeatBalance =
       totalEvaporativeHeatFluxesBalance = totalConvectiveHeatFluxesBalance =
       totalRadiationFluxesHeatBalance = relativeHumidity =
-      evaporationRate = saturationVaporPressure = saturationVaporPressureWater =
-      vaporPressure = vaporPressureWater = windSpeed = airTemperature =
+      evaporationRate = saturationVaporPressureAir = saturationVaporPressureWater =
+      vaporPressureAir = vaporPressureWater = windSpeed = airTemperature =
       evaporationHeatFlux = convectionHeatFlux = 0.0;
 
   for(int i = 0; i < numSolutes; i++)
@@ -174,30 +179,32 @@ void Element::initializeSolutes()
 
 double Element::computeDTDt(double dt, double T[])
 {
-
   double DTDt = 0.0;
   double volume = xSectionArea * length;
   double rho_cp_vol = model->m_waterDensity * model->m_cp * volume;
 
-  //Compute advection
-  DTDt += (this->*computeTempAdv)(dt, T);
-
-  //Compute dispersion
-  DTDt += computeDTDtDispersion(dt, T);
-
-  //Add external sources
+  if(volume)
   {
-    DTDt += radiationFluxes * length * width / rho_cp_vol;
-    DTDt += externalHeatFluxes / rho_cp_vol;
-  }
+    //Compute advection
+    DTDt += (this->*computeTempAdv)(dt, T);
 
-  if(model->m_useEvaporation)
-  {
-    DTDt += computeDTDtEvaporation(dt, T);
+    //Compute dispersion
+    DTDt += computeDTDtDispersion(dt, T);
 
-    if(model->m_useConvection)
+    //Add external sources
     {
-      DTDt += computeDTDtConvection(dt, T);
+      DTDt += radiationFluxes * length * width / rho_cp_vol;
+      DTDt += externalHeatFluxes / rho_cp_vol;
+    }
+
+    if(model->m_useEvaporation)
+    {
+      DTDt += computeDTDtEvaporation(dt, T);
+
+      if(model->m_useConvection)
+      {
+        DTDt += computeDTDtConvection(dt, T);
+      }
     }
   }
 
@@ -244,7 +251,9 @@ double Element::computeDTDtDispersion(double dt, double T[])
 
 double Element::computeDTDtUpwind(double dt, double T[])
 {
+
   double volume = xSectionArea * length;
+
   double incomingFlux = 0.0;
   double outgoingFlux = 0.0;
 
@@ -253,9 +262,8 @@ double Element::computeDTDtUpwind(double dt, double T[])
   {
     if(upstreamElement != nullptr && !upstreamJunction->temperature.isBC)
     {
-      //      incomingFlux = upstreamElement->flow * T[upstreamElement->index];
       incomingFlux = upstreamFlow * T[upstreamElement->index];
-
+      //incomingFlux = upstreamElement->flow * T[upstreamElement->index];
       outgoingFlux = flow * T[index];
     }
     else
@@ -270,7 +278,6 @@ double Element::computeDTDtUpwind(double dt, double T[])
     if(downstreamElement != nullptr && !downstreamJunction->temperature.isBC)
     {
       incomingFlux = flow * T[index];
-
       outgoingFlux = downstreamFlow *  T[downstreamElement->index];
       //outgoingFlux = downstreamElement->flow *  T[downstreamElement->index];
     }
@@ -474,44 +481,61 @@ double Element::computeDTDtTVD(double dt, double T[])
 
 double Element::computeDTDtEvaporation(double dt, double T[])
 {
-  double currentTemp = T[index];
+  double currentTemp = /*prevTemperature.value;//*/ T[index];
+  double DTDt = 0.0;
 
-  double Le = 1000.0 * (2499.0 - 2.36 * currentTemp);
+  {
+    double Le = 1000.0 * (2499.0 - 2.36 * currentTemp);
 
-  saturationVaporPressure = 0.61275 * exp(17.27 * airTemperature / (237.3 + airTemperature));
+    saturationVaporPressureAir = 0.61275 * exp(17.27 * airTemperature / (237.3 + airTemperature));
 
-  saturationVaporPressureWater = 0.61275 * exp(17.27 * currentTemp / (237.3 + currentTemp));
+    saturationVaporPressureWater = 0.61275 * exp(17.27 * currentTemp / (237.3 + currentTemp));
 
-  vaporPressure = relativeHumidity * saturationVaporPressure / 100.0;
+    vaporPressureAir = relativeHumidity * saturationVaporPressureAir / 100.0;
 
-  vaporPressureWater = relativeHumidity * saturationVaporPressureWater / 100.0;
+    vaporPressureWater = relativeHumidity * saturationVaporPressureWater / 100.0;
 
-  double windFunction = model->m_evapWindFuncCoeffA + model->m_evapWindFuncCoeffB * windSpeed;
+    windFunction = model->m_evapWindFuncCoeffA + model->m_evapWindFuncCoeffB * fabs(windSpeed);
 
-  evaporationRate = windFunction * (saturationVaporPressureWater - vaporPressure);
+    evaporationRate = windFunction * (saturationVaporPressureWater - vaporPressureAir);
 
-  evaporationHeatFlux = -Le * evaporationRate * model->m_waterDensity;
+    evaporationHeatFlux = -Le * evaporationRate * model->m_waterDensity;
 
-  double DTDt = evaporationHeatFlux / (model->m_waterDensity * model->m_cp * xSectionArea * length);
+    DTDt = evaporationHeatFlux * width * length / (model->m_waterDensity * model->m_cp * xSectionArea * length);
+  }
+
+  //  {
+  //    DTDt = 0.0;
+  //    double esatair = 4.596 * std::exp(17.270 * airTemperature / (237.30 + airTemperature));
+  //    double eair = relativeHumidity / 100.0  * esatair ;
+  //    //    double fUw =  model->m_evapWindFuncCoeffA +  model->m_evapWindFuncCoeffB * (windSpeed * windSpeed);
+  //    double fUw =  19.0 +  0.95 * (windSpeed * windSpeed);
+  //    double esat = 4.596 * std::exp(17.270 * currentTemp / (237.30 + currentTemp));
+  //    evaporationHeatFlux = -fUw * (esat - eair) * 4.184 * 10000.0  / 86400.0;
+  //    DTDt = evaporationHeatFlux * length * width / (model->m_waterDensity * model->m_cp * xSectionArea * length);
+  //  }
 
   return DTDt;
 }
 
 double Element::computeDTDtConvection(double dt, double T[])
 {
-  //  double adiabaticPressure =  101.30 * pow((293.0 - 0.0065 * z) / 293.0, 5.256);
-  //  double Br = 6.1e-4 * adiabaticPressure * ((T[index] - airTemperature)/(saturationVaporPressureWater - vaporPressureWater));
-  //  convectionHeatFlux = Br * evaporationHeatFlux;
+  double currentTemp = /*prevTemperature.value; //*/T[index];
+  double DTDt = 0.0;
 
-  //  //default to Qual2k in case of saturation
-  //  if(isinf(convectionHeatFlux) || isnan(convectionHeatFlux))
   {
-    double windFunction = model->m_evapWindFuncCoeffA + model->m_evapWindFuncCoeffB * windSpeed;
-    convectionHeatFlux = model->m_bowensCoeff * windFunction * (T[index] - airTemperature);
-    convectionHeatFlux = ((convectionHeatFlux * 4184.0 / 1000.0)/0.0001)/(24.0 * 60.0 * 60.0);
+    double Le = 1000.0 * (2499.0 - 2.36 * currentTemp);
+    convectionHeatFlux = - model->m_waterDensity * Le * windFunction * model->m_bowensCoeff * model->m_pressureRatio * (currentTemp - airTemperature) ;
+    DTDt = convectionHeatFlux * width /  (model->m_waterDensity * model->m_cp * xSectionArea);
   }
 
-  double DTDt = convectionHeatFlux /  (model->m_waterDensity * model->m_cp * xSectionArea * length);
+  //  {
+  //    DTDt = 0.0;
+  //    //    double fUw = model->m_evapWindFuncCoeffA +  model->m_evapWindFuncCoeffB * (windSpeed * windSpeed);
+  //    double fUw =  19.0 +  0.95 * (windSpeed * windSpeed);
+  //    convectionHeatFlux = -0.6 * fUw * (currentTemp - airTemperature) * 4.184 * 10000.0  / 86400.0;
+  //    DTDt = convectionHeatFlux * length * width /  (model->m_waterDensity * model->m_cp * xSectionArea * length);
+  //  }
 
   return DTDt;
 }
@@ -522,15 +546,18 @@ double Element::computeDSoluteDt(double dt, double S[], int soluteIndex)
   double volume = xSectionArea * length;
   double rho_vol = model->m_waterDensity * volume;
 
-  //Compute advection
-  DSoluteDt += (this->*computeSoluteAdv)(dt, S, soluteIndex);
-
-  //Compute dispersion
-  DSoluteDt += computeDSoluteDtDispersion(dt, S, soluteIndex);
-
-  //Add external sources
+  if(volume)
   {
-    DSoluteDt += externalSoluteFluxes[soluteIndex] / rho_vol;
+    //Compute advection
+    DSoluteDt += (this->*computeSoluteAdv)(dt, S, soluteIndex);
+
+    //Compute dispersion
+    DSoluteDt += computeDSoluteDtDispersion(dt, S, soluteIndex);
+
+    //Add external sources
+    {
+      DSoluteDt += externalSoluteFluxes[soluteIndex] / rho_vol;
+    }
   }
 
   return DSoluteDt;
@@ -905,6 +932,11 @@ void Element::setDownStreamElement()
 
 void Element::computeUpstreamFlow()
 {
+  if(id == "L_300")
+  {
+
+  }
+
   if(upstreamElement != nullptr)
   {
     upstreamFlow =  ((upstreamElement->flow * upstreamElementDirection  / (upstreamElement->length * 0.5)) +

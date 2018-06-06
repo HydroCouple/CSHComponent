@@ -26,6 +26,7 @@
 #include "pointsrctimeseriesbc.h"
 #include "nonpointsrctimeseriesbc.h"
 #include "meteorologytimeseriesbc.h"
+#include "temporal/timedata.h"
 
 #include <QDir>
 #include <QDate>
@@ -108,7 +109,7 @@ void STMModel::printStatus()
   if (m_currentPrintCount >= m_printFrequency)
   {
 
-    printf("TimeStep (s): %f\tDateTime: %f\tTemp (°C) { Iters: %i/%i\tMin: %f\tMax: %f\tTotalHeatBalance: %g (KJ)}", m_timeStep, m_currentDateTime,
+    printf("STM TimeStep (s): %f\tDateTime: %f\tTemp (°C) { Iters: %i/%i\tMin: %f\tMax: %f\tTotalHeatBalance: %g (KJ)}", m_timeStep, m_currentDateTime,
            m_heatSolver->getIterations(), m_heatSolver->maxIterations(), m_minTemp, m_maxTemp, m_totalHeatBalance);
 
     for (size_t j = 0; j < m_solutes.size(); j++)
@@ -122,6 +123,28 @@ void STMModel::printStatus()
     printf("\n");
 
     m_currentPrintCount = 0;
+  }
+}
+
+void STMModel::saveAs(const QFileInfo &filePath)
+{
+  QFileInfo fileInfo;
+
+  if (filePath.isRelative())
+  {
+    fileInfo = relativePathToAbsolute(filePath);
+  }
+  else
+  {
+    fileInfo = filePath;
+  }
+
+  QString file = fileInfo.absoluteFilePath();
+
+  if (!file.isEmpty() && !file.isNull() && filePath.absoluteDir().exists() && fileInfo.isFile())
+  {
+
+
   }
 }
 
@@ -261,7 +284,7 @@ bool STMModel::initializeCSVOutputFile(list<string> &errors)
       m_outputCSVStream.setRealNumberPrecision(10);
       m_outputCSVStream.setRealNumberNotation(QTextStream::SmartNotation);
       m_outputCSVStream << "DateTime, ElementId, ElementIndex, x, y, z, Depth, Width, XSectionArea, Dispersion, "
-                           "Temperature, TotalAdvDispHeatBalance, TotalExternalHeatFluxesBalance, TotalRadFluxesHeatBalance, "
+                           "Temperature, TotalAdvDispHeatBalance, TotalExternalHeatFluxesBalance, TotalRadFluxesHeatBalance,"
                            "TotalEvapFluxHeatBalance, TotalConvFluxHeatBalance, TotalHeatBalance";
 
       for (size_t i = 0; i < m_solutes.size(); i++)
@@ -477,6 +500,125 @@ bool STMModel::initializeNetCDFOutputFile(list<string> &errors)
     temperatureVar.putAtt("temperature:long_name", "temperature");
     temperatureVar.putAtt("temperature:units", "°C");
 
+
+    NcVar totalElementHeatBalanceVar = m_outputNetCDF->addVar("total_element_heat_balance", "double",
+                                                              std::vector<std::string>({"time", "elements"}));
+    totalElementHeatBalanceVar.putAtt("total_element_heat_balance:long_name", "total heat balance");
+    totalElementHeatBalanceVar.putAtt("total_element_heat_balance:units", "KJ");
+
+    NcVar totalElementAdvDispHeatBalanceVar = m_outputNetCDF->addVar("total_element_adv_disp_heat_balance", "double",
+                                                                     std::vector<std::string>({"time", "elements"}));
+    totalElementAdvDispHeatBalanceVar.putAtt("total_element_adv_disp_heat_balance:long_name", "total element advection dispersion heat balance");
+    totalElementAdvDispHeatBalanceVar.putAtt("total_element_adv_disp_heat_balance:units", "KJ");
+
+    NcVar totalElementEvapHeatBalanceVar = m_outputNetCDF->addVar("total_element_evap_heat_balance", "double",
+                                                                  std::vector<std::string>({"time", "elements"}));
+    totalElementEvapHeatBalanceVar.putAtt("total_element_evap_heat_balance:long_name", "total element evaporation heat balance");
+    totalElementEvapHeatBalanceVar.putAtt("total_element_evap_heat_balance:units", "KJ");
+
+    NcVar totalElementConvHeatBalanceVar = m_outputNetCDF->addVar("total_element_conv_heat_balance", "double",
+                                                                  std::vector<std::string>({"time", "elements"}));
+    totalElementConvHeatBalanceVar.putAtt("total_element_conv_heat_balance:long_name", "total element convection heat balance");
+    totalElementConvHeatBalanceVar.putAtt("total_element_conv_heat_balance:units", "KJ");
+
+
+    NcVar totalElementRadiationFluxHeatBalanceVar = m_outputNetCDF->addVar("total_element_radiation_flux_heat_balance", "double",
+                                                                           std::vector<std::string>({"time", "elements"}));
+    totalElementRadiationFluxHeatBalanceVar.putAtt("total_element_radiation_flux_heat_balance:long_name", "total element radiation flux heat balance");
+    totalElementRadiationFluxHeatBalanceVar.putAtt("total_element_radiation_flux_heat_balance:units", "KJ");
+
+    NcVar totalElementExternalHeatFluxBalanceVar = m_outputNetCDF->addVar("total_element_external_heat_flux_balance", "double",
+                                                                          std::vector<std::string>({"time", "elements"}));
+    totalElementExternalHeatFluxBalanceVar.putAtt("total_element_external_heat_flux_balance:long_name", "total element external heat flux balance");
+    totalElementExternalHeatFluxBalanceVar.putAtt("total_element_external_heat_flux_balance:units", "KJ");
+
+    NcVar totalElementSoluteMassBalanceVar = m_outputNetCDF->addVar("total_element_solute_mass_balance", "double",
+                                                                    std::vector<std::string>({"time", "solutes", "elements"}));
+    totalElementSoluteMassBalanceVar.putAtt("total_element_solute_mass_balance:long_name", "total element solute mass balance");
+    totalElementSoluteMassBalanceVar.putAtt("total_element_solute_mass_balance:units", "kg");
+
+    NcVar totalElementAdvDispSoluteMassBalanceVar = m_outputNetCDF->addVar("total_element_adv_disp_solute_mass_balance", "double",
+                                                                           std::vector<std::string>({"time", "solutes", "elements"}));
+    totalElementAdvDispSoluteMassBalanceVar.putAtt("total_element_adv_disp_solute_mass_balance:long_name", "total element advection dispersion solute mass balance");
+    totalElementAdvDispSoluteMassBalanceVar.putAtt("total_element_adv_disp_solute_mass_balance:units", "kg");
+
+    NcVar totalElementExternalSoluteFluxMassBalanceVar = m_outputNetCDF->addVar("total_element_external_solute_flux_mass_balance", "double",
+                                                                                std::vector<std::string>({"time", "solutes"}));
+    totalElementExternalSoluteFluxMassBalanceVar.putAtt("total_element_external_solute_flux_mass_balance:long_name", "total external solute flux mass balance");
+    totalElementExternalSoluteFluxMassBalanceVar.putAtt("total_element_external_solute_flux_mass_balance:units", "kg");
+
+    NcVar elementEvapHeatFluxVar = m_outputNetCDF->addVar("element_evap_heat_flux", "double",
+                                                          std::vector<std::string>({"time", "elements"}));
+
+    elementEvapHeatFluxVar.putAtt("element_evap_heat_flux:long_name", "element evaporation heat flux");
+    elementEvapHeatFluxVar.putAtt("element_evap_heat_flux:units", "W/m^2");
+
+    NcVar elementConvHeatFluxVar = m_outputNetCDF->addVar("element_conv_heat_flux", "double",
+                                                          std::vector<std::string>({"time", "elements"}));
+
+    elementConvHeatFluxVar.putAtt("element_conv_heat_flux:long_name", "element convective heat flux");
+    elementConvHeatFluxVar.putAtt("element_conv_heat_flux:units", "W/m^2");
+
+
+    NcVar elementRadiationFluxVar = m_outputNetCDF->addVar("element_radiation_flux", "double",
+                                                           std::vector<std::string>({"time", "elements"}));
+
+    elementRadiationFluxVar.putAtt("element_radiation_flux:long_name", "element radiation flux");
+    elementRadiationFluxVar.putAtt("element_radiation_flux:units", "W/m^2");
+
+    NcVar elementHeatFluxVar = m_outputNetCDF->addVar("element_heat_flux", "double",
+                                                      std::vector<std::string>({"time", "elements"}));
+
+    elementHeatFluxVar.putAtt("element_heat_flux:long_name", "element heat flux");
+    elementHeatFluxVar.putAtt("element_heat_flux:units", "J/s");
+
+
+    NcVar elementAirTempVar = m_outputNetCDF->addVar("element_air_temp", "double",
+                                                     std::vector<std::string>({"time", "elements"}));
+
+    elementAirTempVar.putAtt("element_air_temp:long_name", "Air temperature");
+    elementAirTempVar.putAtt("element_air_temp:units", "C");
+
+
+    NcVar elementRHVar = m_outputNetCDF->addVar("element_relative_humidity", "double",
+                                                std::vector<std::string>({"time", "elements"}));
+
+    elementRHVar.putAtt("element_relative_humidity:long_name", "Relative Humidity");
+    elementRHVar.putAtt("element_relative_humidity:units", "%");
+
+
+    NcVar elementWindSpeedVar = m_outputNetCDF->addVar("element_wind_speed", "double",
+                                                       std::vector<std::string>({"time", "elements"}));
+
+    elementWindSpeedVar.putAtt("element_wind_speed:long_name", "Relative Humidity");
+    elementWindSpeedVar.putAtt("element_wind_speed:units", "m/s");
+
+
+    NcVar elementVaporPressVar = m_outputNetCDF->addVar("element_vapor_pressure", "double",
+                                                        std::vector<std::string>({"time", "elements"}));
+
+    elementVaporPressVar.putAtt("element_vapor_pressure:long_name", " VaporPressure");
+    elementVaporPressVar.putAtt("element_vapor_pressure:units", "kPa");
+
+    NcVar elementSatVaporPressVar = m_outputNetCDF->addVar("element_saturated_vapor_pressure", "double",
+                                                           std::vector<std::string>({"time", "elements"}));
+
+    elementSatVaporPressVar.putAtt("element_saturated_vapor_pressure:long_name", "Saturated Vapor Pressure");
+    elementSatVaporPressVar.putAtt("element_saturated_vapor_pressure:units", "kPa");
+
+
+    NcVar elementAirVaporPressVar = m_outputNetCDF->addVar("element_air_vapor_pressure", "double",
+                                                           std::vector<std::string>({"time", "elements"}));
+
+    elementAirVaporPressVar.putAtt("element_air_vapor_pressure:long_name", " VaporPressure");
+    elementAirVaporPressVar.putAtt("element_air_vapor_pressure:units", "kPa");
+
+    NcVar elementAirSatVaporPressVar = m_outputNetCDF->addVar("element_air_saturated_vapor_pressure", "double",
+                                                              std::vector<std::string>({"time", "elements"}));
+
+    elementAirSatVaporPressVar.putAtt("element_air_saturated_vapor_pressure:long_name", "Saturated Vapor Pressure");
+    elementAirSatVaporPressVar.putAtt("element_air_saturated_vapor_pressure:units", "kPa");
+
     NcVar totalHeatBalanceVar = m_outputNetCDF->addVar("total_heat_balance", "double",
                                                        std::vector<std::string>({"time"}));
     totalHeatBalanceVar.putAtt("total_heat_balance:long_name", "total heat balance");
@@ -489,13 +631,13 @@ bool STMModel::initializeNetCDFOutputFile(list<string> &errors)
 
 
     NcVar totalEvapHeatBalanceVar = m_outputNetCDF->addVar("total_evap_heat_balance", "double",
-                                                              std::vector<std::string>({"time"}));
+                                                           std::vector<std::string>({"time"}));
     totalEvapHeatBalanceVar.putAtt("total_evap_heat_balance:long_name", "total evaporation heat balance");
     totalEvapHeatBalanceVar.putAtt("total_evap_heat_balance:units", "KJ");
 
 
     NcVar totalConvHeatBalanceVar = m_outputNetCDF->addVar("total_conv_heat_balance", "double",
-                                                              std::vector<std::string>({"time"}));
+                                                           std::vector<std::string>({"time"}));
     totalConvHeatBalanceVar.putAtt("total_conv_heat_balance:long_name", "total convection heat balance");
     totalConvHeatBalanceVar.putAtt("total_conv_heat_balance:units", "KJ");
 
@@ -510,35 +652,6 @@ bool STMModel::initializeNetCDFOutputFile(list<string> &errors)
     totalExternalHeatFluxBalanceVar.putAtt("total_external_heat_flux_balance:long_name", "total external heat flux balance");
     totalExternalHeatFluxBalanceVar.putAtt("total_external_heat_flux_balance:units", "KJ");
 
-    NcVar totalElementHeatBalanceVar = m_outputNetCDF->addVar("total_element_heat_balance", "double",
-                                                              std::vector<std::string>({"time", "elements"}));
-    totalElementHeatBalanceVar.putAtt("total_element_heat_balance:long_name", "total heat balance");
-    totalElementHeatBalanceVar.putAtt("total_element_heat_balance:units", "KJ");
-
-    NcVar totalElementAdvDispHeatBalanceVar = m_outputNetCDF->addVar("total_element_adv_disp_heat_balance", "double",
-                                                                     std::vector<std::string>({"time", "elements"}));
-    totalElementAdvDispHeatBalanceVar.putAtt("total_element_adv_disp_heat_balance:long_name", "total element advection dispersion heat balance");
-    totalElementAdvDispHeatBalanceVar.putAtt("total_element_adv_disp_heat_balance:units", "KJ");
-
-    NcVar totalElementEvapHeatBalanceVar = m_outputNetCDF->addVar("total_element_evap_heat_balance", "double",
-                                                                     std::vector<std::string>({"time", "elements"}));
-    totalElementEvapHeatBalanceVar.putAtt("total_element_evap_heat_balance:long_name", "total element evaporation heat balance");
-    totalElementEvapHeatBalanceVar.putAtt("total_element_evap_heat_balance:units", "KJ");
-
-    NcVar totalElementConvHeatBalanceVar = m_outputNetCDF->addVar("total_element_conv_heat_balance", "double",
-                                                                     std::vector<std::string>({"time", "elements"}));
-    totalElementConvHeatBalanceVar.putAtt("total_element_conv_heat_balance:long_name", "total element convection heat balance");
-    totalElementConvHeatBalanceVar.putAtt("total_element_conv_heat_balance:units", "KJ");
-
-    NcVar totalElementRadiationFluxHeatBalanceVar = m_outputNetCDF->addVar("total_element_radiation_flux_heat_balance", "double",
-                                                                           std::vector<std::string>({"time", "elements"}));
-    totalElementRadiationFluxHeatBalanceVar.putAtt("total_element_radiation_flux_heat_balance:long_name", "total element radiation flux heat balance");
-    totalElementRadiationFluxHeatBalanceVar.putAtt("total_element_radiation_flux_heat_balance:units", "KJ");
-
-    NcVar totalElementExternalHeatFluxBalanceVar = m_outputNetCDF->addVar("total_element_external_heat_flux_balance", "double",
-                                                                          std::vector<std::string>({"time", "elements"}));
-    totalElementExternalHeatFluxBalanceVar.putAtt("total_element_external_heat_flux_balance:long_name", "total element external heat flux balance");
-    totalElementExternalHeatFluxBalanceVar.putAtt("total_element_external_heat_flux_balance:units", "KJ");
 
     NcVar solutesVar = m_outputNetCDF->addVar("solute_concentration", "double",
                                               std::vector<std::string>({"time", "solutes", "elements"}));
@@ -560,20 +673,6 @@ bool STMModel::initializeNetCDFOutputFile(list<string> &errors)
     totalExternalSoluteFluxMassBalanceVar.putAtt("total_external_solute_flux_mass_balance:long_name", "total external solute flux mass balance");
     totalExternalSoluteFluxMassBalanceVar.putAtt("total_external_solute_flux_mass_balance:units", "kg");
 
-    NcVar totalElementSoluteMassBalanceVar = m_outputNetCDF->addVar("total_element_solute_mass_balance", "double",
-                                                                    std::vector<std::string>({"time", "solutes", "elements"}));
-    totalElementSoluteMassBalanceVar.putAtt("total_element_solute_mass_balance:long_name", "total element solute mass balance");
-    totalElementSoluteMassBalanceVar.putAtt("total_element_solute_mass_balance:units", "kg");
-
-    NcVar totalElementAdvDispSoluteMassBalanceVar = m_outputNetCDF->addVar("total_element_adv_disp_solute_mass_balance", "double",
-                                                                           std::vector<std::string>({"time", "solutes", "elements"}));
-    totalElementAdvDispSoluteMassBalanceVar.putAtt("total_element_adv_disp_solute_mass_balance:long_name", "total element advection dispersion solute mass balance");
-    totalElementAdvDispSoluteMassBalanceVar.putAtt("total_element_adv_disp_solute_mass_balance:units", "kg");
-
-    NcVar totalElementExternalSoluteFluxMassBalanceVar = m_outputNetCDF->addVar("total_element_external_solute_flux_mass_balance", "double",
-                                                                                std::vector<std::string>({"time", "solutes"}));
-    totalElementExternalSoluteFluxMassBalanceVar.putAtt("total_element_external_solute_flux_mass_balance:long_name", "total external solute flux mass balance");
-    totalElementExternalSoluteFluxMassBalanceVar.putAtt("total_element_external_solute_flux_mass_balance:units", "kg");
 
     m_outputNetCDF->sync();
 
@@ -613,9 +712,7 @@ bool STMModel::readInputFileOptionTag(const QString &line, QString &errorMessage
             QDateTime dateTime;
             if (tryParse(options[1] + " " + options[2], dateTime))
             {
-              m_startDateTime = dateTime.date().toJulianDay() - 0.5;
-              m_startDateTime += (dateTime.time().msecsSinceStartOfDay() * 1.0 / (24.0 * 60.0 * 60.0 * 1000.0));
-              m_startDateTime -= 2400000.5;
+              m_startDateTime = SDKTemporal::DateTime::toJulianDays(dateTime);
             }
             else
             {
@@ -639,8 +736,7 @@ bool STMModel::readInputFileOptionTag(const QString &line, QString &errorMessage
             QDateTime dateTime;
             if (tryParse(options[1] + " " + options[2], dateTime))
             {
-              m_endDateTime = dateTime.date().toJulianDay() - 0.5 +
-                              (dateTime.time().msecsSinceStartOfDay() * 1.0 / (24.0 * 60.0 * 60.0 * 1000.0)) - 2400000.5;
+              m_endDateTime = SDKTemporal::DateTime::toJulianDays(dateTime);
             }
             else
             {
@@ -1189,6 +1285,28 @@ bool STMModel::readInputFileOptionTag(const QString &line, QString &errorMessage
           }
         }
         break;
+      case 25:
+        {
+          bool foundError = false;
+
+          if (options.size() == 2)
+          {
+            bool ok;
+            m_pressureRatio = options[1].toDouble(&ok);
+            foundError = !ok;
+          }
+          else
+          {
+            foundError = true;
+          }
+
+          if (foundError)
+          {
+            errorMessage = "Pressure ratio";
+            return false;
+          }
+        }
+        break;
     }
   }
 
@@ -1614,28 +1732,37 @@ bool STMModel::readInputFilePointSourcesTag(const QString &line, QString &errorM
       Element *element = it->second;
       QString variable = columns[1].trimmed();
       QString type = columns[2];
+      PointSrcTimeSeriesBC::VariableType varType;
 
-      int variableIndex = -2;
+      int soluteIndex = -2;
 
-      if (!QString::compare(variable, "TEMPERATURE", Qt::CaseInsensitive))
+      if (!QString::compare(variable, "HEAT", Qt::CaseInsensitive))
       {
-        variableIndex = -1;
+        varType = PointSrcTimeSeriesBC::HeatSource;
+        soluteIndex = -1;
+      }
+      else if (!QString::compare(variable, "FLOW", Qt::CaseInsensitive))
+      {
+        varType = PointSrcTimeSeriesBC::FlowSource;
+        soluteIndex = -1;
       }
       else
       {
+        varType = PointSrcTimeSeriesBC::SoluteSource;
+
         for (size_t i = 0; i < m_solutes.size(); i++)
         {
           std::string solute = m_solutes[i];
 
           if (!solute.compare(variable.toStdString()))
           {
-            variableIndex = i;
+            soluteIndex = i;
             break;
           }
         }
       }
 
-      if (variableIndex > -2)
+      if (soluteIndex > -2)
       {
         if (!QString::compare(type, "VALUE", Qt::CaseInsensitive))
         {
@@ -1644,7 +1771,8 @@ bool STMModel::readInputFilePointSourcesTag(const QString &line, QString &errorM
 
           if (valueOk)
           {
-            PointSrcTimeSeriesBC *pointSrcTSBC = new PointSrcTimeSeriesBC(element, variableIndex, this);
+            PointSrcTimeSeriesBC *pointSrcTSBC = new PointSrcTimeSeriesBC(element, varType, this);
+            pointSrcTSBC->setSoluteIndex(soluteIndex);
             pointSrcTSBC->addValue(m_startDateTime, value);
             pointSrcTSBC->addValue(m_endDateTime, value);
             m_boundaryConditions.push_back(pointSrcTSBC);
@@ -1674,7 +1802,8 @@ bool STMModel::readInputFilePointSourcesTag(const QString &line, QString &errorM
 
               if (readTimeSeries(fileInfo, timeSeries, headers))
               {
-                PointSrcTimeSeriesBC *pointSrcTSBC = new PointSrcTimeSeriesBC(element, variableIndex, this);
+                PointSrcTimeSeriesBC *pointSrcTSBC = new PointSrcTimeSeriesBC(element, varType  , this);
+                pointSrcTSBC->setSoluteIndex(soluteIndex);
 
                 for (auto it = timeSeries.begin(); it != timeSeries.end(); it++)
                 {
@@ -1753,27 +1882,37 @@ bool STMModel::readInputFileNonPointSourcesTag(const QString &line, QString &err
 
       QString variable = columns[4].trimmed();
       QString type = columns[5];
-      int variableIndex = -2;
+      NonPointSrcTimeSeriesBC::VariableType variableType;
 
-      if (!QString::compare(variable, "TEMPERATURE", Qt::CaseInsensitive))
+      int soluteIndex = -2;
+
+      if (!QString::compare(variable, "HEAT", Qt::CaseInsensitive))
       {
-        variableIndex = -1;
+        soluteIndex = -1;
+        variableType = NonPointSrcTimeSeriesBC::HeatSource;
+      }
+      else if (!QString::compare(variable, "FlOW", Qt::CaseInsensitive))
+      {
+        soluteIndex = -1;
+        variableType = NonPointSrcTimeSeriesBC::FlowSource;
       }
       else
       {
+        variableType = NonPointSrcTimeSeriesBC::SoluteSource;
+
         for (size_t i = 0; i < m_solutes.size(); i++)
         {
           std::string solute = m_solutes[i];
 
           if (!solute.compare(variable.toStdString()))
           {
-            variableIndex = i;
+            soluteIndex = i;
             break;
           }
         }
       }
 
-      if (variableIndex > -2)
+      if (soluteIndex > -2)
       {
         if (!QString::compare(type, "VALUE", Qt::CaseInsensitive))
         {
@@ -1782,7 +1921,8 @@ bool STMModel::readInputFileNonPointSourcesTag(const QString &line, QString &err
 
           if (valueOk)
           {
-            NonPointSrcTimeSeriesBC *nonPointSrcTSBC = new NonPointSrcTimeSeriesBC(elementFrom, startFactor, elementTo, endFactor, variableIndex, this);
+            NonPointSrcTimeSeriesBC *nonPointSrcTSBC = new NonPointSrcTimeSeriesBC(elementFrom, startFactor, elementTo, endFactor, variableType, this);
+            nonPointSrcTSBC->setSoluteIndex(soluteIndex);
             nonPointSrcTSBC->addValue(m_startDateTime, value);
             nonPointSrcTSBC->addValue(m_endDateTime, value);
             m_boundaryConditions.push_back(nonPointSrcTSBC);
@@ -1812,7 +1952,8 @@ bool STMModel::readInputFileNonPointSourcesTag(const QString &line, QString &err
 
               if (readTimeSeries(fileInfo, timeSeries, headers))
               {
-                NonPointSrcTimeSeriesBC *nonPointSrcTSBC = new NonPointSrcTimeSeriesBC(elementFrom, startFactor, elementTo, endFactor, variableIndex, this);
+                NonPointSrcTimeSeriesBC *nonPointSrcTSBC = new NonPointSrcTimeSeriesBC(elementFrom, startFactor, elementTo, endFactor, variableType, this);
+                nonPointSrcTSBC->setSoluteIndex(soluteIndex);
 
                 for (auto it = timeSeries.begin(); it != timeSeries.end(); it++)
                 {
@@ -2553,6 +2694,17 @@ void STMModel::writeNetCDFOutput()
     NcVar totalElementSoluteMassBalanceVar = m_outputNetCDF->getVar("total_element_solute_mass_balance");
     NcVar totalElementAdvDispSoluteMassBalanceVar = m_outputNetCDF->getVar("total_element_adv_disp_solute_mass_balance");
     NcVar totalElementExternalSoluteFluxMassBalanceVar = m_outputNetCDF->getVar("total_element_external_solute_flux_mass_balance");
+    NcVar elementEvapHeatFluxVar = m_outputNetCDF->getVar("element_evap_heat_flux");
+    NcVar elementConvHeatFluxVar = m_outputNetCDF->getVar("element_conv_heat_flux");
+    NcVar elementRadiationFluxVar = m_outputNetCDF->getVar("element_radiation_flux");
+    NcVar elementHeatFluxVar = m_outputNetCDF->getVar("element_heat_flux");
+    NcVar elementAirTempVar = m_outputNetCDF->getVar("element_air_temp");
+    NcVar elementRHVar = m_outputNetCDF->getVar("element_relative_humidity");
+    NcVar elementWindSpeedVar = m_outputNetCDF->getVar("element_wind_speed");
+    NcVar elementVaporPressVar = m_outputNetCDF->getVar("element_vapor_pressure");
+    NcVar elementSatVaporPressVar = m_outputNetCDF->getVar("element_saturated_vapor_pressure");
+    NcVar elementAirVaporPressVar = m_outputNetCDF->getVar("element_air_vapor_pressure");
+    NcVar elementAirSatVaporPressVar = m_outputNetCDF->getVar("element_air_saturated_vapor_pressure");
 
     double *flow = new double[m_elements.size()];
     double *depth = new double[m_elements.size()];
@@ -2560,6 +2712,18 @@ void STMModel::writeNetCDFOutput()
     double *xsectArea = new double[m_elements.size()];
     double *dispersion = new double[m_elements.size()];
     double *temperature = new double[m_elements.size()];
+    double *elementEvapHeatFlux = new double[m_elements.size()];
+    double *elementConvHeatFlux = new double[m_elements.size()];
+    double *elementRadiationFlux = new double[m_elements.size()];
+    double *elementHeatFlux = new double[m_elements.size()];
+    double *elementAirTemp =  new double[m_elements.size()];
+    double *elementRH =  new double[m_elements.size()];
+    double *elementWindSpeed =  new double[m_elements.size()];
+    double *elementVaporPress =  new double[m_elements.size()];
+    double *elementSatVaporPress =  new double[m_elements.size()];
+    double *elementAirVaporPress =  new double[m_elements.size()];
+    double *elementAirSatVaporPress =  new double[m_elements.size()];
+
     double *totalElementHeatBalance = new double[m_elements.size()];
     double *totalElementAdvDispHeatBalance = new double[m_elements.size()];
     double *totalElementEvapHeatBalance = new double[m_elements.size()];
@@ -2583,13 +2747,23 @@ void STMModel::writeNetCDFOutput()
       xsectArea[i] = element->xSectionArea;
       dispersion[i] = element->longDispersion.value;
       temperature[i] = element->temperature.value;
-
+      elementEvapHeatFlux[i] = element->evaporationHeatFlux;
+      elementConvHeatFlux[i] = element->convectionHeatFlux;
+      elementRadiationFlux[i] = element->radiationFluxes;
+      elementHeatFlux[i] = element->externalHeatFluxes;
       totalElementHeatBalance[i] = element->totalHeatBalance;
       totalElementAdvDispHeatBalance[i] = element->totalAdvDispHeatBalance;
       totalElementRadiationFluxHeatBalance[i] = element->totalRadiationFluxesHeatBalance;
       totalElementExternalHeatFluxBalance[i] = element->totalExternalHeatFluxesBalance;
       totalElementEvapHeatBalance[i] = element->totalEvaporativeHeatFluxesBalance;
       totalElementConvHeatBalance[i] = element->totalConvectiveHeatFluxesBalance;
+      elementAirTemp[i] = element->airTemperature;
+      elementRH[i] = element->relativeHumidity;
+      elementWindSpeed[i] = element->windSpeed;
+      elementVaporPress[i] = element->vaporPressureWater;
+      elementSatVaporPress[i] = element->saturationVaporPressureWater;
+      elementAirVaporPress[i] = element->vaporPressureAir;
+      elementAirSatVaporPress[i] = element->saturationVaporPressureAir;
 
       for (size_t j = 0; j < m_solutes.size(); j++)
       {
@@ -2607,12 +2781,19 @@ void STMModel::writeNetCDFOutput()
     dispersionVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), dispersion);
     temperatureVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), temperature);
 
-    totalHeatBalanceVar.putVar(std::vector<size_t>({currentTime}), std::vector<size_t>({1}), &m_totalHeatBalance);
-    totalAdvDispHeatBalanceVar.putVar(std::vector<size_t>({currentTime}), std::vector<size_t>({1}), &m_totalAdvDispHeatBalance);
-    totalEvapHeatBalanceVar.putVar(std::vector<size_t>({currentTime}), std::vector<size_t>({1}), &m_totalEvaporationHeatBalance);
-    totalConvHeatBalanceVar.putVar(std::vector<size_t>({currentTime}), std::vector<size_t>({1}), &m_totalConvectiveHeatBalance);
-    totalRadiationFluxHeatBalanceVar.putVar(std::vector<size_t>({currentTime}), std::vector<size_t>({1}), &m_totalRadiationHeatBalance);
-    totalExternalHeatFluxBalanceVar.putVar(std::vector<size_t>({currentTime}), std::vector<size_t>({1}), &m_totalExternalHeatFluxBalance);
+    elementEvapHeatFluxVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementEvapHeatFlux);
+    elementConvHeatFluxVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementConvHeatFlux);
+
+    elementRadiationFluxVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementRadiationFlux);
+    elementHeatFluxVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementHeatFlux);
+
+    elementAirTempVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementAirTemp);
+    elementRHVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementRH);
+    elementWindSpeedVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementWindSpeed);
+    elementVaporPressVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementVaporPress);
+    elementSatVaporPressVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementSatVaporPress);
+    elementAirVaporPressVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementAirVaporPress);
+    elementAirSatVaporPressVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementAirSatVaporPress);
 
     totalElementHeatBalanceVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), totalElementHeatBalance);
     totalElementAdvDispHeatBalanceVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), totalElementAdvDispHeatBalance);
@@ -2622,13 +2803,20 @@ void STMModel::writeNetCDFOutput()
     totalElementExternalHeatFluxBalanceVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), totalElementExternalHeatFluxBalance);
 
     solutesVar.putVar(std::vector<size_t>({currentTime, 0, 0}), std::vector<size_t>({1, m_solutes.size(), m_elements.size()}), solutes);
-    totalSoluteMassBalanceVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_solutes.size()}), m_totalSoluteMassBalance.data());
-    totalAdvDispSoluteMassBalanceVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_solutes.size()}), m_totalAdvDispSoluteMassBalance.data());
-    totalExternalSoluteFluxMassBalanceVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_solutes.size()}), m_totalExternalSoluteFluxMassBalance.data());
-
     totalElementSoluteMassBalanceVar.putVar(std::vector<size_t>({currentTime, 0, 0}), std::vector<size_t>({1, m_solutes.size(), m_elements.size()}), totalElementSoluteMassBalance);
     totalElementAdvDispSoluteMassBalanceVar.putVar(std::vector<size_t>({currentTime, 0, 0}), std::vector<size_t>({1, m_solutes.size(), m_elements.size()}), totalElementAdvDispSoluteMassBalance);
     totalElementExternalSoluteFluxMassBalanceVar.putVar(std::vector<size_t>({currentTime, 0, 0}), std::vector<size_t>({1, m_solutes.size(), m_elements.size()}), totalElementExternalSoluteFluxMassBalance);
+
+    totalHeatBalanceVar.putVar(std::vector<size_t>({currentTime}), std::vector<size_t>({1}), &m_totalHeatBalance);
+    totalAdvDispHeatBalanceVar.putVar(std::vector<size_t>({currentTime}), std::vector<size_t>({1}), &m_totalAdvDispHeatBalance);
+    totalEvapHeatBalanceVar.putVar(std::vector<size_t>({currentTime}), std::vector<size_t>({1}), &m_totalEvaporationHeatBalance);
+    totalConvHeatBalanceVar.putVar(std::vector<size_t>({currentTime}), std::vector<size_t>({1}), &m_totalConvectiveHeatBalance);
+    totalRadiationFluxHeatBalanceVar.putVar(std::vector<size_t>({currentTime}), std::vector<size_t>({1}), &m_totalRadiationHeatBalance);
+    totalExternalHeatFluxBalanceVar.putVar(std::vector<size_t>({currentTime}), std::vector<size_t>({1}), &m_totalExternalHeatFluxBalance);
+
+    totalSoluteMassBalanceVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_solutes.size()}), m_totalSoluteMassBalance.data());
+    totalAdvDispSoluteMassBalanceVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_solutes.size()}), m_totalAdvDispSoluteMassBalance.data());
+    totalExternalSoluteFluxMassBalanceVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_solutes.size()}), m_totalExternalSoluteFluxMassBalance.data());
 
     delete[] flow;
     delete[] depth;
@@ -2636,6 +2824,10 @@ void STMModel::writeNetCDFOutput()
     delete[] xsectArea;
     delete[] dispersion;
     delete[] temperature;
+    delete[] elementEvapHeatFlux;
+    delete[] elementConvHeatFlux;
+    delete[] elementRadiationFlux;
+    delete[] elementHeatFlux;
     delete[] totalElementHeatBalance;
     delete[] totalElementAdvDispHeatBalance;
     delete[] totalElementEvapHeatBalance;
@@ -2646,6 +2838,14 @@ void STMModel::writeNetCDFOutput()
     delete[] totalElementSoluteMassBalance;
     delete[] totalElementAdvDispSoluteMassBalance;
     delete[] totalElementExternalSoluteFluxMassBalance;
+    delete[] elementAirTemp ;
+    delete[] elementRH ;
+    delete[] elementWindSpeed ;
+    delete[] elementVaporPress ;
+    delete[] elementSatVaporPress ;
+    delete[] elementAirVaporPress ;
+    delete[] elementAirSatVaporPress ;
+
 
     if (m_flushToDisk)
     {
@@ -2760,8 +2960,7 @@ bool STMModel::readTimeSeries(const QFileInfo &fileInfo, std::map<double, std::v
 
             if (tryParse(columns[0], dt))
             {
-              double dateTimeMJD = dt.date().toJulianDay() - 0.5 +
-                                   (dt.time().msecsSinceStartOfDay() * 1.0 / (24.0 * 60.0 * 60.0 * 1000.0)) - 2400000.5;
+              double dateTimeMJD = SDKTemporal::DateTime::toJulianDays(dt);
 
               std::vector<double> values;
               values.reserve(headers.size());
@@ -2846,7 +3045,7 @@ bool STMModel::tryParse(const QString &dateTimeString, QDateTime &dateTime)
       QDate date(year, month, day);
       QTime time = QTime(hour, minute, second);
 
-      dateTime = QDateTime(date, time, Qt::UTC);
+      dateTime = QDateTime(date, time);
 
       if (dateTime.isValid())
       {
@@ -2896,10 +3095,13 @@ const unordered_map<string, int> STMModel::m_optionsFlags({
                                                             {"FLUSH_TO_DISK_FREQ", 18},
                                                             {"PRINT_FREQ", 19},
                                                             {"EVAPORATION", 20},
-                                                            {"CONDENSATION", 21},
-                                                            {"EVAP_WIND_FUNC_COEFF_A", 22},
-                                                            {"EVAP_WIND_FUNC_COEFF_A", 23},
+                                                            {"CONVECTION", 21},
+                                                            {"WIND_FUNC_COEFF_A", 22},
+                                                            {"WIND_FUNC_COEFF_B", 23},
                                                             {"BOWENS_COEFF", 24},
+                                                            {"PRESSURE_RATIO", 25},
+                                                            {"TVD_SCHEME", 26},
+
                                                           });
 
 const unordered_map<string, int> STMModel::m_advectionFlags({

@@ -14,6 +14,7 @@
 *  \pre
 *  \bug
 *  \todo
+*  \todo
 *  \warning
 */
 
@@ -57,6 +58,7 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
     friend struct ElementJunction;
     friend struct Element;
     friend class UniformRadiativeFluxTimeSeriesBC;
+    friend class PointSrcTimeSeriesBC;
     friend class NonPointSrcTimeSeriesBC;
     friend class UniformHydraulicsTimeSeriesBC;
     friend class UniformMeteorologyTimeSeriesBC;
@@ -471,6 +473,12 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
      */
     void printStatus();
 
+    /*!
+     * \brief saveAs
+     * \param filePath
+     */
+    void saveAs(const QFileInfo &filePath);
+
   private:
 
     /*!
@@ -773,7 +781,8 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
     m_nextOutputTime,//Julian Day
     m_timeStepRelaxationFactor,
     m_maxTemp, //Tracks maximum temperature so far
-    m_minTemp; //Tracks minimum temperature so far
+    m_minTemp, //Tracks minimum temperature so far
+    m_pressureRatio; //Pressure
 
     std::vector<double> m_maxSolute, //array for tracking maximum solute concentrations
     m_minSolute, //array for tracking minimum solute concentrations
@@ -831,7 +840,7 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
     m_totalAdvDispHeatBalance, //Tracks total heat accumulation from advection and dispersion (KJ)
     m_evapWindFuncCoeffA, //Evaporation wind function coefficient
     m_evapWindFuncCoeffB, //Evaporation wind function coefficient
-    m_bowensCoeff; //Bowen coefficient
+    m_bowensCoeff;
 
     //File input and output
     QFileInfo m_inputFile, //Input filepath
