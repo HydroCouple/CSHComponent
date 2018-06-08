@@ -221,8 +221,8 @@ win32{
         QMAKE_CFLAGS += /openmp
        # QMAKE_LFLAGS += /openmp
         QMAKE_CXXFLAGS += /openmp
-        QMAKE_CXXFLAGS_RELEASE = $$QMAKE_CXXFLAGS
-        QMAKE_CXXFLAGS_DEBUG = $$QMAKE_CXXFLAGS
+        QMAKE_CXXFLAGS_RELEASE = $$QMAKE_CXXFLAGS /MD
+        QMAKE_CXXFLAGS_DEBUG = $$QMAKE_CXXFLAGS /MDd
 
         message("OpenMP enabled")
 
