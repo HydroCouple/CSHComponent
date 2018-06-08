@@ -98,7 +98,7 @@ void ElementOutput::updateValues()
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-        for(size_t i = 0 ; i < m_geometries.size() ; i++)
+        for(int i = 0 ; i < (int)m_geometries.size() ; i++)
         {
           Element *element = m_component->modelInstance()->getElement(i);
           double value = element->flow;
@@ -111,7 +111,7 @@ void ElementOutput::updateValues()
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-        for(size_t i = 0 ; i < m_geometries.size() ; i++)
+        for(int i = 0 ; i < (int)m_geometries.size() ; i++)
         {
           Element *element = m_component->modelInstance()->getElement(i);
           double value = element->xSectionArea;
@@ -124,7 +124,7 @@ void ElementOutput::updateValues()
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-        for(size_t i = 0 ; i < m_geometries.size() ; i++)
+        for(int i = 0 ; i < (int)m_geometries.size() ; i++)
         {
           Element *element = m_component->modelInstance()->getElement(i);
           double value = element->depth;
@@ -137,7 +137,7 @@ void ElementOutput::updateValues()
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-        for(size_t i = 0 ; i < m_geometries.size() ; i++)
+        for(int i = 0 ; i <(int) m_geometries.size() ; i++)
         {
           Element *element = m_component->modelInstance()->getElement(i);
           double value = element->width;
@@ -150,7 +150,7 @@ void ElementOutput::updateValues()
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-        for(size_t i = 0 ; i < m_geometries.size() ; i++)
+        for(int i = 0 ; i < (int)m_geometries.size() ; i++)
         {
           Element *element = m_component->modelInstance()->getElement(i);
           double value = element->temperature.value;
@@ -163,7 +163,7 @@ void ElementOutput::updateValues()
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-        for(size_t i = 0 ; i < m_geometries.size() ; i++)
+        for(int i = 0 ; i < (int)m_geometries.size() ; i++)
         {
           Element *element = m_component->modelInstance()->getElement(i);
           double value = element->soluteConcs[soluteIndex()].value;

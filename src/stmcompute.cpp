@@ -68,7 +68,7 @@ void STMModel::update()
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-          for(size_t i = 0 ; i < m_solutes.size(); i++)
+          for(int i = 0 ; i < (int)m_solutes.size(); i++)
           {
             solveSoluteTransport(i, m_timeStep);
           }
@@ -98,7 +98,7 @@ void STMModel::update()
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-          for(size_t i = 0 ; i < m_solutes.size(); i++)
+          for(int i = 0 ; i < (int)m_solutes.size(); i++)
           {
             solveJunctionSoluteContinuity(i, m_timeStep);
           }
@@ -130,7 +130,7 @@ void STMModel::prepareForNextTimeStep()
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-  for(size_t i = 0 ; i < m_elementJunctions.size(); i++)
+  for(int i = 0 ; i < (int)m_elementJunctions.size(); i++)
   {
     ElementJunction *elementJunction = m_elementJunctions[i];
     elementJunction->prevTemperature.copy(elementJunction->temperature);
@@ -198,7 +198,7 @@ void STMModel::applyInitialConditions()
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-  for(size_t i = 0 ; i < m_elementJunctions.size(); i++)
+  for(int i = 0 ; i < (int)m_elementJunctions.size(); i++)
   {
     ElementJunction *elementJunction = m_elementJunctions[i];
 
@@ -265,11 +265,10 @@ double STMModel::computeTimeStep()
   }
   else if(m_useAdaptiveTimeStep)
   {
+#ifdef _WIN32
+      {
 
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-    for(size_t i = 0 ; i < m_elements.size()  ; i++)
+    for(int i = 0 ; i < (int)m_elements.size()  ; i++)
     {
       Element *element = m_elements[i];
       double courantFactor = element->computeCourantFactor();
@@ -277,12 +276,33 @@ double STMModel::computeTimeStep()
 
       if(!isinf(courantFactor) && courantFactor > maxCourantFactor)
       {
+        maxCourantFactor = courantFactor;
+      }
+    }
+      }
+#else
+      {
+#ifdef USE_OPENMP
+#pragma omp parallel for
+#endif
+    for(int i = 0 ; i < (int)m_elements.size()  ; i++)
+    {
+      Element *element = m_elements[i];
+      double courantFactor = element->computeCourantFactor();
+      //double dispersionFactor = element->computeDispersionFactor();
+
+      if(!isinf(courantFactor) && courantFactor > maxCourantFactor)
+      {
+
 #ifdef USE_OPENMP
 #pragma omp atomic read
 #endif
         maxCourantFactor = courantFactor;
+
       }
     }
+      }
+#endif
 
     timeStep = maxCourantFactor ? m_timeStepRelaxationFactor / maxCourantFactor : m_maxTimeStep;\
   }
@@ -306,7 +326,7 @@ void STMModel::computeLongDispersion()
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-    for(size_t i = 0 ; i < m_elements.size(); i++)
+    for(int i = 0 ; i < (int)m_elements.size(); i++)
     {
       Element *element = m_elements[i];
       element->computeLongDispersion();
@@ -316,7 +336,7 @@ void STMModel::computeLongDispersion()
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-  for(size_t i = 0 ; i < m_elementJunctions.size(); i++)
+  for(int i = 0 ; i < (int)m_elementJunctions.size(); i++)
   {
     ElementJunction *elementJunction = m_elementJunctions[i];
     elementJunction->interpXSectionArea();
@@ -326,7 +346,7 @@ void STMModel::computeLongDispersion()
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-  for(size_t i = 0 ; i < m_elements.size(); i++)
+  for(int i = 0 ; i < (int)m_elements.size(); i++)
   {
     Element *element = m_elements[i];
     element->computePecletNumbers();
@@ -335,7 +355,7 @@ void STMModel::computeLongDispersion()
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-  for(size_t i = 0 ; i < m_elements.size(); i++)
+  for(int i = 0 ; i < (int)m_elements.size(); i++)
   {
     Element *element = m_elements[i];
     element->computeUpstreamPeclet();
@@ -353,7 +373,7 @@ void STMModel::solveHeatTransport(double timeStep)
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-  for(size_t i = 0 ; i < m_elements.size(); i++)
+  for(int i = 0 ; i < (int)m_elements.size(); i++)
   {
     Element *element = m_elements[i];
     currentTemperatures[element->index] = element->temperature.value;
@@ -369,7 +389,7 @@ void STMModel::solveHeatTransport(double timeStep)
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-  for(size_t i = 0 ; i < m_elements.size(); i++)
+  for(int i = 0 ; i < (int)m_elements.size(); i++)
   {
     Element *element = m_elements[i];
     double outputTemperature = outputTemperatures[element->index];
@@ -390,7 +410,7 @@ void STMModel::solveSoluteTransport(int soluteIndex, double timeStep)
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-  for(size_t i = 0 ; i < m_elements.size(); i++)
+  for(int i = 0 ; i < (int)m_elements.size(); i++)
   {
     Element *element = m_elements[i];
     currentSoluteConcs[element->index] = element->soluteConcs[soluteIndex].value;
@@ -407,7 +427,7 @@ void STMModel::solveSoluteTransport(int soluteIndex, double timeStep)
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-  for(size_t i = 0 ; i < m_elements.size(); i++)
+  for(int i = 0 ; i < (int)m_elements.size(); i++)
   {
     Element *element = m_elements[i];
     element->soluteConcs[soluteIndex].value = outputSoluteConcs[element->index];
@@ -430,7 +450,7 @@ void STMModel::computeDTDt(double t, double y[], double dydt[], void* userData)
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-  for(size_t i = 0 ; i < modelInstance->m_elements.size(); i++)
+  for(int i = 0 ; i < (int)modelInstance->m_elements.size(); i++)
   {
     Element *element = modelInstance->m_elements[i];
     dydt[element->index] = element->computeDTDt(dt,y);
@@ -459,7 +479,7 @@ void STMModel::solveJunctionHeatContinuity(double timeStep)
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-  for(size_t i = 0 ; i < m_elementJunctions.size(); i++)
+  for(int i = 0 ; i < (int)m_elementJunctions.size(); i++)
   {
     ElementJunction *elementJunction = m_elementJunctions[i];
 
@@ -479,7 +499,7 @@ void STMModel::solveJunctionSoluteContinuity(int soluteIndex, double timeStep)
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-  for(size_t i = 0 ; i < m_elementJunctions.size(); i++)
+  for(int i = 0 ; i < (int)m_elementJunctions.size(); i++)
   {
     ElementJunction *elementJunction = m_elementJunctions[i];
 

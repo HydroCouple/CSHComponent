@@ -397,7 +397,7 @@ bool STMModel::initializeNetCDFOutputFile(list<string> &errors)
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-    for (size_t i = 0; i < m_elementJunctions.size(); i++)
+    for (int i = 0; i < (int)m_elementJunctions.size(); i++)
     {
       ElementJunction *junction = m_elementJunctions[i];
 
@@ -444,7 +444,7 @@ bool STMModel::initializeNetCDFOutputFile(list<string> &errors)
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-    for (size_t i = 0; i < m_elements.size(); i++)
+    for (int i = 0; i < (int)m_elements.size(); i++)
     {
       Element *element = m_elements[i];
 
@@ -2738,7 +2738,7 @@ void STMModel::writeNetCDFOutput()
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-    for (size_t i = 0; i < m_elements.size(); i++)
+    for (int i = 0; i < (int)m_elements.size(); i++)
     {
       Element *element = m_elements[i];
       flow[i] = element->flow;
