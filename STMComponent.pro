@@ -17,10 +17,15 @@ QT += testlib
   }
 
 
+<<<<<<< HEAD
 CONFIG += c++11
 CONFIG += debug_and_release
 
 DEFINES += STMCOMPONENT_LIBRARY
+=======
+DEFINES += STMCOMPONENT_LIBRARY
+#DEFINES += USE_OPENMPRV
+>>>>>>> 22b1a80554da58dc1d7e9fabab9f3972b0d81cc3
 DEFINES += USE_OPENMP
 DEFINES += USE_MPI
 DEFINES += USE_CVODE
@@ -64,7 +69,10 @@ HEADERS += ./include/stdafx.h\
            ./include/radiativefluxtimeseriesbc.h \
            ./include/hydraulicstimeseriesbc.h \
            ./include/pointsrctimeseriesbc.h \
-           ./include/nonpointsrctimeseriesbc.h
+           ./include/nonpointsrctimeseriesbc.h \
+           ./include/meteorologytimeseriesbc.h \
+           ./include/elementinput.h \
+           ./include/elementoutput.h
 
 SOURCES +=./src/stdafx.cpp \
           ./src/stmcomponent.cpp \
@@ -82,7 +90,10 @@ SOURCES +=./src/stdafx.cpp \
           ./src/radiativefluxtimeseriesbc.cpp \
           ./src/hydraulicstimeseriesbc.cpp \
           ./src/pointsrctimeseriesbc.cpp \
-          ./src/nonpointsrctimeseriesbc.cpp
+          ./src/nonpointsrctimeseriesbc.cpp \
+          ./src/meteorologytimeseriesbc.cpp \
+          ./src/elementinput.cpp \
+          ./src/elementoutput.cpp
 
 
 macx{
@@ -92,7 +103,6 @@ macx{
 
     contains(DEFINES, USE_CVODE){
     message("CVODE enabled")
-    INCLUDEPATH += ../cvode-3.1.0/include
     LIBS += -L/usr/local/lib -lsundials_cvode
     }
 

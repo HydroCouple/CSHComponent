@@ -24,6 +24,18 @@
 #include "stmcomponentinfo.h"
 #include "core/abstractmodelcomponent.h"
 
+#include <unordered_map>
+
+class STMModel;
+class HCLineString;
+class HCPoint;
+struct Element;
+class ElementInput;
+class ElementOutput;
+class Dimension;
+class ElementHeatSourceInput;
+class Unit;
+
 class STMCOMPONENT_EXPORT STMComponent : public AbstractModelComponent
 {
     Q_OBJECT
@@ -64,12 +76,18 @@ class STMCOMPONENT_EXPORT STMComponent : public AbstractModelComponent
      */
     void finish() override;
 
+    /*!
+     * \brief modelInstance
+     * \return
+     */
+    STMModel *modelInstance() const;
+
   protected:
 
     /*!
      * \brief intializeFailureCleanUp
      */
-    void intializeFailureCleanUp() override;
+    void initializeFailureCleanUp() override;
 
   private:
 
@@ -79,6 +97,11 @@ class STMCOMPONENT_EXPORT STMComponent : public AbstractModelComponent
     void createArguments() override;
 
     /*!
+     * \brief createInputFileArguments
+     */
+    void createInputFileArguments();
+
+    /*!
      * \brief initializeArguments
      * \param message
      * \return
@@ -86,9 +109,51 @@ class STMCOMPONENT_EXPORT STMComponent : public AbstractModelComponent
     bool initializeArguments(QString &message) override;
 
     /*!
+     * \brief initializeInputFilesArguments
+     * \param message
+     * \return
+     */
+    bool initializeInputFilesArguments(QString &message);
+
+    /*!
+     * \brief createGeometriesMap
+     */
+    void createGeometries();
+
+    /*!
      * \brief createInputs
      */
     void createInputs() override;
+
+    /*!
+     * \brief createFlowInput
+     */
+    void createFlowInput();
+
+    /*!
+     * \brief createXSectionAreaInput
+     */
+    void createXSectionAreaInput();
+
+    /*!
+     * \brief createDepthInput
+     */
+    void createDepthInput();
+
+    /*!
+     * \brief createTopWidthInput
+     */
+    void createTopWidthInput();
+
+    /*!
+     * \brief createRadiationFluxInput
+     */
+    void createExternalRadiationFluxInput();
+
+    /*!
+     * \brief createExternalHeatFluxInput
+     */
+    void createExternalHeatFluxInput();
 
     /*!
      * \brief createOutputs
@@ -96,17 +161,35 @@ class STMCOMPONENT_EXPORT STMComponent : public AbstractModelComponent
     void createOutputs() override;
 
     /*!
-     * \brief updateOutputValues
-     * \param requiredOutputs
+     * \brief createTemperatureOutput
      */
-    void updateOutputValues(const QList<HydroCouple::IOutput*>& requiredOutputs) override;
-
+    void createTemperatureOutput();
 
   private:
 
+    IdBasedArgumentString *m_inputFilesArgument;
+
+    ElementInput *m_flowInput,
+                 *m_xSectionAreaInput,
+                 *m_depthInput,
+                 *m_topWidthInput;
 
 
+    Unit *m_radiationFluxUnit,
+         *m_heatFluxUnit,
+         *m_temperatureUnit;
 
+    ElementHeatSourceInput *m_externalRadiationFluxInput,
+                           *m_externalHeatFluxInput;
+
+    ElementOutput *m_temperatureOutput;
+
+    Dimension *m_timeDimension,
+              *m_geometryDimension;
+
+    std::vector<QSharedPointer<HCLineString>> m_elementGeometries;
+    std::vector<QSharedPointer<HCPoint>> m_elementJunctionGeometries;
+    STMModel *m_modelInstance;
 };
 
 #endif //STMCOMPONENT_H

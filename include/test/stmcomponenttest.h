@@ -125,6 +125,16 @@ class STMComponentTest : public QObject
     void green_river_test();
 
     /*!
+     * \brief green_river_test
+     */
+    void green_river_test1();
+
+    /*!
+     * \brief green_river_test1
+     */
+    void green_river_test2();
+
+    /*!
      * \brief derivativeProb1 Example ODE problem: dy/dt = x * y ^3 / sqrt(1 + x^2); y(0) = -1; y = -1 / sqrt(3 - 2 * sqrt(1+t^2))
      * \param t
      * \param y

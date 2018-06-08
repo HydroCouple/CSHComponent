@@ -22,6 +22,7 @@
 #include "element.h"
 #include "elementjunction.h"
 #include "iboundarycondition.h"
+#include "stmcomponent.h"
 
 using namespace std;
 
@@ -29,20 +30,21 @@ void STMModel::update()
 {
   if(m_currentDateTime < m_endDateTime)
   {
-    m_timeStep = computeTimeStep();
-
-    double tempCurrentDateTime = m_currentDateTime + m_timeStep / 86400.0;
-
-    applyBoundaryConditions(tempCurrentDateTime);
+    applyBoundaryConditions(m_currentDateTime);
 
     //Retrieve external data from other coupled models
 
-    if(m_retrieveCouplingDataFunction)
-    {
-      (*m_retrieveCouplingDataFunction)(this, tempCurrentDateTime);
-    }
+    //    if(m_retrieveCouplingDataFunction)
+    //    {
+    //      (*m_retrieveCouplingDataFunction)(this, m_currentDateTime);
+    //    }
+
+    if(m_component)
+      m_component->applyInputValues();
 
     computeLongDispersion();
+
+    m_timeStep = computeTimeStep();
 
     //Solve the transport for each element
     {
@@ -105,14 +107,14 @@ void STMModel::update()
     }
 
     m_prevDateTime = m_currentDateTime;
-    m_currentDateTime = tempCurrentDateTime;
+    m_currentDateTime = m_currentDateTime + m_timeStep / 86400.0;
 
     prepareForNextTimeStep();
 
     if(m_currentDateTime >= m_nextOutputTime)
     {
       writeOutput();
-      m_nextOutputTime += m_outputInterval / 86400.0;
+      m_nextOutputTime = std::min(m_nextOutputTime + m_outputInterval / 86400.0 , m_endDateTime);
     }
 
     if(m_verbose)
@@ -149,25 +151,27 @@ void STMModel::prepareForNextTimeStep()
   {
     Element *element = m_elements[i];
 
-    element->computeHeatBalance();
-    m_heatBalance += element->heatBalance;
+    element->computeHeatBalance(m_timeStep);
+    m_totalHeatBalance += element->totalHeatBalance;
+    m_totalRadiationHeatBalance += element->totalRadiationFluxesHeatBalance;
+    m_totalAdvDispHeatBalance += element->totalAdvDispHeatBalance;
+    m_totalEvaporationHeatBalance += element->totalEvaporativeHeatFluxesBalance;
+    m_totalConvectiveHeatBalance += element->totalConvectiveHeatFluxesBalance;
+    m_totalExternalHeatFluxBalance += element->totalExternalHeatFluxesBalance;
 
     element->prevTemperature.copy(element->temperature);
-
-    element->radiationFluxes = 0.0;
-    element->externalHeatFluxes = 0.0;
 
     m_minTemp = min(m_minTemp , element->temperature.value);
     m_maxTemp = max(m_maxTemp , element->temperature.value);
 
     for(size_t j = 0; j < m_solutes.size(); j++)
     {
-      element->computeSoluteBalance(j);
-      m_soluteMassBalance[j] += element->soluteMassBalance[j];
+      element->computeSoluteBalance(m_timeStep, j);
+      m_totalSoluteMassBalance[j] += element->totalSoluteMassBalance[j];
+      m_totalAdvDispSoluteMassBalance[j] += element->totalAdvDispSoluteMassBalance[j];
+      m_totalExternalSoluteFluxMassBalance[j] += element->totalExternalSoluteFluxesMassBalance[j];
 
       element->prevSoluteConcs[j].copy(element->soluteConcs[j]);
-
-      element->externalSoluteFluxes[j] = 0.0;
 
       m_minSolute[j] = min(m_minSolute[j] , element->soluteConcs[j].value);
       m_maxSolute[j] = max(m_maxSolute[j] , element->soluteConcs[j].value);
@@ -179,26 +183,16 @@ void STMModel::applyInitialConditions()
 {
 
   //Initialize heat and solute balance trackers
-  m_heatBalance = 0.0;
+  m_totalHeatBalance = 0.0;
+  m_totalRadiationHeatBalance = 0.0;
+  m_totalEvaporationHeatBalance = 0.0;
+  m_totalConvectiveHeatBalance = 0.0;
+  m_totalAdvDispHeatBalance = 0.0;
+  m_totalExternalHeatFluxBalance = 0.0;
 
-  for(size_t i = 0; i < m_solutes.size(); i++)
-  {
-    m_soluteMassBalance[i] = 0.0;
-  }
-
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-  for(size_t i = 0 ; i < m_elements.size(); i++)
-  {
-    Element *element = m_elements[i];
-    element->heatBalance = 0.0;
-
-    for(size_t j = 0; j < m_solutes.size(); j++)
-    {
-      element->soluteMassBalance[j] = 0.0;
-    }
-  }
+  std::fill(m_totalSoluteMassBalance.begin(), m_totalSoluteMassBalance.end(), 0.0);
+  std::fill(m_totalAdvDispSoluteMassBalance.begin(), m_totalAdvDispSoluteMassBalance.end(), 0.0);
+  std::fill(m_totalExternalSoluteFluxMassBalance.begin(), m_totalExternalSoluteFluxMassBalance.end(), 0.0);
 
   //Interpolate nodal temperatures and solute concentrations
 #ifdef USE_OPENMP
@@ -262,10 +256,14 @@ void STMModel::applyBoundaryConditions(double dateTime)
 double STMModel::computeTimeStep()
 {
   double timeStep = m_maxTimeStep;
+  double maxCourantFactor = 0.0;
 
-  double maxCourantFactor = 0.0;// Δx / v (s^-1)
-
-  if(m_useAdaptiveTimeStep)
+  if(m_numCurrentInitFixedTimeSteps < m_numInitFixedTimeSteps)
+  {
+    timeStep = m_minTimeStep;
+    m_numCurrentInitFixedTimeSteps++;
+  }
+  else if(m_useAdaptiveTimeStep)
   {
 
 #ifdef USE_OPENMP
@@ -277,30 +275,16 @@ double STMModel::computeTimeStep()
       double courantFactor = element->computeCourantFactor();
       //double dispersionFactor = element->computeDispersionFactor();
 
-      if(courantFactor > maxCourantFactor)
+      if(!isinf(courantFactor) && courantFactor > maxCourantFactor)
       {
 #ifdef USE_OPENMP
 #pragma omp atomic read
 #endif
         maxCourantFactor = courantFactor;
       }
-
-      //      if(dispersionFactor > maxCourantFactor)
-      //      {
-      //#ifdef USE_OPENMP
-      //#pragma omp atomic read
-      //#endif
-      //        maxCourantFactor = dispersionFactor;
-      //      }
     }
 
     timeStep = maxCourantFactor ? m_timeStepRelaxationFactor / maxCourantFactor : m_maxTimeStep;\
-
-    if(m_numCurrentInitFixedTimeSteps < m_numInitFixedTimeSteps)
-    {
-      timeStep = std::min(timeStep, m_minTimeStep);
-      m_numCurrentInitFixedTimeSteps++;
-    }
   }
 
   double nextTime = m_currentDateTime + timeStep / 86400.0;

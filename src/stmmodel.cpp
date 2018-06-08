@@ -34,6 +34,7 @@ STMModel::STMModel(STMComponent *component)
     m_maxTimeStep(0.5), //seconds
     m_minTimeStep(0.001), //seconds,
     m_timeStepRelaxationFactor(0.8),
+    m_pressureRatio(1.0),
     m_numInitFixedTimeSteps(2),
     m_numCurrentInitFixedTimeSteps(0),
     m_printFrequency(10),
@@ -43,11 +44,16 @@ STMModel::STMModel(STMComponent *component)
     m_computeDispersion(false),
     m_useAdaptiveTimeStep(true),
     m_verbose(false),
+    m_useEvaporation(false),
+    m_useConvection(false),
     m_advectionMode(AdvectionDiscretizationMode::Upwind),
     m_numHeatElementJunctions(0),
     m_heatSolver(nullptr),
     m_waterDensity(1000.0), //kg/m^3
-    m_cp(4187.0), //4187.0 J/kg/C
+    m_cp(4184.0), //4187.0 J/kg/C
+    m_evapWindFuncCoeffA(1.505e-8),
+    m_evapWindFuncCoeffB( 1.600e-8),
+    m_bowensCoeff(0.061),
     #ifdef USE_NETCDF
     m_outputNetCDF(nullptr),
     #endif
@@ -247,7 +253,9 @@ void STMModel::setNumSolutes(int numSolutes)
     m_solutes.resize(numSolutes);
     m_maxSolute.resize(numSolutes);
     m_minSolute.resize(numSolutes);
-    m_soluteMassBalance.resize(numSolutes);
+    m_totalSoluteMassBalance.resize(numSolutes);
+    m_totalAdvDispSoluteMassBalance.resize(numSolutes);
+    m_totalExternalSoluteFluxMassBalance.resize(numSolutes);
 
     for(size_t i = 0 ; i < m_solutes.size(); i++)
     {
@@ -465,7 +473,7 @@ bool STMModel::initializeTimeVariables(std::list<string> &errors)
     return false;
   }
 
-  if(m_minTimeStep >= m_maxTimeStep)
+  if(m_minTimeStep > m_maxTimeStep)
   {
     errors.push_back("");
     return false;

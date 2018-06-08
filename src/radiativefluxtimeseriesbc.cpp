@@ -22,10 +22,9 @@
 #include "stmmodel.h"
 #include "element.h"
 
-RadiativeFluxTimeSeriesBC::RadiativeFluxTimeSeriesBC(Element *startElement, Element *endElement, STMModel *model)
+RadiativeFluxTimeSeriesBC::RadiativeFluxTimeSeriesBC(Element *element, STMModel *model)
   :AbstractTimeSeriesBC(model),
-   m_startElement(startElement),
-   m_endElement(endElement)
+    m_element(element)
 {
 
 }
@@ -37,8 +36,7 @@ RadiativeFluxTimeSeriesBC::~RadiativeFluxTimeSeriesBC()
 
 void RadiativeFluxTimeSeriesBC::findAssociatedGeometries()
 {
-  m_profile.clear();
-  m_model->findProfile(m_startElement, m_endElement, m_profile);
+
 }
 
 void RadiativeFluxTimeSeriesBC::prepare()
@@ -53,9 +51,77 @@ void RadiativeFluxTimeSeriesBC::applyBoundaryConditions(double dateTime)
 
   if(found)
   {
+    m_element->radiationFluxes += value;
+  }
+}
+
+Element *RadiativeFluxTimeSeriesBC::element() const
+{
+  return m_element;
+}
+
+void RadiativeFluxTimeSeriesBC::setElement(Element *element)
+{
+  m_element = element;
+}
+
+
+
+UniformRadiativeFluxTimeSeriesBC::UniformRadiativeFluxTimeSeriesBC(Element *startElement, Element *endElement, STMModel *model)
+  :AbstractTimeSeriesBC(model),
+   m_startElement(startElement),
+   m_endElement(endElement)
+{
+
+}
+
+UniformRadiativeFluxTimeSeriesBC::~UniformRadiativeFluxTimeSeriesBC()
+{
+
+}
+
+void UniformRadiativeFluxTimeSeriesBC::findAssociatedGeometries()
+{
+  m_profile.clear();
+  m_model->findProfile(m_startElement, m_endElement, m_profile);
+}
+
+void UniformRadiativeFluxTimeSeriesBC::prepare()
+{
+
+}
+
+void UniformRadiativeFluxTimeSeriesBC::applyBoundaryConditions(double dateTime)
+{
+  bool found ;
+  double value = interpolate(dateTime, found);
+
+  if(found)
+  {
     for(Element *element : m_profile)
     {
       element->radiationFluxes += value;
     }
   }
 }
+
+Element *UniformRadiativeFluxTimeSeriesBC::startElement() const
+{
+  return m_startElement;
+}
+
+void UniformRadiativeFluxTimeSeriesBC::setStartElement(Element *element)
+{
+  m_startElement = element;
+}
+
+Element *UniformRadiativeFluxTimeSeriesBC::endElement() const
+{
+  return m_endElement;
+}
+
+void UniformRadiativeFluxTimeSeriesBC::setEndElement(Element *element)
+{
+  m_endElement = element;
+}
+

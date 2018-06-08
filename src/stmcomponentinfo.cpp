@@ -30,10 +30,10 @@ STMComponentInfo::STMComponentInfo(QObject *parent)
   GeometryFactory::registerGDAL();
 
   setId("Stream Temperature Model 1.0.0");
-  setCaption("Stream Temperature Model Component");
+  setCaption("STM Component");
   setIconFilePath("./../../resources/images/hydrocouplecomposer.png");
   setDescription("A one-dimensional channel heat and solute transport model.");
-  setCategory("Hydrodyanmic/Heat");
+  setCategory("Hydrodyanmics\\Heat Transport");
   setCopyright("");
   setVendor("");
   setUrl("www.hydrocouple.org");

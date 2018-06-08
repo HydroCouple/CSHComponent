@@ -19,11 +19,13 @@
 
 #include "pointsrctimeseriesbc.h"
 #include "element.h"
+#include "stmmodel.h"
 
-PointSrcTimeSeriesBC::PointSrcTimeSeriesBC(Element *element, int variableIndex, STMModel *model)
+PointSrcTimeSeriesBC::PointSrcTimeSeriesBC(Element *element, VariableType variableType, STMModel *model)
   :AbstractTimeSeriesBC(model),
-   m_element(element),
-   m_variableIndex(variableIndex)
+    m_element(element),
+    m_variableType(variableType),
+    m_soluteIndex(-1)
 {
 
 }
@@ -50,16 +52,49 @@ void PointSrcTimeSeriesBC::applyBoundaryConditions(double dateTime)
 
   if(found)
   {
-    switch (m_variableIndex)
+    switch (m_variableType)
     {
-      case -1:
-        m_element->externalHeatFluxes += value;
+      case HeatSource:
+        {
+          m_element->externalHeatFluxes += value;
+        }
+        break;
+      case FlowSource:
+        {
+          m_element->externalHeatFluxes +=  m_model->m_cp * m_model->m_waterDensity * value * m_element->prevTemperature.value;
+
+          for(size_t i = 0; i < m_model->m_solutes.size(); i++)
+          {
+            m_element->externalSoluteFluxes[i] += m_model->m_waterDensity * value * m_element->prevSoluteConcs[i].value;
+          }
+        }
         break;
       default:
         {
-          m_element->externalSoluteFluxes[m_variableIndex]  += value;
+          m_element->externalSoluteFluxes[m_soluteIndex] += value;
         }
         break;
     }
   }
 }
+
+Element *PointSrcTimeSeriesBC::element() const
+{
+  return m_element;
+}
+
+void PointSrcTimeSeriesBC::setElement(Element *element)
+{
+  m_element = element;
+}
+
+int PointSrcTimeSeriesBC::soluteIndex() const
+{
+  return m_soluteIndex;
+}
+
+void PointSrcTimeSeriesBC::setSoluteIndex(int soluteIndex)
+{
+  m_soluteIndex = soluteIndex;
+}
+

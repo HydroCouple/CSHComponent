@@ -21,11 +21,16 @@
 #include "element.h"
 #include "stmmodel.h"
 
-NonPointSrcTimeSeriesBC::NonPointSrcTimeSeriesBC(Element *startElement, Element *endElement, int variableIndex, STMModel *model)
+NonPointSrcTimeSeriesBC::NonPointSrcTimeSeriesBC(Element *startElement, double startElementLFactor,
+                                                 Element *endElement, double endElementLFactor,
+                                                 VariableType variableType, STMModel *model)
   :AbstractTimeSeriesBC(model),
-   m_startElement(startElement),
-   m_endElement(endElement),
-   m_variableIndex(variableIndex)
+    m_startElement(startElement),
+    m_endElement(endElement),
+    m_startElementLFactor(startElementLFactor),
+    m_endElementLFactor(endElementLFactor),
+    m_variableType(variableType),
+    m_soluteIndex(-1)
 {
 
 }
@@ -39,6 +44,16 @@ void NonPointSrcTimeSeriesBC::findAssociatedGeometries()
 {
   m_profile.clear();
   m_model->findProfile(m_startElement, m_endElement, m_profile);
+  m_factors.clear();
+
+  for(Element *element : m_profile)
+  {
+    if(element != m_startElement && element != m_endElement)
+    m_factors[element] = element->length;
+  }
+
+  m_factors[m_startElement] = m_startElement->length * m_startElementLFactor;
+  m_factors[m_endElement]   = m_endElement->length * m_endElementLFactor;
 }
 
 void NonPointSrcTimeSeriesBC::prepare()
@@ -54,20 +69,94 @@ void NonPointSrcTimeSeriesBC::applyBoundaryConditions(double dateTime)
 
   if(found)
   {
-    switch (m_variableIndex)
+    switch (m_variableType)
     {
-      case -1:
+      case HeatSource:
         for(Element *element : m_profile)
         {
-          element->externalHeatFluxes += value * element->length;
+          element->externalHeatFluxes += value * m_factors[element];
+        }
+        break;
+      case FlowSource:
+        for(Element *element : m_profile)
+        {
+          double factor = m_factors[element];
+
+          element->externalHeatFluxes += m_model->m_cp * m_model->m_waterDensity * value *
+                                         element->prevTemperature.value * factor;
+
+          for(size_t i = 0; i < m_model->m_solutes.size(); i++)
+          {
+            element->externalSoluteFluxes[i] += m_model->m_waterDensity * value *
+                                                element->prevSoluteConcs[i].value * factor;
+          }
+
         }
         break;
       default:
         for(Element *element : m_profile)
         {
-          element->externalSoluteFluxes[m_variableIndex] += value * element->length;
+          element->externalSoluteFluxes[m_soluteIndex] += value * m_factors[element];
         }
         break;
     }
   }
+}
+
+
+Element *NonPointSrcTimeSeriesBC::startElement() const
+{
+  return m_startElement;
+}
+
+void NonPointSrcTimeSeriesBC::setStartElement(Element *element)
+{
+  m_startElement = element;
+}
+
+
+double NonPointSrcTimeSeriesBC::startElementLFactor() const
+{
+  return m_startElementLFactor;
+}
+
+
+void NonPointSrcTimeSeriesBC::setStartElementLFactor(double factor)
+{
+  m_startElementLFactor = factor;
+}
+
+
+Element *NonPointSrcTimeSeriesBC::endElement() const
+{
+  return m_endElement;
+}
+
+
+void NonPointSrcTimeSeriesBC::setEndElement(Element *element)
+{
+  m_endElement = element;
+}
+
+
+double NonPointSrcTimeSeriesBC::endElementLFactor() const
+{
+  return m_endElementLFactor;
+}
+
+
+void NonPointSrcTimeSeriesBC::setEndElementLFactor(double factor)
+{
+  m_endElementLFactor = factor;
+}
+
+
+int NonPointSrcTimeSeriesBC::soluteIndex() const
+{
+  return m_soluteIndex;
+}
+
+void NonPointSrcTimeSeriesBC::setSoluteIndex(int soluteIndex)
+{
+  m_soluteIndex = soluteIndex;
 }

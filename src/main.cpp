@@ -43,6 +43,9 @@ void initializeCommandLineParser(QCommandLineParser &commandLineParser)
 
 int main(int argc, char** argv)
 {
+
+  qputenv("QTEST_FUNCTION_TIMEOUT", "10000000");
+
   QCoreApplication *application = new QCoreApplication(argc, argv);
   application->setOrganizationName("hydrocouple");
   application->setOrganizationDomain("hydrocouple.org");

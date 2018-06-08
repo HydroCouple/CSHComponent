@@ -26,7 +26,16 @@ class STMCOMPONENT_EXPORT NonPointSrcTimeSeriesBC : public AbstractTimeSeriesBC
 {
   public:
 
-    NonPointSrcTimeSeriesBC(Element *startElement, Element *endElement, int variableIndex, STMModel *model);
+    enum VariableType
+    {
+      HeatSource,
+      FlowSource,
+      SoluteSource,
+    };
+
+    NonPointSrcTimeSeriesBC(Element *startElement, double startElementLFactor,
+                            Element *endElement, double endElementLFactor,
+                            VariableType variableType, STMModel *model);
 
     virtual ~NonPointSrcTimeSeriesBC();
 
@@ -36,10 +45,33 @@ class STMCOMPONENT_EXPORT NonPointSrcTimeSeriesBC : public AbstractTimeSeriesBC
 
     void applyBoundaryConditions(double dateTime) override final;
 
+    Element *startElement() const;
+
+    void setStartElement(Element *element);
+
+    double startElementLFactor() const;
+
+    void setStartElementLFactor(double factor);
+
+    Element *endElement() const;
+
+    void setEndElement(Element *element);
+
+    double endElementLFactor() const;
+
+    void setEndElementLFactor(double factor);
+
+    int soluteIndex() const;
+
+    void setSoluteIndex(int soluteIndex);
+
   private:
     std::list<Element*> m_profile;
     Element *m_startElement, *m_endElement;
-    int m_variableIndex;
+    double m_startElementLFactor, m_endElementLFactor;
+    std::unordered_map<Element*, double> m_factors;
+    VariableType m_variableType;
+    int m_soluteIndex;
 };
 
 
