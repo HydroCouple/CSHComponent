@@ -852,12 +852,12 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
 #endif
 
     QTextStream m_outputCSVStream; //Output CSV filestream
-    static const std::unordered_map<std::string, int> m_inputFileFlags, //Input file flags
-    m_optionsFlags, //Input file flags
-    m_advectionFlags, //Advection type flags
-    m_solverTypeFlags, //Solver type flags
-    m_hydraulicVariableFlags, //Hydraulic variable flags
-    m_meteorologicalVariableFlags; //Meteorology variables
+    static const std::unordered_map<std::string, int> m_inputFileFlags; //Input file flags
+    static const std::unordered_map<std::string, int> m_optionsFlags; //Input file flags
+    static const std::unordered_map<std::string, int> m_advectionFlags; //Advection type flags
+    static const std::unordered_map<std::string, int> m_solverTypeFlags; //Solver type flags
+    static const std::unordered_map<std::string, int> m_hydraulicVariableFlags; //Hydraulic variable flags
+    static const std::unordered_map<std::string, int> m_meteorologicalVariableFlags; //Meteorology variables
 
     static const QRegExp m_dateTimeDelim;
 
