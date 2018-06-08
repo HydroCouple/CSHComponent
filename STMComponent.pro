@@ -17,8 +17,15 @@ QT += testlib
   }
 
 
+<<<<<<< HEAD
+CONFIG += c++11
+CONFIG += debug_and_release
+
+DEFINES += STMCOMPONENT_LIBRARY
+=======
 DEFINES += STMCOMPONENT_LIBRARY
 #DEFINES += USE_OPENMPRV
+>>>>>>> 22b1a80554da58dc1d7e9fabab9f3972b0d81cc3
 DEFINES += USE_OPENMP
 DEFINES += USE_MPI
 DEFINES += USE_CVODE
@@ -35,11 +42,7 @@ contains(DEFINES,STMCOMPONENT_LIBRARY){
   message("Compiling STMComponent as application")
 }
 
-CONFIG += c++11
 
-linux{
-CONFIG += debug_and_release
-}
 
 PRECOMPILED_HEADER = ./include/stdafx.h
 
@@ -220,7 +223,7 @@ win32{
     contains(DEFINES,USE_OPENMP){
 
         QMAKE_CFLAGS += /openmp
-        QMAKE_LFLAGS += /openmp
+       # QMAKE_LFLAGS += /openmp
         QMAKE_CXXFLAGS += /openmp
         QMAKE_CXXFLAGS_RELEASE = $$QMAKE_CXXFLAGS
         QMAKE_CXXFLAGS_DEBUG = $$QMAKE_CXXFLAGS
@@ -270,7 +273,7 @@ CONFIG(debug, debug|release) {
 
    win32{
 
-    QMAKE_POST_LINK += "copy ./../HydroCoupleSDK/build/debug/*HydroCoupleSDK.* ./build/debug/";
+    QMAKE_POST_LINK += "copy /B .\..\HydroCoupleSDK\build\debug\HydroCoupleSDK* .\build\debug"
     LIBS += -L./../HydroCoupleSDK/build/debug -lHydroCoupleSDK1
 
     }
@@ -312,7 +315,7 @@ CONFIG(release, debug|release) {
          #Windows
          win32{
              DESTDIR = lib/win32
-             QMAKE_POST_LINK += "copy ./../HydroCoupleSDK/lib/win32/*HydroCoupleSDK* ./lib/win32/";
+             QMAKE_POST_LINK += "copy /B .\..\HydroCoupleSDK\lib\win32\HydroCoupleSDK* .\lib\win32";
         }
     } else {
          #MacOS
@@ -330,7 +333,7 @@ CONFIG(release, debug|release) {
          #Windows
          win32{
              DESTDIR = bin/win32
-             QMAKE_POST_LINK += "copy ./../HydroCoupleSDK/lib/win32/*HydroCoupleSDK* ./bin/win32/";
+             QMAKE_POST_LINK += "copy /B .\..\HydroCoupleSDK\lib\win32\HydroCoupleSDK* .\bin\win32"
         }
     }
 }

@@ -1,3 +1,6 @@
+<<<<<<< HEAD
+DateTime, ElementId, ElementIndex, x, y, z, Temperature, TotalHeatBalance
+=======
 DateTime, ElementId, ElementIndex, x, y, z, Depth, Width, XSectionArea, Dispersion, Temperature, TotalAdvDispHeatBalance, TotalExternalHeatFluxesBalance, TotalRadFluxesHeatBalance, TotalEvapFluxHeatBalance, TotalConvFluxHeatBalance, TotalHeatBalance
 0, 0, 0, 0.1, 0, 0, 0.1, 0, 0.1, 0.1, 0, 0, 0, 0, 0, 0, 0
 0, 1, 1, 0.3, 0, 0, 0.1, 0, 0.1, 0.1, 0, 0, 0, 0, 0, 0, 0
@@ -304,3 +307,4 @@ DateTime, ElementId, ElementIndex, x, y, z, Depth, Width, XSectionArea, Dispersi
 0.0006944444444, 2, 2, 0.5, 0, 0, 0.1, 0, 0.1, 0.1, 0.6276468601, 0.0125529372, 0, 0, 0, 0, 0.0125529372
 0.0006944444444, 3, 3, 0.7, 0, 0, 0.1, 0, 0.1, 0.1, 0.4162542399, 0.008325084799, 0, 0, 0, 0, 0.008325084799
 0.0006944444444, 4, 4, 0.9, 0, 0, 0.1, 0, 0.1, 0.1, 0.1578913651, 0.003157827301, 0, 0, 0, 0, 0.003157827301
+>>>>>>> 22b1a80554da58dc1d7e9fabab9f3972b0d81cc3

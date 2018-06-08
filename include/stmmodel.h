@@ -852,14 +852,31 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
 #endif
 
     QTextStream m_outputCSVStream; //Output CSV filestream
+<<<<<<< HEAD
     static const std::unordered_map<std::string, int> m_inputFileFlags; //Input file flags
     static const std::unordered_map<std::string, int> m_optionsFlags; //Input file flags
     static const std::unordered_map<std::string, int> m_advectionFlags; //Advection type flags
     static const std::unordered_map<std::string, int> m_solverTypeFlags; //Solver type flags
     static const std::unordered_map<std::string, int> m_hydraulicVariableFlags; //Hydraulic variable flags
     static const std::unordered_map<std::string, int> m_meteorologicalVariableFlags; //Meteorology variables
+=======
+<<<<<<< HEAD
+    static const std::unordered_map<std::string, int> m_inputFileFlags; //Input file flags
+    static const std::unordered_map<std::string, int>  m_optionsFlags; //Input file flags
+    static const std::unordered_map<std::string, int>  m_advectionFlags; //Advection type flags
+    static const std::unordered_map<std::string, int>  m_solverTypeFlags; //Solver type flags
+    static const std::unordered_map<std::string, int>  m_hydraulicVariableFlags;
+=======
+    static const std::unordered_map<std::string, int> m_inputFileFlags, //Input file flags
+    m_optionsFlags, //Input file flags
+    m_advectionFlags, //Advection type flags
+    m_solverTypeFlags, //Solver type flags
+    m_hydraulicVariableFlags, //Hydraulic variable flags
+    m_meteorologicalVariableFlags; //Meteorology variables
+>>>>>>> e7beba3fed239851eb1222fc3a0cfcaf8376aa67
 
     static const QRegExp m_dateTimeDelim;
+>>>>>>> 22b1a80554da58dc1d7e9fabab9f3972b0d81cc3
 
     QRegExp m_delimiters; //Regex delimiter
 
