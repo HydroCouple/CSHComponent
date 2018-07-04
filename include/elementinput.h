@@ -117,6 +117,8 @@ class STMCOMPONENT_EXPORT ElementHeatSourceInput : public  TimeGeometryMultiInpu
 
     bool removeProvider(HydroCouple::IOutput *provider) override;
 
+    bool canConsume(HydroCouple::IOutput *provider, QString &message) const override;
+
     void retrieveValuesFromProvider() override;
 
     void applyData() override;

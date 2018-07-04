@@ -37,8 +37,10 @@
 #include "core/unitdimensions.h"
 #include "elementoutput.h"
 
+using namespace HydroCouple;
+
 STMComponent::STMComponent(const QString &id, STMComponentInfo *modelComponentInfo)
-  : AbstractModelComponent(id, modelComponentInfo),
+  : AbstractTimeModelComponent(id, modelComponentInfo),
     m_inputFilesArgument(nullptr),
     m_flowInput(nullptr),
     m_xSectionAreaInput(nullptr),
@@ -49,7 +51,8 @@ STMComponent::STMComponent(const QString &id, STMComponentInfo *modelComponentIn
     m_externalRadiationFluxInput(nullptr),
     m_externalHeatFluxInput(nullptr),
     m_temperatureOutput(nullptr),
-    m_modelInstance(nullptr)
+    m_modelInstance(nullptr),
+    m_parent(nullptr)
 {
   m_timeDimension = new Dimension("TimeDimension",this);
   m_geometryDimension = new Dimension("ElementGeometryDimension", this);
@@ -80,7 +83,20 @@ STMComponent::STMComponent(const QString &id, STMComponentInfo *modelComponentIn
 
 STMComponent::~STMComponent()
 {
+
   initializeFailureCleanUp();
+
+  if(m_parent)
+  {
+    m_parent->removeClone(this);
+  }
+
+  while (m_clones.size())
+  {
+    STMComponent *clone =  dynamic_cast<STMComponent*>(m_clones.first());
+    removeClone(clone);
+    delete clone;
+  }
 }
 
 QList<QString> STMComponent::validate()
@@ -135,6 +151,8 @@ void STMComponent::update(const QList<HydroCouple::IOutput*> &requiredOutputs)
 
     updateOutputValues(requiredOutputs);
 
+    currentDateTimeInternal()->setJulianDay(m_modelInstance->currentDateTime());
+
     if(m_modelInstance->currentDateTime() >=  m_modelInstance->endDateTime())
     {
       setStatus(IModelComponent::Done , "Simulation finished successfully", 100);
@@ -176,6 +194,100 @@ STMModel *STMComponent::modelInstance() const
   return m_modelInstance;
 }
 
+ICloneableModelComponent *STMComponent::parent() const
+{
+  return m_parent;
+}
+
+ICloneableModelComponent *STMComponent::clone()
+{
+  if(isInitialized())
+  {
+    STMComponent *cloneComponent = dynamic_cast<STMComponent*>(componentInfo()->createComponentInstance());
+    cloneComponent->setReferenceDirectory(referenceDirectory());
+
+    IdBasedArgumentString *identifierArg = identifierArgument();
+    IdBasedArgumentString *cloneIndentifierArg = cloneComponent->identifierArgument();
+
+    (*cloneIndentifierArg)["Id"] = QString((*identifierArg)["Id"]);
+    (*cloneIndentifierArg)["Caption"] = QString((*identifierArg)["Caption"]);
+    (*cloneIndentifierArg)["Description"] = QString((*identifierArg)["Description"]);
+
+    QString appendName = "_clone_" + QString::number(m_clones.size()) + "_" + QUuid::createUuid().toString().replace("{","").replace("}","");
+
+    //(*cloneComponent->m_inputFilesArgument)["Input File"] = QString((*m_inputFilesArgument)["Input File"]);
+
+    QString inputFilePath = QString((*m_inputFilesArgument)["Input File"]);
+    QFileInfo inputFile = getAbsoluteFilePath(inputFilePath);
+
+    if(inputFile.absoluteDir().exists())
+    {
+      QString suffix = "." + inputFile.completeSuffix();
+      inputFilePath = inputFile.absoluteFilePath().replace(suffix,"") + appendName + suffix;
+      QFile::copy(inputFile.absoluteFilePath(), inputFilePath);
+      (*cloneComponent->m_inputFilesArgument)["Input File"] = inputFilePath;
+    }
+
+    QString outputNetCDFFilePath = QString((*m_inputFilesArgument)["Output NetCDF File"]);
+    QFileInfo outputNetCDFFile = getAbsoluteFilePath(outputNetCDFFilePath);
+
+    if(!outputNetCDFFilePath.isEmpty() && outputNetCDFFile.absoluteDir().exists())
+    {
+      QString suffix = "." + outputNetCDFFile.completeSuffix();
+      outputNetCDFFilePath = outputNetCDFFile.absoluteFilePath().replace(suffix,"") + appendName + suffix;
+      (*cloneComponent->m_inputFilesArgument)["Output NetCDF File"] = outputNetCDFFilePath;
+    }
+
+    QString  outputCSVFilePath = QString((*m_inputFilesArgument)["Output CSV File"]);
+    QFileInfo outputCSVFile = getAbsoluteFilePath(outputCSVFilePath);
+
+    if(!outputCSVFilePath.isEmpty() && outputCSVFile.absoluteDir().exists())
+    {
+      QString suffix = "." + outputCSVFile.completeSuffix();
+      outputCSVFilePath = outputCSVFile.absoluteFilePath().replace(suffix,"") + appendName + suffix;
+      (*cloneComponent->m_inputFilesArgument)["Output CSV File"] = outputCSVFilePath;
+    }
+
+
+    cloneComponent->m_parent = this;
+    m_clones.append(cloneComponent);
+
+    emit propertyChanged("Clones");
+
+    cloneComponent->initialize();
+
+    return cloneComponent;
+  }
+
+  return nullptr;
+}
+
+QList<ICloneableModelComponent*> STMComponent::clones() const
+{
+  return m_clones;
+}
+
+bool STMComponent::removeClone(STMComponent *component)
+{
+  int removed;
+
+#ifdef USE_OPENMP
+#pragma omp critical
+#endif
+  {
+    removed = m_clones.removeAll(component);
+  }
+
+
+  if(removed)
+  {
+    component->m_parent = nullptr;
+    emit propertyChanged("Clones");
+  }
+
+  return removed;
+}
+
 void STMComponent::initializeFailureCleanUp()
 {
   if(m_modelInstance)
@@ -184,8 +296,6 @@ void STMComponent::initializeFailureCleanUp()
     m_modelInstance = nullptr;
   }
 
-  m_elementJunctionGeometries.clear();
-  m_elementGeometries.clear();
 }
 
 void STMComponent::createArguments()
@@ -197,6 +307,8 @@ void STMComponent::createInputFileArguments()
 {
   QStringList fidentifiers;
   fidentifiers.append("Input File");
+  fidentifiers.append("Output NetCDF File");
+  fidentifiers.append("Output CSV File");
 
   Quantity *fquantity = Quantity::unitLessValues("InputFilesQuantity", QVariant::String, this);
   fquantity->setDefaultValue("");
@@ -230,8 +342,7 @@ bool STMComponent::initializeArguments(QString &message)
 
 bool STMComponent::initializeInputFilesArguments(QString &message)
 {
-
-  QString inputFilePath = (*m_inputFilesArgument)["Input File"];
+  QString inputFilePath = QString((*m_inputFilesArgument)["Input File"]);
   QFileInfo inputFile = getAbsoluteFilePath(inputFilePath);
 
   if(inputFile.exists())
@@ -241,6 +352,14 @@ bool STMComponent::initializeInputFilesArguments(QString &message)
     m_modelInstance = new STMModel(this);
     m_modelInstance->setInputFile(inputFile);
 
+    QString netCDFOutput = QString((*m_inputFilesArgument)["Output NetCDF File"]);
+    if(!netCDFOutput.isEmpty() && !netCDFOutput.isNull())
+      m_modelInstance->setOutputNetCDFFile(QFileInfo(netCDFOutput));
+
+    QString csvOutput = QString((*m_inputFilesArgument)["Output CSV File"]);
+    if(!csvOutput.isEmpty() && !csvOutput.isNull())
+      m_modelInstance->setOutputCSVFile(QFileInfo(csvOutput));
+
     std::list<std::string> errors;
     bool initialized = m_modelInstance->initialize(errors);
 
@@ -249,7 +368,14 @@ bool STMComponent::initializeInputFilesArguments(QString &message)
       message += "/n" + QString::fromStdString(errorMsg);
     }
 
-    progressChecker()->reset(m_modelInstance->startDateTime(), m_modelInstance->endDateTime());
+    if(initialized)
+    {
+      timeHorizonInternal()->setJulianDay(m_modelInstance->startDateTime());
+      timeHorizonInternal()->setDuration(m_modelInstance->endDateTime() - m_modelInstance->startDateTime());
+      currentDateTimeInternal()->setJulianDay(m_modelInstance->startDateTime());
+      progressChecker()->reset(m_modelInstance->startDateTime(), m_modelInstance->endDateTime());
+    }
+
 
     return initialized;
   }
@@ -264,6 +390,8 @@ bool STMComponent::initializeInputFilesArguments(QString &message)
 
 void STMComponent::createGeometries()
 {
+  m_elementGeometries.clear();
+  m_elementJunctionGeometries.clear();
 
   for(int i = 0; i < m_modelInstance->numElements() ; i++)
   {
@@ -281,7 +409,7 @@ void STMComponent::createGeometries()
     m_elementJunctionGeometries.push_back(QSharedPointer<HCPoint>(new HCPoint(from->x , from->y, from->z, QString::fromStdString(from->id), nullptr)));
     m_elementJunctionGeometries.push_back(QSharedPointer<HCPoint>(new HCPoint(to->x , to->y, to->z, QString::fromStdString(to->id), nullptr)));
 
-    m_elementGeometries.push_back(QSharedPointer<HCLineString>(lineString));
+    m_elementGeometries.push_back(QSharedPointer<HCGeometry>(lineString));
   }
 }
 
@@ -310,14 +438,14 @@ void STMComponent::createFlowInput()
 
   QList<QSharedPointer<HCGeometry>> geometries;
 
-  for(const QSharedPointer<HCLineString> &lineString : m_elementGeometries)
+  for(const QSharedPointer<HCGeometry> &lineString : m_elementGeometries)
   {
-    geometries.append(lineString.dynamicCast<HCGeometry>());
+    geometries.append(lineString);
   }
 
   m_flowInput->addGeometries(geometries);
 
-  SDKTemporal::DateTime *dt1 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime()- 1.0/10000000000.0, m_flowInput);
+  SDKTemporal::DateTime *dt1 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime()- 1.0/1000000.0, m_flowInput);
   SDKTemporal::DateTime *dt2 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime(), m_flowInput);
 
   m_flowInput->addTime(dt1);
@@ -341,14 +469,14 @@ void STMComponent::createXSectionAreaInput()
 
   QList<QSharedPointer<HCGeometry>> geometries;
 
-  for(const QSharedPointer<HCLineString> &lineString : m_elementGeometries)
+  for(const QSharedPointer<HCGeometry> &lineString : m_elementGeometries)
   {
-    geometries.append(lineString.dynamicCast<HCGeometry>());
+    geometries.append(lineString);
   }
 
   m_xSectionAreaInput->addGeometries(geometries);
 
-  SDKTemporal::DateTime *dt1 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime()- 1.0/10000000000.0, m_xSectionAreaInput);
+  SDKTemporal::DateTime *dt1 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime()- 1.0/1000000.0, m_xSectionAreaInput);
   SDKTemporal::DateTime *dt2 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime(), m_xSectionAreaInput);
 
   m_xSectionAreaInput->addTime(dt1);
@@ -372,14 +500,14 @@ void STMComponent::createDepthInput()
 
   QList<QSharedPointer<HCGeometry>> geometries;
 
-  for(const QSharedPointer<HCLineString> &lineString : m_elementGeometries)
+  for(const QSharedPointer<HCGeometry> &lineString : m_elementGeometries)
   {
-    geometries.append(lineString.dynamicCast<HCGeometry>());
+    geometries.append(lineString);
   }
 
   m_depthInput->addGeometries(geometries);
 
-  SDKTemporal::DateTime *dt1 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime()- 1.0/10000000000.0, m_depthInput);
+  SDKTemporal::DateTime *dt1 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime()- 1.0/1000000.0, m_depthInput);
   SDKTemporal::DateTime *dt2 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime(), m_depthInput);
 
   m_depthInput->addTime(dt1);
@@ -403,14 +531,14 @@ void STMComponent::createTopWidthInput()
 
   QList<QSharedPointer<HCGeometry>> geometries;
 
-  for(const QSharedPointer<HCLineString> &lineString : m_elementGeometries)
+  for(const QSharedPointer<HCGeometry> &lineString : m_elementGeometries)
   {
-    geometries.append(lineString.dynamicCast<HCGeometry>());
+    geometries.append(lineString);
   }
 
   m_topWidthInput->addGeometries(geometries);
 
-  SDKTemporal::DateTime *dt1 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime()- 1.0/10000000000.0, m_topWidthInput);
+  SDKTemporal::DateTime *dt1 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime()- 1.0/1000000.0, m_topWidthInput);
   SDKTemporal::DateTime *dt2 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime(), m_topWidthInput);
 
   m_topWidthInput->addTime(dt1);
@@ -435,14 +563,14 @@ void STMComponent::createExternalRadiationFluxInput()
 
   QList<QSharedPointer<HCGeometry>> geometries;
 
-  for(const QSharedPointer<HCLineString> &lineString : m_elementGeometries)
+  for(const QSharedPointer<HCGeometry> &lineString : m_elementGeometries)
   {
-    geometries.append(lineString.dynamicCast<HCGeometry>());
+    geometries.append(lineString);
   }
 
   m_externalRadiationFluxInput->addGeometries(geometries);
 
-  SDKTemporal::DateTime *dt1 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime()- 1.0/10000000000.0, m_externalRadiationFluxInput);
+  SDKTemporal::DateTime *dt1 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime()- 1.0/1000000.0, m_externalRadiationFluxInput);
   SDKTemporal::DateTime *dt2 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime(), m_externalRadiationFluxInput);
 
   m_externalRadiationFluxInput->addTime(dt1);
@@ -467,14 +595,14 @@ void STMComponent::createExternalHeatFluxInput()
 
   QList<QSharedPointer<HCGeometry>> geometries;
 
-  for(const QSharedPointer<HCLineString> &lineString : m_elementGeometries)
+  for(const QSharedPointer<HCGeometry> &lineString : m_elementGeometries)
   {
-    geometries.append(lineString.dynamicCast<HCGeometry>());
+    geometries.append(lineString);
   }
 
   m_externalHeatFluxInput->addGeometries(geometries);
 
-  SDKTemporal::DateTime *dt1 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime()- 1.0/10000000000.0, m_externalHeatFluxInput);
+  SDKTemporal::DateTime *dt1 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime()- 1.0/1000000.0, m_externalHeatFluxInput);
   SDKTemporal::DateTime *dt2 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime(), m_externalHeatFluxInput);
 
   m_externalHeatFluxInput->addTime(dt1);
@@ -503,14 +631,14 @@ void STMComponent::createTemperatureOutput()
 
   QList<QSharedPointer<HCGeometry>> geometries;
 
-  for(const QSharedPointer<HCLineString> &lineString : m_elementGeometries)
+  for(const QSharedPointer<HCGeometry> &lineString : m_elementGeometries)
   {
-    geometries.append(lineString.dynamicCast<HCGeometry>());
+    geometries.append(lineString);
   }
 
   m_temperatureOutput->addGeometries(geometries);
 
-  SDKTemporal::DateTime *dt1 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime()- 1.0/10000000000.0, m_temperatureOutput);
+  SDKTemporal::DateTime *dt1 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime() - 1.0/1000000.0, m_temperatureOutput);
   SDKTemporal::DateTime *dt2 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime(), m_temperatureOutput);
 
   m_temperatureOutput->addTime(dt1);

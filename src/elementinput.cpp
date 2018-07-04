@@ -33,7 +33,7 @@ bool ElementInput::setProvider(HydroCouple::IOutput *provider)
   m_geometryMapping.clear();
   m_geometryMappingOrientation.clear();
 
-  if(AbstractInput::setProvider(provider))
+  if(AbstractInput::setProvider(provider) && provider)
   {
     ITimeGeometryComponentDataItem *timeGeometryDataItem = dynamic_cast<ITimeGeometryComponentDataItem*>(provider);
 
@@ -355,6 +355,35 @@ bool ElementHeatSourceInput::removeProvider(HydroCouple::IOutput *provider)
   return false;
 }
 
+bool ElementHeatSourceInput::canConsume(IOutput *provider, QString &message) const
+{
+  ITimeGeometryComponentDataItem *timeGeometryDataItem = nullptr;
+  IGeometryComponentDataItem *geometryDataItem = nullptr;
+
+  if((timeGeometryDataItem = dynamic_cast<ITimeGeometryComponentDataItem*>(provider)) &&
+     (timeGeometryDataItem->geometryType() == IGeometry::LineString ||
+      timeGeometryDataItem->geometryType() == IGeometry::LineStringZ ||
+      timeGeometryDataItem->geometryType() == IGeometry::LineStringZM) &&
+     (provider->valueDefinition()->type() == QVariant::Double ||
+      provider->valueDefinition()->type() == QVariant::Int))
+  {
+    return true;
+  }
+  else if((geometryDataItem = dynamic_cast<IGeometryComponentDataItem*>(provider)) &&
+          (geometryDataItem->geometryType() == IGeometry::LineString ||
+           geometryDataItem->geometryType() == IGeometry::LineStringZ ||
+           geometryDataItem->geometryType() == IGeometry::LineStringZM) &&
+          (provider->valueDefinition()->type() == QVariant::Double ||
+           provider->valueDefinition()->type() == QVariant::Int))
+  {
+    return true;
+  }
+
+  message = "Provider must be a LineString";
+
+  return false;
+}
+
 void ElementHeatSourceInput::retrieveValuesFromProvider()
 {
   moveDataToPrevTime();
@@ -376,60 +405,95 @@ void ElementHeatSourceInput::applyData()
 
     std::unordered_map<int,int> &geometryMapping = m_geometryMapping[provider];
 
-    ITimeGeometryComponentDataItem *timeGeometryDataItem = dynamic_cast<ITimeGeometryComponentDataItem*>(provider);
+    ITimeGeometryComponentDataItem *timeGeometryDataItem = nullptr;
+    IGeometryComponentDataItem *geometryDataItem = nullptr;
 
-    int currentTimeIndex = timeGeometryDataItem->timeCount() - 1;
-    int previousTimeIndex = std::max(0 , timeGeometryDataItem->timeCount() - 2);
-
-    double providerCurrentTime = timeGeometryDataItem->time(currentTimeIndex)->julianDay();
-    double providerPreviousTime = timeGeometryDataItem->time(previousTimeIndex)->julianDay();
-
-    if(currentTime >=  providerPreviousTime && currentTime <= providerCurrentTime)
+    if((timeGeometryDataItem = dynamic_cast<ITimeGeometryComponentDataItem*>(provider)))
     {
-      double factor = 0.0;
+      int currentTimeIndex = timeGeometryDataItem->timeCount() - 1;
+      int previousTimeIndex = std::max(0 , timeGeometryDataItem->timeCount() - 2);
 
-      if(providerCurrentTime > providerPreviousTime)
+      double providerCurrentTime = timeGeometryDataItem->time(currentTimeIndex)->julianDay();
+      double providerPreviousTime = timeGeometryDataItem->time(previousTimeIndex)->julianDay();
+
+      if(currentTime >=  providerPreviousTime && currentTime <= providerCurrentTime)
       {
-        double denom = providerCurrentTime - providerPreviousTime;
-        double numer = currentTime - providerPreviousTime;
-        factor = numer / denom;
+        double factor = 0.0;
+
+        if(providerCurrentTime > providerPreviousTime)
+        {
+          double denom = providerCurrentTime - providerPreviousTime;
+          double numer = currentTime - providerPreviousTime;
+          factor = numer / denom;
+        }
+
+        switch (m_srcType)
+        {
+          case RadiativeFlux:
+            {
+              for(auto it : geometryMapping)
+              {
+                double value1 = 0;
+                double value2 = 0;
+
+                timeGeometryDataItem->getValue(currentTimeIndex,it.second, &value1);
+                timeGeometryDataItem->getValue(previousTimeIndex,it.second, &value2);
+
+                Element *element =  m_component->modelInstance()->getElement(it.first);
+                element->radiationFluxes += value2 + factor *(value1 - value2);
+              }
+            }
+            break;
+          case HeatFlux:
+            {
+              for(auto it : geometryMapping)
+              {
+                double value1 = 0;
+                double value2 = 0;
+
+                timeGeometryDataItem->getValue(currentTimeIndex,it.second, &value1);
+                timeGeometryDataItem->getValue(previousTimeIndex,it.second, &value2);
+
+                Element *element =  m_component->modelInstance()->getElement(it.first);
+                element->externalHeatFluxes += value2 + factor *(value1 - value2);
+              }
+            }
+            break;
+        }
       }
-
-      switch (m_srcType)
+      else
       {
-        case RadiativeFlux:
-          {
-            for(auto it : geometryMapping)
+        switch (m_srcType)
+        {
+          case RadiativeFlux:
             {
-              double value1 = 0;
-              double value2 = 0;
+              for(auto it : geometryMapping)
+              {
+                double value = 0;
+                timeGeometryDataItem->getValue(currentTimeIndex,it.second, &value);
 
-              timeGeometryDataItem->getValue(currentTimeIndex,it.second, &value1);
-              timeGeometryDataItem->getValue(previousTimeIndex,it.second, &value2);
+                Element *element =  m_component->modelInstance()->getElement(it.first);
+                element->radiationFluxes += value;
 
-              Element *element =  m_component->modelInstance()->getElement(it.first);
-              element->radiationFluxes += value2 + factor *(value1 - value2);
+              }
             }
-          }
-          break;
-        case HeatFlux:
-          {
-            for(auto it : geometryMapping)
+            break;
+          case HeatFlux:
             {
-              double value1 = 0;
-              double value2 = 0;
+              for(auto it : geometryMapping)
+              {
+                double value = 0;
+                timeGeometryDataItem->getValue(currentTimeIndex,it.second, &value);
 
-              timeGeometryDataItem->getValue(currentTimeIndex,it.second, &value1);
-              timeGeometryDataItem->getValue(previousTimeIndex,it.second, &value2);
-
-              Element *element =  m_component->modelInstance()->getElement(it.first);
-              element->externalHeatFluxes += value2 + factor *(value1 - value2);
+                Element *element =  m_component->modelInstance()->getElement(it.first);
+                element->externalHeatFluxes += value;
+              }
             }
-          }
-          break;
+            break;
+        }
       }
     }
-    else
+    else if((geometryDataItem = dynamic_cast<IGeometryComponentDataItem*>(provider)))
     {
       switch (m_srcType)
       {
@@ -438,7 +502,7 @@ void ElementHeatSourceInput::applyData()
             for(auto it : geometryMapping)
             {
               double value = 0;
-              timeGeometryDataItem->getValue(currentTimeIndex,it.second, &value);
+              geometryDataItem->getValue(it.second, &value);
 
               Element *element =  m_component->modelInstance()->getElement(it.first);
               element->radiationFluxes += value;
@@ -451,7 +515,7 @@ void ElementHeatSourceInput::applyData()
             for(auto it : geometryMapping)
             {
               double value = 0;
-              timeGeometryDataItem->getValue(currentTimeIndex,it.second, &value);
+              geometryDataItem->getValue(it.second, &value);
 
               Element *element =  m_component->modelInstance()->getElement(it.first);
               element->externalHeatFluxes += value;
@@ -461,9 +525,6 @@ void ElementHeatSourceInput::applyData()
       }
     }
   }
-
-  //  Element *element = m_component->modelInstance()->getElement("E100");
-  //  printf(" receiving radiation: %f\n\n", element->radiationFluxes);
 }
 
 ElementHeatSourceInput::SourceType ElementHeatSourceInput::sourceType() const

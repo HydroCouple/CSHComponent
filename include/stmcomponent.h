@@ -22,13 +22,12 @@
 
 #include "stmcomponent_global.h"
 #include "stmcomponentinfo.h"
-#include "core/abstractmodelcomponent.h"
+#include "temporal/abstracttimemodelcomponent.h"
 
 #include <unordered_map>
 
 class STMModel;
-class HCLineString;
-class HCPoint;
+class HCGeometry;
 struct Element;
 class ElementInput;
 class ElementOutput;
@@ -36,7 +35,8 @@ class Dimension;
 class ElementHeatSourceInput;
 class Unit;
 
-class STMCOMPONENT_EXPORT STMComponent : public AbstractModelComponent
+class STMCOMPONENT_EXPORT STMComponent : public AbstractTimeModelComponent,
+    public virtual HydroCouple::ICloneableModelComponent
 {
     Q_OBJECT
 
@@ -82,7 +82,28 @@ class STMCOMPONENT_EXPORT STMComponent : public AbstractModelComponent
      */
     STMModel *modelInstance() const;
 
+    /*!
+     * \brief parent
+     * \return
+     */
+    HydroCouple::ICloneableModelComponent* parent() const override;
+
+    /*!
+     * \brief clone
+     * \return
+     */
+    HydroCouple::ICloneableModelComponent* clone() override;
+
+    /*!
+     * \brief clones
+     * \return
+     */
+    QList<HydroCouple::ICloneableModelComponent*> clones() const override;
+
   protected:
+
+    bool removeClone(STMComponent *component);
+
 
     /*!
      * \brief intializeFailureCleanUp
@@ -187,9 +208,12 @@ class STMCOMPONENT_EXPORT STMComponent : public AbstractModelComponent
     Dimension *m_timeDimension,
               *m_geometryDimension;
 
-    std::vector<QSharedPointer<HCLineString>> m_elementGeometries;
-    std::vector<QSharedPointer<HCPoint>> m_elementJunctionGeometries;
+    std::vector<QSharedPointer<HCGeometry>> m_elementGeometries;
+    std::vector<QSharedPointer<HCGeometry>> m_elementJunctionGeometries;
     STMModel *m_modelInstance;
+
+    STMComponent *m_parent;
+    QList<HydroCouple::ICloneableModelComponent*> m_clones;
 };
 
 #endif //STMCOMPONENT_H

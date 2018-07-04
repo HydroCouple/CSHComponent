@@ -42,6 +42,7 @@ struct ElementJunction;
 class Edge;
 class STMModel;
 class IBoundaryCondition;
+class ThreadSafeNcFile;
 
 struct STMCOMPONENT_EXPORT SolverUserData
 {
@@ -740,23 +741,6 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
     QFileInfo relativePathToAbsolute(const QFileInfo& fileInfo);
 
     /*!
-     * \brief readTimeSeries
-     * \param fileInfo
-     * \param timeSeriesValues
-     * \param headers
-     * \return
-     */
-    static bool readTimeSeries(const QFileInfo &fileInfo,  std::map<double, std::vector<double>>& timeSeriesValues, std::vector<std::string>& headers);
-
-    /*!
-     * \brief tryParse
-     * \param dateTimeString
-     * \param dateTime
-     * \return
-     */
-    static bool tryParse(const QString &dateTimeString, QDateTime &dateTime);
-
-    /*!
      * \brief findProfile
      * \param from
      * \param to
@@ -842,13 +826,14 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
     m_evapWindFuncCoeffB, //Evaporation wind function coefficient
     m_bowensCoeff;
 
+
     //File input and output
     QFileInfo m_inputFile, //Input filepath
     m_outputCSVFileInfo, //Output CSV filepath
     m_outputNetCDFFileInfo; //Output NetCDF filepath
 
 #ifdef USE_NETCDF
-    netCDF::NcFile *m_outputNetCDF = nullptr; //NetCDF output file object
+     ThreadSafeNcFile *m_outputNetCDF = nullptr; //NetCDF output file object
 #endif
 
     QTextStream m_outputCSVStream; //Output CSV filestream

@@ -27,6 +27,8 @@
 #include "nonpointsrctimeseriesbc.h"
 #include "meteorologytimeseriesbc.h"
 #include "temporal/timedata.h"
+#include "threadsafencfile.h"
+#include "timeseries.h"
 
 #include <QDir>
 #include <QDate>
@@ -37,6 +39,7 @@
 
 using namespace netCDF;
 using namespace netCDF::exceptions;
+
 
 #endif
 
@@ -163,6 +166,7 @@ bool STMModel::initializeInputFiles(list<string> &errors)
 
       QTextStream streamReader(&file);
       int lineCount = 0;
+
       while (!streamReader.atEnd())
       {
         QString line = streamReader.readLine().trimmed();
@@ -312,12 +316,13 @@ bool STMModel::initializeNetCDFOutputFile(list<string> &errors)
 
 #ifdef USE_NETCDF
 
+
   if (m_outputNetCDFFileInfo.isRelative())
   {
     m_outputNetCDFFileInfo = relativePathToAbsolute(m_outputNetCDFFileInfo);
   }
 
-  if (m_outputNetCDFFileInfo.absoluteFilePath().isEmpty())
+  if (m_outputNetCDFFileInfo.absoluteFilePath().isEmpty() || m_outputNetCDFFileInfo.isDir())
   {
     return true;
   }
@@ -330,365 +335,390 @@ bool STMModel::initializeNetCDFOutputFile(list<string> &errors)
     return false;
   }
 
-  closeOutputNetCDFFile();
+  bool returnValue = false;
 
-  try
+#ifdef USE_OPENMP
+#pragma omp critical
+#endif
   {
+    closeOutputNetCDFFile();
 
-    m_outputNetCDF = new NcFile(m_outputNetCDFFileInfo.absoluteFilePath().toStdString(), NcFile::replace);
-
-    //time variable
-    NcDim timeDim = m_outputNetCDF->addDim("time");
-    NcVar timeVar = m_outputNetCDF->addVar("time", NcType::nc_DOUBLE, timeDim);
-    timeVar.putAtt("time:long_name", "time");
-    timeVar.putAtt("time:units", "days since 1858-11-17 0:0:0");
-    timeVar.putAtt("time:calendar", "modified_julian");
-
-    //Add Solutes
-    NcDim solutesDim = m_outputNetCDF->addDim("solutes", m_solutes.size());
-    NcVar solutes = m_outputNetCDF->addVar("solute_names", NcType::nc_STRING, solutesDim);
-    solutes.putAtt("solute_names::long_name", "solute names");
-
-    if (m_solutes.size())
+    try
     {
-      char **soluteNames = new char *[m_solutes.size()];
 
-      for (size_t i = 0; i < m_solutes.size(); i++)
+      m_outputNetCDF = new ThreadSafeNcFile(m_outputNetCDFFileInfo.absoluteFilePath().toStdString(), NcFile::replace);
+
+      //time variable
+      NcDim timeDim =  m_outputNetCDF->ncFile()->addDim("time");
+      NcVar timeVar =  m_outputNetCDF->ncFile()->addVar("time", NcType::nc_DOUBLE, timeDim);
+      timeVar.putAtt("time:long_name", "time");
+      timeVar.putAtt("time:units", "days since 1858-11-17 0:0:0");
+      timeVar.putAtt("time:calendar", "modified_julian");
+
+      //Add Solutes
+      NcDim solutesDim =  m_outputNetCDF->ncFile()->addDim("solutes", m_solutes.size());
+      NcVar solutes =  m_outputNetCDF->ncFile()->addVar("solute_names", NcType::nc_STRING, solutesDim);
+      solutes.putAtt("solute_names::long_name", "solute names");
+
+      if (m_solutes.size())
       {
-        string soluteName = m_solutes[i];
-        soluteNames[i] = new char[soluteName.size() + 1];
-        std::strcpy(soluteNames[i], soluteName.c_str());
+        char **soluteNames = new char *[m_solutes.size()];
+
+        for (size_t i = 0; i < m_solutes.size(); i++)
+        {
+          string soluteName = m_solutes[i];
+          soluteNames[i] = new char[soluteName.size() + 1];
+          std::strcpy(soluteNames[i], soluteName.c_str());
+        }
+
+        solutes.putVar(soluteNames);
+
+        for (size_t i = 0; i < m_solutes.size(); i++)
+        {
+          delete[] soluteNames[i];
+        }
+
+        delete[] soluteNames;
       }
 
-      solutes.putVar(soluteNames);
+      //Add element junctions
+      NcDim junctionDim =  m_outputNetCDF->ncFile()->addDim("element_junctions", m_elementJunctions.size());
 
-      for (size_t i = 0; i < m_solutes.size(); i++)
-      {
-        delete[] soluteNames[i];
-      }
+      NcVar junctionIdentifiers =  m_outputNetCDF->ncFile()->addVar("element_junction_id", NcType::nc_STRING, junctionDim);
+      junctionIdentifiers.putAtt("element_junction_id::long_name", "element junction identifier");
 
-      delete[] soluteNames;
-    }
+      NcVar junctionX =  m_outputNetCDF->ncFile()->addVar("x", NcType::nc_DOUBLE, junctionDim);
+      junctionX.putAtt("x:long_name", "projection_x_coordinate");
+      junctionX.putAtt("x:units", "m");
 
-    //Add element junctions
-    NcDim junctionDim = m_outputNetCDF->addDim("element_junctions", m_elementJunctions.size());
+      NcVar junctionY =  m_outputNetCDF->ncFile()->addVar("y", NcType::nc_DOUBLE, junctionDim);
+      junctionY.putAtt("y:long_name", "projection_y_coordinate");
+      junctionY.putAtt("y:units", "m");
 
-    NcVar junctionIdentifiers = m_outputNetCDF->addVar("element_junction_id", NcType::nc_STRING, junctionDim);
-    junctionIdentifiers.putAtt("element_junction_id::long_name", "element junction identifier");
+      NcVar junctionZ =  m_outputNetCDF->ncFile()->addVar("z", NcType::nc_DOUBLE, junctionDim);
+      junctionZ.putAtt("z:long_name", "projection_z_coordinate");
+      junctionZ.putAtt("z:units", "m");
 
-    NcVar junctionX = m_outputNetCDF->addVar("x", NcType::nc_DOUBLE, junctionDim);
-    junctionX.putAtt("x:long_name", "junction x-coordinate");
-    junctionX.putAtt("x:units", "m");
+      double *vertx = new double[m_elementJunctions.size()];
+      double *verty = new double[m_elementJunctions.size()];
+      double *vertz = new double[m_elementJunctions.size()];
+      char **junctionIds = new char *[m_elementJunctions.size()];
 
-    NcVar junctionY = m_outputNetCDF->addVar("y", NcType::nc_DOUBLE, junctionDim);
-    junctionY.putAtt("y:long_name", "junction y-coordinate");
-    junctionY.putAtt("y:units", "m");
-
-    NcVar junctionZ = m_outputNetCDF->addVar("z", NcType::nc_DOUBLE, junctionDim);
-    junctionZ.putAtt("z:long_name", "junction z-coordinate");
-    junctionZ.putAtt("z:units", "m");
-
-    double *vertx = new double[m_elementJunctions.size()];
-    double *verty = new double[m_elementJunctions.size()];
-    double *vertz = new double[m_elementJunctions.size()];
-    char **junctionIds = new char *[m_elementJunctions.size()];
-
-    //write other relevant junction attributes here.
+      //write other relevant junction attributes here.
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-    for (int i = 0; i < (int)m_elementJunctions.size(); i++)
-    {
-      ElementJunction *junction = m_elementJunctions[i];
+      for (int i = 0; i < (int)m_elementJunctions.size(); i++)
+      {
+        ElementJunction *junction = m_elementJunctions[i];
 
-      junctionIds[i] = new char[junction->id.size() + 1];
-      std::strcpy(junctionIds[i], junction->id.c_str());
+        junctionIds[i] = new char[junction->id.size() + 1];
+        std::strcpy(junctionIds[i], junction->id.c_str());
 
-      vertx[i] = junction->x;
-      verty[i] = junction->y;
-      vertz[i] = junction->z;
-    }
+        vertx[i] = junction->x;
+        verty[i] = junction->y;
+        vertz[i] = junction->z;
+      }
 
-    junctionX.putVar(vertx);
-    junctionY.putVar(verty);
-    junctionZ.putVar(vertz);
-    junctionIdentifiers.putVar(junctionIds);
+      junctionX.putVar(vertx);
+      junctionY.putVar(verty);
+      junctionZ.putVar(vertz);
+      junctionIdentifiers.putVar(junctionIds);
 
-    delete[] vertx;
-    delete[] verty;
-    delete[] vertz;
+      delete[] vertx;
+      delete[] verty;
+      delete[] vertz;
 
-    for (size_t i = 0; i < m_elementJunctions.size(); i++)
-    {
-      delete[] junctionIds[i];
-    }
+      for (size_t i = 0; i < m_elementJunctions.size(); i++)
+      {
+        delete[] junctionIds[i];
+      }
 
-    delete[] junctionIds;
+      delete[] junctionIds;
 
-    //Add Elements
-    NcDim elementsDim = m_outputNetCDF->addDim("elements", m_elements.size());
+      //Add Elements
+      NcDim elementsDim =  m_outputNetCDF->ncFile()->addDim("elements", m_elements.size());
 
-    NcVar elementIdentifiers = m_outputNetCDF->addVar("element_id", NcType::nc_STRING, elementsDim);
-    elementIdentifiers.putAtt("element_id::long_name", "element identifier");
+      NcVar elementIdentifiers =  m_outputNetCDF->ncFile()->addVar("element_id", NcType::nc_STRING, elementsDim);
+      elementIdentifiers.putAtt("element_id::long_name", "element identifier");
 
-    NcVar elementFromJunction = m_outputNetCDF->addVar("from_junction", NcType::nc_INT64, elementsDim);
-    elementFromJunction.putAtt("from_junction:long_name", "upstream junction");
+      NcVar elementFromJunction =  m_outputNetCDF->ncFile()->addVar("from_junction", NcType::nc_INT64, elementsDim);
+      elementFromJunction.putAtt("from_junction:long_name", "upstream junction");
 
-    NcVar elementToJunction = m_outputNetCDF->addVar("to_junction", NcType::nc_INT64, elementsDim);
-    elementToJunction.putAtt("to_junction:long_name", "downstream junction");
+      NcVar elementToJunction =  m_outputNetCDF->ncFile()->addVar("to_junction", NcType::nc_INT64, elementsDim);
+      elementToJunction.putAtt("to_junction:long_name", "downstream junction");
 
-    int *fromJunctions = new int[m_elements.size()];
-    int *toJunctions = new int[m_elements.size()];
-    char **elementIds = new char *[m_elements.size()];
+      NcVar element_x =  m_outputNetCDF->ncFile()->addVar("element_x", NcType::nc_DOUBLE, elementsDim);
+      element_x.putAtt("element_x:standard_name", "projection_x_coordinate");
+      element_x.putAtt("element_x:long_name", "projection_x_coordinate");
+      element_x.putAtt("element_x:units", "m");
+
+      NcVar element_y =  m_outputNetCDF->ncFile()->addVar("element_y", NcType::nc_DOUBLE, elementsDim);
+      element_y.putAtt("element_y:standard_name", "projection_y_coordinate");
+      element_y.putAtt("element_y:long_name", "projection_y_coordinate");
+      element_y.putAtt("element_y:units", "m");
+
+      int *fromJunctions = new int[m_elements.size()];
+      int *toJunctions = new int[m_elements.size()];
+      char **elementIds = new char *[m_elements.size()];
+      double *elX = new double[m_elements.size()];
+      double *elY = new double[m_elements.size()];
 
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-    for (int i = 0; i < (int)m_elements.size(); i++)
-    {
-      Element *element = m_elements[i];
+      for (int i = 0; i < (int)m_elements.size(); i++)
+      {
+        Element *element = m_elements[i];
 
-      elementIds[i] = new char[element->id.size() + 1];
-      std::strcpy(elementIds[i], element->id.c_str());
+        elementIds[i] = new char[element->id.size() + 1];
+        std::strcpy(elementIds[i], element->id.c_str());
 
-      fromJunctions[i] = element->upstreamJunction->index;
-      toJunctions[i] = element->downstreamJunction->index;
-    }
+        fromJunctions[i] = element->upstreamJunction->index;
+        toJunctions[i] = element->downstreamJunction->index;
 
-    elementIdentifiers.putVar(elementIds);
-    elementFromJunction.putVar(fromJunctions);
-    elementToJunction.putVar(toJunctions);
+        elX[i] = element->x;
+        elY[i] = element->y;
+      }
 
-    delete[] fromJunctions;
-    delete[] toJunctions;
+      elementIdentifiers.putVar(elementIds);
+      elementFromJunction.putVar(fromJunctions);
+      elementToJunction.putVar(toJunctions);
+      element_x.putVar(elX);
+      element_y.putVar(elY);
 
-    for (size_t i = 0; i < m_elements.size(); i++)
-    {
-      delete[] elementIds[i];
-    }
+      delete[] fromJunctions;
+      delete[] toJunctions;
+      delete[] elX;
+      delete[] elY;
 
-    delete[] elementIds;
+      for (size_t i = 0; i < m_elements.size(); i++)
+      {
+        delete[] elementIds[i];
+      }
 
-    //hydraulics variables
-    NcVar flowVar = m_outputNetCDF->addVar("flow", "double",
-                                           std::vector<std::string>({"time", "elements"}));
-    flowVar.putAtt("flow:long_name", "flow");
-    flowVar.putAtt("flow:units", "m^3/s");
+      delete[] elementIds;
 
-    NcVar depthVar = m_outputNetCDF->addVar("depth", "double",
-                                            std::vector<std::string>({"time", "elements"}));
-    depthVar.putAtt("depth:long_name", "channel flow depth");
-    depthVar.putAtt("depth:units", "m");
-
-    NcVar widthVar = m_outputNetCDF->addVar("width", "double",
-                                            std::vector<std::string>({"time", "elements"}));
-    widthVar.putAtt("width:long_name", "channel flow top width");
-    widthVar.putAtt("width:units", "m");
-
-    NcVar xsectAreaVar = m_outputNetCDF->addVar("xsection_area", "double",
-                                                std::vector<std::string>({"time", "elements"}));
-    xsectAreaVar.putAtt("xsection_area:long_name", "flow cross-section area");
-    xsectAreaVar.putAtt("xsection_area:units", "m^2");
-
-    NcVar dispersionVar = m_outputNetCDF->addVar("dispersion", "double",
-                                                 std::vector<std::string>({"time", "elements"}));
-    dispersionVar.putAtt("dispersion:long_name", "longitudinal dispersion");
-    dispersionVar.putAtt("dispersion:units", "m^2/s");
-
-    NcVar temperatureVar = m_outputNetCDF->addVar("temperature", "double",
-                                                  std::vector<std::string>({"time", "elements"}));
-    temperatureVar.putAtt("temperature:long_name", "temperature");
-    temperatureVar.putAtt("temperature:units", "°C");
-
-
-    NcVar totalElementHeatBalanceVar = m_outputNetCDF->addVar("total_element_heat_balance", "double",
-                                                              std::vector<std::string>({"time", "elements"}));
-    totalElementHeatBalanceVar.putAtt("total_element_heat_balance:long_name", "total heat balance");
-    totalElementHeatBalanceVar.putAtt("total_element_heat_balance:units", "KJ");
-
-    NcVar totalElementAdvDispHeatBalanceVar = m_outputNetCDF->addVar("total_element_adv_disp_heat_balance", "double",
-                                                                     std::vector<std::string>({"time", "elements"}));
-    totalElementAdvDispHeatBalanceVar.putAtt("total_element_adv_disp_heat_balance:long_name", "total element advection dispersion heat balance");
-    totalElementAdvDispHeatBalanceVar.putAtt("total_element_adv_disp_heat_balance:units", "KJ");
-
-    NcVar totalElementEvapHeatBalanceVar = m_outputNetCDF->addVar("total_element_evap_heat_balance", "double",
-                                                                  std::vector<std::string>({"time", "elements"}));
-    totalElementEvapHeatBalanceVar.putAtt("total_element_evap_heat_balance:long_name", "total element evaporation heat balance");
-    totalElementEvapHeatBalanceVar.putAtt("total_element_evap_heat_balance:units", "KJ");
-
-    NcVar totalElementConvHeatBalanceVar = m_outputNetCDF->addVar("total_element_conv_heat_balance", "double",
-                                                                  std::vector<std::string>({"time", "elements"}));
-    totalElementConvHeatBalanceVar.putAtt("total_element_conv_heat_balance:long_name", "total element convection heat balance");
-    totalElementConvHeatBalanceVar.putAtt("total_element_conv_heat_balance:units", "KJ");
-
-
-    NcVar totalElementRadiationFluxHeatBalanceVar = m_outputNetCDF->addVar("total_element_radiation_flux_heat_balance", "double",
-                                                                           std::vector<std::string>({"time", "elements"}));
-    totalElementRadiationFluxHeatBalanceVar.putAtt("total_element_radiation_flux_heat_balance:long_name", "total element radiation flux heat balance");
-    totalElementRadiationFluxHeatBalanceVar.putAtt("total_element_radiation_flux_heat_balance:units", "KJ");
-
-    NcVar totalElementExternalHeatFluxBalanceVar = m_outputNetCDF->addVar("total_element_external_heat_flux_balance", "double",
-                                                                          std::vector<std::string>({"time", "elements"}));
-    totalElementExternalHeatFluxBalanceVar.putAtt("total_element_external_heat_flux_balance:long_name", "total element external heat flux balance");
-    totalElementExternalHeatFluxBalanceVar.putAtt("total_element_external_heat_flux_balance:units", "KJ");
-
-    NcVar totalElementSoluteMassBalanceVar = m_outputNetCDF->addVar("total_element_solute_mass_balance", "double",
-                                                                    std::vector<std::string>({"time", "solutes", "elements"}));
-    totalElementSoluteMassBalanceVar.putAtt("total_element_solute_mass_balance:long_name", "total element solute mass balance");
-    totalElementSoluteMassBalanceVar.putAtt("total_element_solute_mass_balance:units", "kg");
-
-    NcVar totalElementAdvDispSoluteMassBalanceVar = m_outputNetCDF->addVar("total_element_adv_disp_solute_mass_balance", "double",
-                                                                           std::vector<std::string>({"time", "solutes", "elements"}));
-    totalElementAdvDispSoluteMassBalanceVar.putAtt("total_element_adv_disp_solute_mass_balance:long_name", "total element advection dispersion solute mass balance");
-    totalElementAdvDispSoluteMassBalanceVar.putAtt("total_element_adv_disp_solute_mass_balance:units", "kg");
-
-    NcVar totalElementExternalSoluteFluxMassBalanceVar = m_outputNetCDF->addVar("total_element_external_solute_flux_mass_balance", "double",
-                                                                                std::vector<std::string>({"time", "solutes"}));
-    totalElementExternalSoluteFluxMassBalanceVar.putAtt("total_element_external_solute_flux_mass_balance:long_name", "total external solute flux mass balance");
-    totalElementExternalSoluteFluxMassBalanceVar.putAtt("total_element_external_solute_flux_mass_balance:units", "kg");
-
-    NcVar elementEvapHeatFluxVar = m_outputNetCDF->addVar("element_evap_heat_flux", "double",
-                                                          std::vector<std::string>({"time", "elements"}));
-
-    elementEvapHeatFluxVar.putAtt("element_evap_heat_flux:long_name", "element evaporation heat flux");
-    elementEvapHeatFluxVar.putAtt("element_evap_heat_flux:units", "W/m^2");
-
-    NcVar elementConvHeatFluxVar = m_outputNetCDF->addVar("element_conv_heat_flux", "double",
-                                                          std::vector<std::string>({"time", "elements"}));
-
-    elementConvHeatFluxVar.putAtt("element_conv_heat_flux:long_name", "element convective heat flux");
-    elementConvHeatFluxVar.putAtt("element_conv_heat_flux:units", "W/m^2");
-
-
-    NcVar elementRadiationFluxVar = m_outputNetCDF->addVar("element_radiation_flux", "double",
-                                                           std::vector<std::string>({"time", "elements"}));
-
-    elementRadiationFluxVar.putAtt("element_radiation_flux:long_name", "element radiation flux");
-    elementRadiationFluxVar.putAtt("element_radiation_flux:units", "W/m^2");
-
-    NcVar elementHeatFluxVar = m_outputNetCDF->addVar("element_heat_flux", "double",
-                                                      std::vector<std::string>({"time", "elements"}));
-
-    elementHeatFluxVar.putAtt("element_heat_flux:long_name", "element heat flux");
-    elementHeatFluxVar.putAtt("element_heat_flux:units", "J/s");
-
-
-    NcVar elementAirTempVar = m_outputNetCDF->addVar("element_air_temp", "double",
-                                                     std::vector<std::string>({"time", "elements"}));
-
-    elementAirTempVar.putAtt("element_air_temp:long_name", "Air temperature");
-    elementAirTempVar.putAtt("element_air_temp:units", "C");
-
-
-    NcVar elementRHVar = m_outputNetCDF->addVar("element_relative_humidity", "double",
-                                                std::vector<std::string>({"time", "elements"}));
-
-    elementRHVar.putAtt("element_relative_humidity:long_name", "Relative Humidity");
-    elementRHVar.putAtt("element_relative_humidity:units", "%");
-
-
-    NcVar elementWindSpeedVar = m_outputNetCDF->addVar("element_wind_speed", "double",
-                                                       std::vector<std::string>({"time", "elements"}));
-
-    elementWindSpeedVar.putAtt("element_wind_speed:long_name", "Relative Humidity");
-    elementWindSpeedVar.putAtt("element_wind_speed:units", "m/s");
-
-
-    NcVar elementVaporPressVar = m_outputNetCDF->addVar("element_vapor_pressure", "double",
+      //hydraulics variables
+      NcVar flowVar =  m_outputNetCDF->ncFile()->addVar("flow", "double",
                                                         std::vector<std::string>({"time", "elements"}));
+      flowVar.putAtt("flow:long_name", "flow");
+      flowVar.putAtt("flow:units", "m^3/s");
 
-    elementVaporPressVar.putAtt("element_vapor_pressure:long_name", " VaporPressure");
-    elementVaporPressVar.putAtt("element_vapor_pressure:units", "kPa");
+      NcVar depthVar =  m_outputNetCDF->ncFile()->addVar("depth", "double",
+                                                         std::vector<std::string>({"time", "elements"}));
+      depthVar.putAtt("depth:long_name", "channel flow depth");
+      depthVar.putAtt("depth:units", "m");
 
-    NcVar elementSatVaporPressVar = m_outputNetCDF->addVar("element_saturated_vapor_pressure", "double",
-                                                           std::vector<std::string>({"time", "elements"}));
+      NcVar widthVar =  m_outputNetCDF->ncFile()->addVar("width", "double",
+                                                         std::vector<std::string>({"time", "elements"}));
+      widthVar.putAtt("width:long_name", "channel flow top width");
+      widthVar.putAtt("width:units", "m");
 
-    elementSatVaporPressVar.putAtt("element_saturated_vapor_pressure:long_name", "Saturated Vapor Pressure");
-    elementSatVaporPressVar.putAtt("element_saturated_vapor_pressure:units", "kPa");
+      NcVar xsectAreaVar =  m_outputNetCDF->ncFile()->addVar("xsection_area", "double",
+                                                             std::vector<std::string>({"time", "elements"}));
+      xsectAreaVar.putAtt("xsection_area:long_name", "flow cross-section area");
+      xsectAreaVar.putAtt("xsection_area:units", "m^2");
 
-
-    NcVar elementAirVaporPressVar = m_outputNetCDF->addVar("element_air_vapor_pressure", "double",
-                                                           std::vector<std::string>({"time", "elements"}));
-
-    elementAirVaporPressVar.putAtt("element_air_vapor_pressure:long_name", " VaporPressure");
-    elementAirVaporPressVar.putAtt("element_air_vapor_pressure:units", "kPa");
-
-    NcVar elementAirSatVaporPressVar = m_outputNetCDF->addVar("element_air_saturated_vapor_pressure", "double",
+      NcVar dispersionVar =  m_outputNetCDF->ncFile()->addVar("dispersion", "double",
                                                               std::vector<std::string>({"time", "elements"}));
+      dispersionVar.putAtt("dispersion:long_name", "longitudinal dispersion");
+      dispersionVar.putAtt("dispersion:units", "m^2/s");
 
-    elementAirSatVaporPressVar.putAtt("element_air_saturated_vapor_pressure:long_name", "Saturated Vapor Pressure");
-    elementAirSatVaporPressVar.putAtt("element_air_saturated_vapor_pressure:units", "kPa");
-
-    NcVar totalHeatBalanceVar = m_outputNetCDF->addVar("total_heat_balance", "double",
-                                                       std::vector<std::string>({"time"}));
-    totalHeatBalanceVar.putAtt("total_heat_balance:long_name", "total heat balance");
-    totalHeatBalanceVar.putAtt("total_heat_balance:units", "KJ");
-
-    NcVar totalAdvDispHeatBalanceVar = m_outputNetCDF->addVar("total_adv_disp_heat_balance", "double",
-                                                              std::vector<std::string>({"time"}));
-    totalAdvDispHeatBalanceVar.putAtt("total_adv_disp_heat_balance:long_name", "total advection dispersion heat balance");
-    totalAdvDispHeatBalanceVar.putAtt("total_adv_disp_heat_balance:units", "KJ");
+      NcVar temperatureVar =  m_outputNetCDF->ncFile()->addVar("temperature", "double",
+                                                               std::vector<std::string>({"time", "elements"}));
+      temperatureVar.putAtt("temperature:long_name", "temperature");
+      temperatureVar.putAtt("temperature:units", "°C");
 
 
-    NcVar totalEvapHeatBalanceVar = m_outputNetCDF->addVar("total_evap_heat_balance", "double",
-                                                           std::vector<std::string>({"time"}));
-    totalEvapHeatBalanceVar.putAtt("total_evap_heat_balance:long_name", "total evaporation heat balance");
-    totalEvapHeatBalanceVar.putAtt("total_evap_heat_balance:units", "KJ");
+      NcVar totalElementHeatBalanceVar =  m_outputNetCDF->ncFile()->addVar("total_element_heat_balance", "double",
+                                                                           std::vector<std::string>({"time", "elements"}));
+      totalElementHeatBalanceVar.putAtt("total_element_heat_balance:long_name", "total heat balance");
+      totalElementHeatBalanceVar.putAtt("total_element_heat_balance:units", "KJ");
+
+      NcVar totalElementAdvDispHeatBalanceVar =  m_outputNetCDF->ncFile()->addVar("total_element_adv_disp_heat_balance", "double",
+                                                                                  std::vector<std::string>({"time", "elements"}));
+      totalElementAdvDispHeatBalanceVar.putAtt("total_element_adv_disp_heat_balance:long_name", "total element advection dispersion heat balance");
+      totalElementAdvDispHeatBalanceVar.putAtt("total_element_adv_disp_heat_balance:units", "KJ");
+
+      NcVar totalElementEvapHeatBalanceVar =  m_outputNetCDF->ncFile()->addVar("total_element_evap_heat_balance", "double",
+                                                                               std::vector<std::string>({"time", "elements"}));
+      totalElementEvapHeatBalanceVar.putAtt("total_element_evap_heat_balance:long_name", "total element evaporation heat balance");
+      totalElementEvapHeatBalanceVar.putAtt("total_element_evap_heat_balance:units", "KJ");
+
+      NcVar totalElementConvHeatBalanceVar =  m_outputNetCDF->ncFile()->addVar("total_element_conv_heat_balance", "double",
+                                                                               std::vector<std::string>({"time", "elements"}));
+      totalElementConvHeatBalanceVar.putAtt("total_element_conv_heat_balance:long_name", "total element convection heat balance");
+      totalElementConvHeatBalanceVar.putAtt("total_element_conv_heat_balance:units", "KJ");
 
 
-    NcVar totalConvHeatBalanceVar = m_outputNetCDF->addVar("total_conv_heat_balance", "double",
-                                                           std::vector<std::string>({"time"}));
-    totalConvHeatBalanceVar.putAtt("total_conv_heat_balance:long_name", "total convection heat balance");
-    totalConvHeatBalanceVar.putAtt("total_conv_heat_balance:units", "KJ");
+      NcVar totalElementRadiationFluxHeatBalanceVar =  m_outputNetCDF->ncFile()->addVar("total_element_radiation_flux_heat_balance", "double",
+                                                                                        std::vector<std::string>({"time", "elements"}));
+      totalElementRadiationFluxHeatBalanceVar.putAtt("total_element_radiation_flux_heat_balance:long_name", "total element radiation flux heat balance");
+      totalElementRadiationFluxHeatBalanceVar.putAtt("total_element_radiation_flux_heat_balance:units", "KJ");
+
+      NcVar totalElementExternalHeatFluxBalanceVar =  m_outputNetCDF->ncFile()->addVar("total_element_external_heat_flux_balance", "double",
+                                                                                       std::vector<std::string>({"time", "elements"}));
+      totalElementExternalHeatFluxBalanceVar.putAtt("total_element_external_heat_flux_balance:long_name", "total element external heat flux balance");
+      totalElementExternalHeatFluxBalanceVar.putAtt("total_element_external_heat_flux_balance:units", "KJ");
+
+      NcVar totalElementSoluteMassBalanceVar =  m_outputNetCDF->ncFile()->addVar("total_element_solute_mass_balance", "double",
+                                                                                 std::vector<std::string>({"time", "solutes", "elements"}));
+      totalElementSoluteMassBalanceVar.putAtt("total_element_solute_mass_balance:long_name", "total element solute mass balance");
+      totalElementSoluteMassBalanceVar.putAtt("total_element_solute_mass_balance:units", "kg");
+
+      NcVar totalElementAdvDispSoluteMassBalanceVar =  m_outputNetCDF->ncFile()->addVar("total_element_adv_disp_solute_mass_balance", "double",
+                                                                                        std::vector<std::string>({"time", "solutes", "elements"}));
+      totalElementAdvDispSoluteMassBalanceVar.putAtt("total_element_adv_disp_solute_mass_balance:long_name", "total element advection dispersion solute mass balance");
+      totalElementAdvDispSoluteMassBalanceVar.putAtt("total_element_adv_disp_solute_mass_balance:units", "kg");
+
+      NcVar totalElementExternalSoluteFluxMassBalanceVar =  m_outputNetCDF->ncFile()->addVar("total_element_external_solute_flux_mass_balance", "double",
+                                                                                             std::vector<std::string>({"time", "solutes"}));
+      totalElementExternalSoluteFluxMassBalanceVar.putAtt("total_element_external_solute_flux_mass_balance:long_name", "total external solute flux mass balance");
+      totalElementExternalSoluteFluxMassBalanceVar.putAtt("total_element_external_solute_flux_mass_balance:units", "kg");
+
+      NcVar elementEvapHeatFluxVar =  m_outputNetCDF->ncFile()->addVar("element_evap_heat_flux", "double",
+                                                                       std::vector<std::string>({"time", "elements"}));
+
+      elementEvapHeatFluxVar.putAtt("element_evap_heat_flux:long_name", "element evaporation heat flux");
+      elementEvapHeatFluxVar.putAtt("element_evap_heat_flux:units", "W/m^2");
+
+      NcVar elementConvHeatFluxVar =  m_outputNetCDF->ncFile()->addVar("element_conv_heat_flux", "double",
+                                                                       std::vector<std::string>({"time", "elements"}));
+
+      elementConvHeatFluxVar.putAtt("element_conv_heat_flux:long_name", "element convective heat flux");
+      elementConvHeatFluxVar.putAtt("element_conv_heat_flux:units", "W/m^2");
 
 
-    NcVar totalRadiationFluxHeatBalanceVar = m_outputNetCDF->addVar("total_radiation_flux_heat_balance", "double",
+      NcVar elementRadiationFluxVar =  m_outputNetCDF->ncFile()->addVar("element_radiation_flux", "double",
+                                                                        std::vector<std::string>({"time", "elements"}));
+
+      elementRadiationFluxVar.putAtt("element_radiation_flux:long_name", "element radiation flux");
+      elementRadiationFluxVar.putAtt("element_radiation_flux:units", "W/m^2");
+
+      NcVar elementHeatFluxVar =  m_outputNetCDF->ncFile()->addVar("element_heat_flux", "double",
+                                                                   std::vector<std::string>({"time", "elements"}));
+
+      elementHeatFluxVar.putAtt("element_heat_flux:long_name", "element heat flux");
+      elementHeatFluxVar.putAtt("element_heat_flux:units", "J/s");
+
+
+      NcVar elementAirTempVar =  m_outputNetCDF->ncFile()->addVar("element_air_temp", "double",
+                                                                  std::vector<std::string>({"time", "elements"}));
+
+      elementAirTempVar.putAtt("element_air_temp:long_name", "Air temperature");
+      elementAirTempVar.putAtt("element_air_temp:units", "C");
+
+
+      NcVar elementRHVar =  m_outputNetCDF->ncFile()->addVar("element_relative_humidity", "double",
+                                                             std::vector<std::string>({"time", "elements"}));
+
+      elementRHVar.putAtt("element_relative_humidity:long_name", "Relative Humidity");
+      elementRHVar.putAtt("element_relative_humidity:units", "%");
+
+
+      NcVar elementWindSpeedVar =  m_outputNetCDF->ncFile()->addVar("element_wind_speed", "double",
+                                                                    std::vector<std::string>({"time", "elements"}));
+
+      elementWindSpeedVar.putAtt("element_wind_speed:long_name", "Relative Humidity");
+      elementWindSpeedVar.putAtt("element_wind_speed:units", "m/s");
+
+
+      NcVar elementVaporPressVar =  m_outputNetCDF->ncFile()->addVar("element_vapor_pressure", "double",
+                                                                     std::vector<std::string>({"time", "elements"}));
+
+      elementVaporPressVar.putAtt("element_vapor_pressure:long_name", " VaporPressure");
+      elementVaporPressVar.putAtt("element_vapor_pressure:units", "kPa");
+
+      NcVar elementSatVaporPressVar =  m_outputNetCDF->ncFile()->addVar("element_saturated_vapor_pressure", "double",
+                                                                        std::vector<std::string>({"time", "elements"}));
+
+      elementSatVaporPressVar.putAtt("element_saturated_vapor_pressure:long_name", "Saturated Vapor Pressure");
+      elementSatVaporPressVar.putAtt("element_saturated_vapor_pressure:units", "kPa");
+
+
+      NcVar elementAirVaporPressVar =  m_outputNetCDF->ncFile()->addVar("element_air_vapor_pressure", "double",
+                                                                        std::vector<std::string>({"time", "elements"}));
+
+      elementAirVaporPressVar.putAtt("element_air_vapor_pressure:long_name", " VaporPressure");
+      elementAirVaporPressVar.putAtt("element_air_vapor_pressure:units", "kPa");
+
+      NcVar elementAirSatVaporPressVar =  m_outputNetCDF->ncFile()->addVar("element_air_saturated_vapor_pressure", "double",
+                                                                           std::vector<std::string>({"time", "elements"}));
+
+      elementAirSatVaporPressVar.putAtt("element_air_saturated_vapor_pressure:long_name", "Saturated Vapor Pressure");
+      elementAirSatVaporPressVar.putAtt("element_air_saturated_vapor_pressure:units", "kPa");
+
+      NcVar totalHeatBalanceVar =  m_outputNetCDF->ncFile()->addVar("total_heat_balance", "double",
                                                                     std::vector<std::string>({"time"}));
-    totalRadiationFluxHeatBalanceVar.putAtt("total_radiation_flux_heat_balance:long_name", "total radiation flux heat balance");
-    totalRadiationFluxHeatBalanceVar.putAtt("total_radiation_flux_heat_balance:units", "KJ");
+      totalHeatBalanceVar.putAtt("total_heat_balance:long_name", "total heat balance");
+      totalHeatBalanceVar.putAtt("total_heat_balance:units", "KJ");
 
-    NcVar totalExternalHeatFluxBalanceVar = m_outputNetCDF->addVar("total_external_heat_flux_balance", "double",
-                                                                   std::vector<std::string>({"time"}));
-    totalExternalHeatFluxBalanceVar.putAtt("total_external_heat_flux_balance:long_name", "total external heat flux balance");
-    totalExternalHeatFluxBalanceVar.putAtt("total_external_heat_flux_balance:units", "KJ");
-
-
-    NcVar solutesVar = m_outputNetCDF->addVar("solute_concentration", "double",
-                                              std::vector<std::string>({"time", "solutes", "elements"}));
-    solutesVar.putAtt("solute_concentration:long_name", "solute concentrations");
-    solutesVar.putAtt("solute_concentration:units", "kg/m^3");
-
-    NcVar totalSoluteMassBalanceVar = m_outputNetCDF->addVar("total_solute_mass_balance", "double",
-                                                             std::vector<std::string>({"time", "solutes"}));
-    totalSoluteMassBalanceVar.putAtt("total_solute_mass_balance:long_name", "total solute mass balance");
-    totalSoluteMassBalanceVar.putAtt("total_solute_mass_balance:units", "kg");
-
-    NcVar totalAdvDispSoluteMassBalanceVar = m_outputNetCDF->addVar("total_adv_disp_solute_mass_balance", "double",
-                                                                    std::vector<std::string>({"time", "solutes"}));
-    totalAdvDispSoluteMassBalanceVar.putAtt("total_adv_disp_solute_mass_balance:long_name", "total advection dispersion solute mass balance");
-    totalAdvDispSoluteMassBalanceVar.putAtt("total_adv_disp_solute_mass_balance:units", "kg");
-
-    NcVar totalExternalSoluteFluxMassBalanceVar = m_outputNetCDF->addVar("total_external_solute_flux_mass_balance", "double",
-                                                                         std::vector<std::string>({"time", "solutes"}));
-    totalExternalSoluteFluxMassBalanceVar.putAtt("total_external_solute_flux_mass_balance:long_name", "total external solute flux mass balance");
-    totalExternalSoluteFluxMassBalanceVar.putAtt("total_external_solute_flux_mass_balance:units", "kg");
+      NcVar totalAdvDispHeatBalanceVar =  m_outputNetCDF->ncFile()->addVar("total_adv_disp_heat_balance", "double",
+                                                                           std::vector<std::string>({"time"}));
+      totalAdvDispHeatBalanceVar.putAtt("total_adv_disp_heat_balance:long_name", "total advection dispersion heat balance");
+      totalAdvDispHeatBalanceVar.putAtt("total_adv_disp_heat_balance:units", "KJ");
 
 
-    m_outputNetCDF->sync();
+      NcVar totalEvapHeatBalanceVar =  m_outputNetCDF->ncFile()->addVar("total_evap_heat_balance", "double",
+                                                                        std::vector<std::string>({"time"}));
+      totalEvapHeatBalanceVar.putAtt("total_evap_heat_balance:long_name", "total evaporation heat balance");
+      totalEvapHeatBalanceVar.putAtt("total_evap_heat_balance:units", "KJ");
 
-    return true;
+
+      NcVar totalConvHeatBalanceVar =  m_outputNetCDF->ncFile()->addVar("total_conv_heat_balance", "double",
+                                                                        std::vector<std::string>({"time"}));
+      totalConvHeatBalanceVar.putAtt("total_conv_heat_balance:long_name", "total convection heat balance");
+      totalConvHeatBalanceVar.putAtt("total_conv_heat_balance:units", "KJ");
+
+
+      NcVar totalRadiationFluxHeatBalanceVar =  m_outputNetCDF->ncFile()->addVar("total_radiation_flux_heat_balance", "double",
+                                                                                 std::vector<std::string>({"time"}));
+      totalRadiationFluxHeatBalanceVar.putAtt("total_radiation_flux_heat_balance:long_name", "total radiation flux heat balance");
+      totalRadiationFluxHeatBalanceVar.putAtt("total_radiation_flux_heat_balance:units", "KJ");
+
+      NcVar totalExternalHeatFluxBalanceVar =  m_outputNetCDF->ncFile()->addVar("total_external_heat_flux_balance", "double",
+                                                                                std::vector<std::string>({"time"}));
+      totalExternalHeatFluxBalanceVar.putAtt("total_external_heat_flux_balance:long_name", "total external heat flux balance");
+      totalExternalHeatFluxBalanceVar.putAtt("total_external_heat_flux_balance:units", "KJ");
+
+
+      NcVar solutesVar =  m_outputNetCDF->ncFile()->addVar("solute_concentration", "double",
+                                                           std::vector<std::string>({"time", "solutes", "elements"}));
+      solutesVar.putAtt("solute_concentration:long_name", "solute concentrations");
+      solutesVar.putAtt("solute_concentration:units", "kg/m^3");
+
+      NcVar totalSoluteMassBalanceVar =  m_outputNetCDF->ncFile()->addVar("total_solute_mass_balance", "double",
+                                                                          std::vector<std::string>({"time", "solutes"}));
+      totalSoluteMassBalanceVar.putAtt("total_solute_mass_balance:long_name", "total solute mass balance");
+      totalSoluteMassBalanceVar.putAtt("total_solute_mass_balance:units", "kg");
+
+      NcVar totalAdvDispSoluteMassBalanceVar =  m_outputNetCDF->ncFile()->addVar("total_adv_disp_solute_mass_balance", "double",
+                                                                                 std::vector<std::string>({"time", "solutes"}));
+      totalAdvDispSoluteMassBalanceVar.putAtt("total_adv_disp_solute_mass_balance:long_name", "total advection dispersion solute mass balance");
+      totalAdvDispSoluteMassBalanceVar.putAtt("total_adv_disp_solute_mass_balance:units", "kg");
+
+      NcVar totalExternalSoluteFluxMassBalanceVar =  m_outputNetCDF->ncFile()->addVar("total_external_solute_flux_mass_balance", "double",
+                                                                                      std::vector<std::string>({"time", "solutes"}));
+      totalExternalSoluteFluxMassBalanceVar.putAtt("total_external_solute_flux_mass_balance:long_name", "total external solute flux mass balance");
+      totalExternalSoluteFluxMassBalanceVar.putAtt("total_external_solute_flux_mass_balance:units", "kg");
+
+      m_outputNetCDF->sync();
+
+      returnValue = true;
+
+    }
+    catch (NcException &e)
+    {
+      std::string message = std::string(e.what());
+      printf("%s\n", e.what());
+      errors.push_back(message);
+      returnValue = false;
+    }
   }
-  catch (NcException &e)
-  {
-    std::string message = std::string(e.what());
-    printf("%s\n", e.what());
-    errors.push_back(message);
-    return false;
-  }
-
 #endif
 
-  return false;
+  return returnValue;
 }
 
 bool STMModel::readInputFileOptionTag(const QString &line, QString &errorMessage)
@@ -710,7 +740,7 @@ bool STMModel::readInputFileOptionTag(const QString &line, QString &errorMessage
           if (options.size() == 3)
           {
             QDateTime dateTime;
-            if (tryParse(options[1] + " " + options[2], dateTime))
+            if (SDKTemporal::DateTime::tryParse(options[1] + " " + options[2], dateTime))
             {
               m_startDateTime = SDKTemporal::DateTime::toJulianDays(dateTime);
             }
@@ -734,7 +764,7 @@ bool STMModel::readInputFileOptionTag(const QString &line, QString &errorMessage
           if (options.size() == 3)
           {
             QDateTime dateTime;
-            if (tryParse(options[1] + " " + options[2], dateTime))
+            if (SDKTemporal::DateTime::tryParse(options[1] + " " + options[2], dateTime))
             {
               m_endDateTime = SDKTemporal::DateTime::toJulianDays(dateTime);
             }
@@ -1662,7 +1692,7 @@ bool STMModel::readInputFileBoundaryConditionsTag(const QString &line, QString &
               std::map<double, std::vector<double>> timeSeries;
               std::vector<std::string> headers;
 
-              if (readTimeSeries(fileInfo, timeSeries, headers))
+              if (TimeSeries::readTimeSeries(fileInfo, timeSeries, headers))
               {
                 JunctionTimeSeriesBC *junctionBC = new JunctionTimeSeriesBC(junction, variableIndex, this);
 
@@ -1800,7 +1830,7 @@ bool STMModel::readInputFilePointSourcesTag(const QString &line, QString &errorM
               std::map<double, std::vector<double>> timeSeries;
               std::vector<std::string> headers;
 
-              if (readTimeSeries(fileInfo, timeSeries, headers))
+              if (TimeSeries::readTimeSeries(fileInfo, timeSeries, headers))
               {
                 PointSrcTimeSeriesBC *pointSrcTSBC = new PointSrcTimeSeriesBC(element, varType  , this);
                 pointSrcTSBC->setSoluteIndex(soluteIndex);
@@ -1950,7 +1980,7 @@ bool STMModel::readInputFileNonPointSourcesTag(const QString &line, QString &err
               std::map<double, std::vector<double>> timeSeries;
               std::vector<std::string> headers;
 
-              if (readTimeSeries(fileInfo, timeSeries, headers))
+              if (TimeSeries::readTimeSeries(fileInfo, timeSeries, headers))
               {
                 NonPointSrcTimeSeriesBC *nonPointSrcTSBC = new NonPointSrcTimeSeriesBC(elementFrom, startFactor, elementTo, endFactor, variableType, this);
                 nonPointSrcTSBC->setSoluteIndex(soluteIndex);
@@ -2070,7 +2100,7 @@ bool STMModel::readInputFileUniformHydraulicsTag(const QString &line, QString &e
               std::map<double, std::vector<double>> timeSeries;
               std::vector<std::string> headers;
 
-              if (readTimeSeries(fileInfo, timeSeries, headers))
+              if (TimeSeries::readTimeSeries(fileInfo, timeSeries, headers))
               {
                 UniformHydraulicsTimeSeriesBC *uniformHydraulicsBC = new UniformHydraulicsTimeSeriesBC(fromElement, toElement,
                                                                                                        variableIndex, this);
@@ -2152,7 +2182,7 @@ bool STMModel::readInputFileNonUniformHydraulicsTag(const QString &line, QString
           std::map<double, std::vector<double>> timeSeries;
           std::vector<std::string> headers;
 
-          if (readTimeSeries(fileInfo, timeSeries, headers))
+          if (TimeSeries::readTimeSeries(fileInfo, timeSeries, headers))
           {
             for (size_t i = 0; i < headers.size(); i++)
             {
@@ -2268,7 +2298,7 @@ bool STMModel::readInputFileUniformRadiativeFluxesTag(const QString &line, QStri
             std::map<double, std::vector<double>> timeSeries;
             std::vector<std::string> headers;
 
-            if (readTimeSeries(fileInfo, timeSeries, headers))
+            if (TimeSeries::readTimeSeries(fileInfo, timeSeries, headers))
             {
               UniformRadiativeFluxTimeSeriesBC *uniformRadiationFluxBC = new UniformRadiativeFluxTimeSeriesBC(fromElement, toElement, this);
 
@@ -2338,7 +2368,7 @@ bool STMModel::readInputFileNonUniformRadiativeFluxesTag(const QString &line, QS
         std::map<double, std::vector<double>> timeSeries;
         std::vector<std::string> headers;
 
-        if (readTimeSeries(fileInfo, timeSeries, headers))
+        if (TimeSeries::readTimeSeries(fileInfo, timeSeries, headers))
         {
           for (size_t i = 0; i < headers.size(); i++)
           {
@@ -2457,7 +2487,7 @@ bool STMModel::readInputFileUniformMeteorologyTag(const QString &line, QString &
               std::map<double, std::vector<double>> timeSeries;
               std::vector<std::string> headers;
 
-              if (readTimeSeries(fileInfo, timeSeries, headers))
+              if (TimeSeries::readTimeSeries(fileInfo, timeSeries, headers))
               {
                 UniformMeteorologyTimeSeriesBC *uniformMeteorologyBC = new UniformMeteorologyTimeSeriesBC(fromElement, toElement,
                                                                                                           variableIndex, this);
@@ -2539,7 +2569,7 @@ bool STMModel::readInputFileNonUniformMeteorologyTag(const QString &line, QStrin
           std::map<double, std::vector<double>> timeSeries;
           std::vector<std::string> headers;
 
-          if (readTimeSeries(fileInfo, timeSeries, headers))
+          if (TimeSeries::readTimeSeries(fileInfo, timeSeries, headers))
           {
             for (size_t i = 0; i < headers.size(); i++)
             {
@@ -2660,196 +2690,267 @@ void STMModel::writeCSVOutput()
 void STMModel::writeNetCDFOutput()
 {
 #ifdef USE_NETCDF
-  if (m_outputNetCDF && !m_outputNetCDF->isNull())
+
+#ifdef USE_OPENMP
+#pragma omp critical
+#endif
   {
-    NcDim timeDim = m_outputNetCDF->getDim("time");
-    size_t currentTime = timeDim.getSize();
+    if (m_outputNetCDF)
+    {
 
-    //Set current dateTime
-    NcVar timeVar = m_outputNetCDF->getVar("time");
-    timeVar.putVar(std::vector<size_t>({currentTime}), m_currentDateTime);
+      size_t currentTime = m_outputNetCDF->getDimSize("time");
 
-    NcVar flowVar = m_outputNetCDF->getVar("flow");
-    NcVar depthVar = m_outputNetCDF->getVar("depth");
-    NcVar widthVar = m_outputNetCDF->getVar("width");
-    NcVar xsectAreaVar = m_outputNetCDF->getVar("xsection_area");
-    NcVar dispersionVar = m_outputNetCDF->getVar("dispersion");
-    NcVar temperatureVar = m_outputNetCDF->getVar("temperature");
-    NcVar totalHeatBalanceVar = m_outputNetCDF->getVar("total_heat_balance");
-    NcVar totalAdvDispHeatBalanceVar = m_outputNetCDF->getVar("total_adv_disp_heat_balance");
-    NcVar totalEvapHeatBalanceVar = m_outputNetCDF->getVar("total_evap_heat_balance");
-    NcVar totalConvHeatBalanceVar = m_outputNetCDF->getVar("total_conv_heat_balance");
-    NcVar totalRadiationFluxHeatBalanceVar = m_outputNetCDF->getVar("total_radiation_flux_heat_balance");
-    NcVar totalExternalHeatFluxBalanceVar = m_outputNetCDF->getVar("total_external_heat_flux_balance");
-    NcVar totalElementHeatBalanceVar = m_outputNetCDF->getVar("total_element_heat_balance");
-    NcVar totalElementAdvDispHeatBalanceVar = m_outputNetCDF->getVar("total_element_adv_disp_heat_balance");
-    NcVar totalElementEvapHeatBalanceVar = m_outputNetCDF->getVar("total_element_evap_heat_balance");
-    NcVar totalElementConvHeatBalanceVar = m_outputNetCDF->getVar("total_element_conv_heat_balance");
-    NcVar totalElementRadiationFluxHeatBalanceVar = m_outputNetCDF->getVar("total_element_radiation_flux_heat_balance");
-    NcVar totalElementExternalHeatFluxBalanceVar = m_outputNetCDF->getVar("total_element_external_heat_flux_balance");
-    NcVar solutesVar = m_outputNetCDF->getVar("solute_concentration");
-    NcVar totalSoluteMassBalanceVar = m_outputNetCDF->getVar("total_solute_mass_balance");
-    NcVar totalAdvDispSoluteMassBalanceVar = m_outputNetCDF->getVar("total_adv_disp_solute_mass_balance");
-    NcVar totalExternalSoluteFluxMassBalanceVar = m_outputNetCDF->getVar("total_external_solute_flux_mass_balance");
-    NcVar totalElementSoluteMassBalanceVar = m_outputNetCDF->getVar("total_element_solute_mass_balance");
-    NcVar totalElementAdvDispSoluteMassBalanceVar = m_outputNetCDF->getVar("total_element_adv_disp_solute_mass_balance");
-    NcVar totalElementExternalSoluteFluxMassBalanceVar = m_outputNetCDF->getVar("total_element_external_solute_flux_mass_balance");
-    NcVar elementEvapHeatFluxVar = m_outputNetCDF->getVar("element_evap_heat_flux");
-    NcVar elementConvHeatFluxVar = m_outputNetCDF->getVar("element_conv_heat_flux");
-    NcVar elementRadiationFluxVar = m_outputNetCDF->getVar("element_radiation_flux");
-    NcVar elementHeatFluxVar = m_outputNetCDF->getVar("element_heat_flux");
-    NcVar elementAirTempVar = m_outputNetCDF->getVar("element_air_temp");
-    NcVar elementRHVar = m_outputNetCDF->getVar("element_relative_humidity");
-    NcVar elementWindSpeedVar = m_outputNetCDF->getVar("element_wind_speed");
-    NcVar elementVaporPressVar = m_outputNetCDF->getVar("element_vapor_pressure");
-    NcVar elementSatVaporPressVar = m_outputNetCDF->getVar("element_saturated_vapor_pressure");
-    NcVar elementAirVaporPressVar = m_outputNetCDF->getVar("element_air_vapor_pressure");
-    NcVar elementAirSatVaporPressVar = m_outputNetCDF->getVar("element_air_saturated_vapor_pressure");
+      //Set current dateTime
+      //      NcVar timeVar =  m_outputNetCDF->ncFile()->getVar("time");
+      //      timeVar.putVar(std::vector<size_t>({currentTime}), m_currentDateTime);
+      m_outputNetCDF->putVar("time", std::vector<size_t>({currentTime}), m_currentDateTime);
 
-    double *flow = new double[m_elements.size()];
-    double *depth = new double[m_elements.size()];
-    double *width = new double[m_elements.size()];
-    double *xsectArea = new double[m_elements.size()];
-    double *dispersion = new double[m_elements.size()];
-    double *temperature = new double[m_elements.size()];
-    double *elementEvapHeatFlux = new double[m_elements.size()];
-    double *elementConvHeatFlux = new double[m_elements.size()];
-    double *elementRadiationFlux = new double[m_elements.size()];
-    double *elementHeatFlux = new double[m_elements.size()];
-    double *elementAirTemp =  new double[m_elements.size()];
-    double *elementRH =  new double[m_elements.size()];
-    double *elementWindSpeed =  new double[m_elements.size()];
-    double *elementVaporPress =  new double[m_elements.size()];
-    double *elementSatVaporPress =  new double[m_elements.size()];
-    double *elementAirVaporPress =  new double[m_elements.size()];
-    double *elementAirSatVaporPress =  new double[m_elements.size()];
-
-    double *totalElementHeatBalance = new double[m_elements.size()];
-    double *totalElementAdvDispHeatBalance = new double[m_elements.size()];
-    double *totalElementEvapHeatBalance = new double[m_elements.size()];
-    double *totalElementConvHeatBalance = new double[m_elements.size()];
-    double *totalElementRadiationFluxHeatBalance = new double[m_elements.size()];
-    double *totalElementExternalHeatFluxBalance = new double[m_elements.size()];
-    double *solutes = new double[m_elements.size() * m_solutes.size()];
-    double *totalElementSoluteMassBalance = new double[m_elements.size() * m_solutes.size()];
-    double *totalElementAdvDispSoluteMassBalance = new double[m_elements.size() * m_solutes.size()];
-    double *totalElementExternalSoluteFluxMassBalance = new double[m_elements.size() * m_solutes.size()];
+      double *flow = new double[m_elements.size()];
+      double *depth = new double[m_elements.size()];
+      double *width = new double[m_elements.size()];
+      double *xsectArea = new double[m_elements.size()];
+      double *dispersion = new double[m_elements.size()];
+      double *temperature = new double[m_elements.size()];
+      double *elementEvapHeatFlux = new double[m_elements.size()];
+      double *elementConvHeatFlux = new double[m_elements.size()];
+      double *elementRadiationFlux = new double[m_elements.size()];
+      double *elementHeatFlux = new double[m_elements.size()];
+      double *elementAirTemp =  new double[m_elements.size()];
+      double *elementRH =  new double[m_elements.size()];
+      double *elementWindSpeed =  new double[m_elements.size()];
+      double *elementVaporPress =  new double[m_elements.size()];
+      double *elementSatVaporPress =  new double[m_elements.size()];
+      double *elementAirVaporPress =  new double[m_elements.size()];
+      double *elementAirSatVaporPress =  new double[m_elements.size()];
+      double *totalElementHeatBalance = new double[m_elements.size()];
+      double *totalElementAdvDispHeatBalance = new double[m_elements.size()];
+      double *totalElementEvapHeatBalance = new double[m_elements.size()];
+      double *totalElementConvHeatBalance = new double[m_elements.size()];
+      double *totalElementRadiationFluxHeatBalance = new double[m_elements.size()];
+      double *totalElementExternalHeatFluxBalance = new double[m_elements.size()];
+      double *solutes = new double[m_elements.size() * m_solutes.size()];
+      double *totalElementSoluteMassBalance = new double[m_elements.size() * m_solutes.size()];
+      double *totalElementAdvDispSoluteMassBalance = new double[m_elements.size() * m_solutes.size()];
+      double *totalElementExternalSoluteFluxMassBalance = new double[m_elements.size() * m_solutes.size()];
 
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-    for (int i = 0; i < (int)m_elements.size(); i++)
-    {
-      Element *element = m_elements[i];
-      flow[i] = element->flow;
-      depth[i] = element->depth;
-      width[i] = element->width;
-      xsectArea[i] = element->xSectionArea;
-      dispersion[i] = element->longDispersion.value;
-      temperature[i] = element->temperature.value;
-      elementEvapHeatFlux[i] = element->evaporationHeatFlux;
-      elementConvHeatFlux[i] = element->convectionHeatFlux;
-      elementRadiationFlux[i] = element->radiationFluxes;
-      elementHeatFlux[i] = element->externalHeatFluxes;
-      totalElementHeatBalance[i] = element->totalHeatBalance;
-      totalElementAdvDispHeatBalance[i] = element->totalAdvDispHeatBalance;
-      totalElementRadiationFluxHeatBalance[i] = element->totalRadiationFluxesHeatBalance;
-      totalElementExternalHeatFluxBalance[i] = element->totalExternalHeatFluxesBalance;
-      totalElementEvapHeatBalance[i] = element->totalEvaporativeHeatFluxesBalance;
-      totalElementConvHeatBalance[i] = element->totalConvectiveHeatFluxesBalance;
-      elementAirTemp[i] = element->airTemperature;
-      elementRH[i] = element->relativeHumidity;
-      elementWindSpeed[i] = element->windSpeed;
-      elementVaporPress[i] = element->vaporPressureWater;
-      elementSatVaporPress[i] = element->saturationVaporPressureWater;
-      elementAirVaporPress[i] = element->vaporPressureAir;
-      elementAirSatVaporPress[i] = element->saturationVaporPressureAir;
-
-      for (size_t j = 0; j < m_solutes.size(); j++)
+      for (int i = 0; i < (int)m_elements.size(); i++)
       {
-        solutes[j * m_elements.size() + i] = element->soluteConcs[j].value;
-        totalElementSoluteMassBalance[j * m_elements.size() + i] = element->totalSoluteMassBalance[j];
-        totalElementAdvDispSoluteMassBalance[j * m_elements.size() + i] = element->totalAdvDispSoluteMassBalance[j];
-        totalElementExternalSoluteFluxMassBalance[j * m_elements.size() + i] = element->totalExternalSoluteFluxesMassBalance[j];
+        Element *element = m_elements[i];
+        flow[i] = element->flow;
+        depth[i] = element->depth;
+        width[i] = element->width;
+        xsectArea[i] = element->xSectionArea;
+        dispersion[i] = element->longDispersion.value;
+        temperature[i] = element->temperature.value;
+        elementEvapHeatFlux[i] = element->evaporationHeatFlux;
+        elementConvHeatFlux[i] = element->convectionHeatFlux;
+        elementRadiationFlux[i] = element->radiationFluxes;
+        elementHeatFlux[i] = element->externalHeatFluxes;
+        totalElementHeatBalance[i] = element->totalHeatBalance;
+        totalElementAdvDispHeatBalance[i] = element->totalAdvDispHeatBalance;
+        totalElementRadiationFluxHeatBalance[i] = element->totalRadiationFluxesHeatBalance;
+        totalElementExternalHeatFluxBalance[i] = element->totalExternalHeatFluxesBalance;
+        totalElementEvapHeatBalance[i] = element->totalEvaporativeHeatFluxesBalance;
+        totalElementConvHeatBalance[i] = element->totalConvectiveHeatFluxesBalance;
+        elementAirTemp[i] = element->airTemperature;
+        elementRH[i] = element->relativeHumidity;
+        elementWindSpeed[i] = element->windSpeed;
+        elementVaporPress[i] = element->vaporPressureWater;
+        elementSatVaporPress[i] = element->saturationVaporPressureWater;
+        elementAirVaporPress[i] = element->vaporPressureAir;
+        elementAirSatVaporPress[i] = element->saturationVaporPressureAir;
+
+        for (size_t j = 0; j < m_solutes.size(); j++)
+        {
+          solutes[j * m_elements.size() + i] = element->soluteConcs[j].value;
+          totalElementSoluteMassBalance[j * m_elements.size() + i] = element->totalSoluteMassBalance[j];
+          totalElementAdvDispSoluteMassBalance[j * m_elements.size() + i] = element->totalAdvDispSoluteMassBalance[j];
+          totalElementExternalSoluteFluxMassBalance[j * m_elements.size() + i] = element->totalExternalSoluteFluxesMassBalance[j];
+        }
       }
-    }
 
-    flowVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), flow);
-    depthVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), depth);
-    widthVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), width);
-    xsectAreaVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), xsectArea);
-    dispersionVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), dispersion);
-    temperatureVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), temperature);
+      //      NcVar flowVar =  m_outputNetCDF->ncFile()->getVar("flow");
+      //      flowVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), flow);
+      m_outputNetCDF->putVar("flow", std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), flow);
 
-    elementEvapHeatFluxVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementEvapHeatFlux);
-    elementConvHeatFluxVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementConvHeatFlux);
+      //      NcVar depthVar =  m_outputNetCDF->ncFile()->getVar("depth");
+      //      depthVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), depth);
+      m_outputNetCDF->putVar("depth", std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), depth);
 
-    elementRadiationFluxVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementRadiationFlux);
-    elementHeatFluxVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementHeatFlux);
+      //      NcVar widthVar =  m_outputNetCDF->ncFile()->getVar("width");
+      //      widthVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), width);
+      m_outputNetCDF->putVar("width", std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), width);
 
-    elementAirTempVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementAirTemp);
-    elementRHVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementRH);
-    elementWindSpeedVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementWindSpeed);
-    elementVaporPressVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementVaporPress);
-    elementSatVaporPressVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementSatVaporPress);
-    elementAirVaporPressVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementAirVaporPress);
-    elementAirSatVaporPressVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementAirSatVaporPress);
+      //      NcVar xsectAreaVar =  m_outputNetCDF->ncFile()->getVar("xsection_area");
+      //      xsectAreaVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), xsectArea);
+      m_outputNetCDF->putVar("xsection_area", std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), xsectArea);
 
-    totalElementHeatBalanceVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), totalElementHeatBalance);
-    totalElementAdvDispHeatBalanceVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), totalElementAdvDispHeatBalance);
-    totalElementEvapHeatBalanceVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), totalElementEvapHeatBalance);
-    totalElementConvHeatBalanceVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), totalElementConvHeatBalance);
-    totalElementRadiationFluxHeatBalanceVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), totalElementRadiationFluxHeatBalance);
-    totalElementExternalHeatFluxBalanceVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), totalElementExternalHeatFluxBalance);
+      //      NcVar dispersionVar =  m_outputNetCDF->ncFile()->getVar("dispersion");
+      //      dispersionVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), dispersion);
+      m_outputNetCDF->putVar("dispersion", std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), dispersion);
 
-    solutesVar.putVar(std::vector<size_t>({currentTime, 0, 0}), std::vector<size_t>({1, m_solutes.size(), m_elements.size()}), solutes);
-    totalElementSoluteMassBalanceVar.putVar(std::vector<size_t>({currentTime, 0, 0}), std::vector<size_t>({1, m_solutes.size(), m_elements.size()}), totalElementSoluteMassBalance);
-    totalElementAdvDispSoluteMassBalanceVar.putVar(std::vector<size_t>({currentTime, 0, 0}), std::vector<size_t>({1, m_solutes.size(), m_elements.size()}), totalElementAdvDispSoluteMassBalance);
-    totalElementExternalSoluteFluxMassBalanceVar.putVar(std::vector<size_t>({currentTime, 0, 0}), std::vector<size_t>({1, m_solutes.size(), m_elements.size()}), totalElementExternalSoluteFluxMassBalance);
+      //      NcVar temperatureVar =  m_outputNetCDF->ncFile()->getVar("temperature");
+      //      temperatureVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), temperature);
+      m_outputNetCDF->putVar("temperature", std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), temperature);
 
-    totalHeatBalanceVar.putVar(std::vector<size_t>({currentTime}), std::vector<size_t>({1}), &m_totalHeatBalance);
-    totalAdvDispHeatBalanceVar.putVar(std::vector<size_t>({currentTime}), std::vector<size_t>({1}), &m_totalAdvDispHeatBalance);
-    totalEvapHeatBalanceVar.putVar(std::vector<size_t>({currentTime}), std::vector<size_t>({1}), &m_totalEvaporationHeatBalance);
-    totalConvHeatBalanceVar.putVar(std::vector<size_t>({currentTime}), std::vector<size_t>({1}), &m_totalConvectiveHeatBalance);
-    totalRadiationFluxHeatBalanceVar.putVar(std::vector<size_t>({currentTime}), std::vector<size_t>({1}), &m_totalRadiationHeatBalance);
-    totalExternalHeatFluxBalanceVar.putVar(std::vector<size_t>({currentTime}), std::vector<size_t>({1}), &m_totalExternalHeatFluxBalance);
+      //      NcVar elementEvapHeatFluxVar =  m_outputNetCDF->ncFile()->getVar("element_evap_heat_flux");
+      //      elementEvapHeatFluxVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementEvapHeatFlux);
+      m_outputNetCDF->putVar("element_evap_heat_flux", std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementEvapHeatFlux);
 
-    totalSoluteMassBalanceVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_solutes.size()}), m_totalSoluteMassBalance.data());
-    totalAdvDispSoluteMassBalanceVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_solutes.size()}), m_totalAdvDispSoluteMassBalance.data());
-    totalExternalSoluteFluxMassBalanceVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_solutes.size()}), m_totalExternalSoluteFluxMassBalance.data());
+      //      NcVar elementConvHeatFluxVar =  m_outputNetCDF->ncFile()->getVar("element_conv_heat_flux");
+      //      elementConvHeatFluxVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementConvHeatFlux);
+      m_outputNetCDF->putVar("element_conv_heat_flux", std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementConvHeatFlux);
 
-    delete[] flow;
-    delete[] depth;
-    delete[] width;
-    delete[] xsectArea;
-    delete[] dispersion;
-    delete[] temperature;
-    delete[] elementEvapHeatFlux;
-    delete[] elementConvHeatFlux;
-    delete[] elementRadiationFlux;
-    delete[] elementHeatFlux;
-    delete[] totalElementHeatBalance;
-    delete[] totalElementAdvDispHeatBalance;
-    delete[] totalElementEvapHeatBalance;
-    delete[] totalElementConvHeatBalance;
-    delete[] totalElementRadiationFluxHeatBalance;
-    delete[] totalElementExternalHeatFluxBalance;
-    delete[] solutes;
-    delete[] totalElementSoluteMassBalance;
-    delete[] totalElementAdvDispSoluteMassBalance;
-    delete[] totalElementExternalSoluteFluxMassBalance;
-    delete[] elementAirTemp ;
-    delete[] elementRH ;
-    delete[] elementWindSpeed ;
-    delete[] elementVaporPress ;
-    delete[] elementSatVaporPress ;
-    delete[] elementAirVaporPress ;
-    delete[] elementAirSatVaporPress ;
+      //      NcVar elementRadiationFluxVar =  m_outputNetCDF->ncFile()->getVar("element_radiation_flux");
+      //      elementRadiationFluxVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementRadiationFlux);
+      m_outputNetCDF->putVar("element_radiation_flux", std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementRadiationFlux);
 
+      //      NcVar elementHeatFluxVar =  m_outputNetCDF->ncFile()->getVar("element_heat_flux");
+      //      elementHeatFluxVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementHeatFlux);
+      m_outputNetCDF->putVar("element_heat_flux", std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementHeatFlux);
 
-    if (m_flushToDisk)
-    {
-      m_outputNetCDF->sync();
+      //      NcVar elementAirTempVar =  m_outputNetCDF->ncFile()->getVar("element_air_temp");
+      //      elementAirTempVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementAirTemp);
+      m_outputNetCDF->putVar("element_air_temp", std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementAirTemp);
+
+      //      NcVar elementRHVar =  m_outputNetCDF->ncFile()->getVar("element_relative_humidity");
+      //      elementRHVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementRH);
+      m_outputNetCDF->putVar("element_relative_humidity", std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementRH);
+
+      //      NcVar elementWindSpeedVar =  m_outputNetCDF->ncFile()->getVar("element_wind_speed");
+      //      elementWindSpeedVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementWindSpeed);
+      m_outputNetCDF->putVar("element_wind_speed", std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementWindSpeed);
+
+      //      NcVar elementVaporPressVar =  m_outputNetCDF->ncFile()->getVar("element_vapor_pressure");
+      //      elementVaporPressVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementVaporPress);
+      m_outputNetCDF->putVar("element_vapor_pressure", std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementVaporPress);
+
+      //      NcVar elementSatVaporPressVar =  m_outputNetCDF->ncFile()->getVar("element_saturated_vapor_pressure");
+      //      elementSatVaporPressVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementSatVaporPress);
+      m_outputNetCDF->putVar("element_saturated_vapor_pressure", std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementSatVaporPress);
+
+      //      NcVar elementAirVaporPressVar =  m_outputNetCDF->ncFile()->getVar("element_air_vapor_pressure");
+      //      elementAirVaporPressVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementAirVaporPress);
+      m_outputNetCDF->putVar("element_air_vapor_pressure", std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementAirVaporPress);
+
+      //      NcVar elementAirSatVaporPressVar =  m_outputNetCDF->ncFile()->getVar("element_air_saturated_vapor_pressure");
+      //      elementAirSatVaporPressVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementAirSatVaporPress);
+      m_outputNetCDF->putVar("element_air_saturated_vapor_pressure", std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementAirSatVaporPress);
+
+      //      NcVar totalElementHeatBalanceVar =  m_outputNetCDF->ncFile()->getVar("total_element_heat_balance");
+      //      totalElementHeatBalanceVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), totalElementHeatBalance);
+      m_outputNetCDF->putVar("total_element_heat_balance", std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), totalElementHeatBalance);
+
+      //      NcVar totalElementAdvDispHeatBalanceVar =  m_outputNetCDF->ncFile()->getVar("total_element_adv_disp_heat_balance");
+      //      totalElementAdvDispHeatBalanceVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), totalElementAdvDispHeatBalance);
+      m_outputNetCDF->putVar("total_element_adv_disp_heat_balance", std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), totalElementAdvDispHeatBalance);
+
+      //      NcVar totalElementEvapHeatBalanceVar =  m_outputNetCDF->ncFile()->getVar("total_element_evap_heat_balance");
+      //      totalElementEvapHeatBalanceVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), totalElementEvapHeatBalance);
+      m_outputNetCDF->putVar("total_element_evap_heat_balance", std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), totalElementEvapHeatBalance);
+
+      //      NcVar totalElementConvHeatBalanceVar =  m_outputNetCDF->ncFile()->getVar("total_element_conv_heat_balance");
+      //      totalElementConvHeatBalanceVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), totalElementConvHeatBalance);
+      m_outputNetCDF->putVar("total_element_conv_heat_balance", std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), totalElementConvHeatBalance);
+
+      //      NcVar totalElementRadiationFluxHeatBalanceVar =  m_outputNetCDF->ncFile()->getVar("total_element_radiation_flux_heat_balance");
+      //      totalElementRadiationFluxHeatBalanceVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), totalElementRadiationFluxHeatBalance);
+      m_outputNetCDF->putVar("total_element_radiation_flux_heat_balance", std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), totalElementRadiationFluxHeatBalance);
+
+      //      NcVar totalElementExternalHeatFluxBalanceVar =  m_outputNetCDF->ncFile()->getVar("total_element_external_heat_flux_balance");
+      //      totalElementExternalHeatFluxBalanceVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), totalElementExternalHeatFluxBalance);
+      m_outputNetCDF->putVar("total_element_external_heat_flux_balance", std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), totalElementExternalHeatFluxBalance);
+
+      if(m_solutes.size())
+      {
+        //        NcVar solutesVar =  m_outputNetCDF->ncFile()->getVar("solute_concentration");
+        //        solutesVar.putVar(std::vector<size_t>({currentTime, 0, 0}), std::vector<size_t>({1, m_solutes.size(), m_elements.size()}), solutes);
+        m_outputNetCDF->putVar("solute_concentration", std::vector<size_t>({currentTime, 0, 0}), std::vector<size_t>({1, m_solutes.size(), m_elements.size()}), solutes);
+      }
+
+      //      NcVar totalElementSoluteMassBalanceVar =  m_outputNetCDF->ncFile()->getVar("total_element_solute_mass_balance");
+      //      totalElementSoluteMassBalanceVar.putVar(std::vector<size_t>({currentTime, 0, 0}), std::vector<size_t>({1, m_solutes.size(), m_elements.size()}), totalElementSoluteMassBalance);
+      m_outputNetCDF->putVar("total_element_solute_mass_balance", std::vector<size_t>({currentTime, 0, 0}), std::vector<size_t>({1, m_solutes.size(), m_elements.size()}), totalElementSoluteMassBalance);
+
+      //      NcVar totalElementAdvDispSoluteMassBalanceVar =  m_outputNetCDF->ncFile()->getVar("total_element_adv_disp_solute_mass_balance");
+      //      totalElementAdvDispSoluteMassBalanceVar.putVar(std::vector<size_t>({currentTime, 0, 0}), std::vector<size_t>({1, m_solutes.size(), m_elements.size()}), totalElementAdvDispSoluteMassBalance);
+      m_outputNetCDF->putVar("total_element_adv_disp_solute_mass_balance", std::vector<size_t>({currentTime, 0, 0}), std::vector<size_t>({1, m_solutes.size(), m_elements.size()}), totalElementAdvDispSoluteMassBalance);
+
+      //      NcVar totalElementExternalSoluteFluxMassBalanceVar =  m_outputNetCDF->ncFile()->getVar("total_element_external_solute_flux_mass_balance");
+      //      totalElementExternalSoluteFluxMassBalanceVar.putVar(std::vector<size_t>({currentTime, 0, 0}), std::vector<size_t>({1, m_solutes.size(), m_elements.size()}), totalElementExternalSoluteFluxMassBalance);
+      m_outputNetCDF->putVar("total_element_external_solute_flux_mass_balance", std::vector<size_t>({currentTime, 0, 0}), std::vector<size_t>({1, m_solutes.size(), m_elements.size()}), totalElementExternalSoluteFluxMassBalance);
+
+      //      NcVar totalHeatBalanceVar =  m_outputNetCDF->ncFile()->getVar("total_heat_balance");
+      //      totalHeatBalanceVar.putVar(std::vector<size_t>({currentTime}), std::vector<size_t>({1}), &m_totalHeatBalance);
+      m_outputNetCDF->putVar("total_heat_balance", std::vector<size_t>({currentTime}), std::vector<size_t>({1}), &m_totalHeatBalance);
+
+      //      NcVar totalAdvDispHeatBalanceVar =  m_outputNetCDF->ncFile()->getVar("total_adv_disp_heat_balance");
+      //      totalAdvDispHeatBalanceVar.putVar(std::vector<size_t>({currentTime}), std::vector<size_t>({1}), &m_totalAdvDispHeatBalance);
+      m_outputNetCDF->putVar("total_adv_disp_heat_balance", std::vector<size_t>({currentTime}), std::vector<size_t>({1}), &m_totalAdvDispHeatBalance);
+
+      //      NcVar totalEvapHeatBalanceVar =  m_outputNetCDF->ncFile()->getVar("total_evap_heat_balance");
+      //      totalEvapHeatBalanceVar.putVar(std::vector<size_t>({currentTime}), std::vector<size_t>({1}), &m_totalEvaporationHeatBalance);
+      m_outputNetCDF->putVar("total_evap_heat_balance", std::vector<size_t>({currentTime}), std::vector<size_t>({1}), &m_totalEvaporationHeatBalance);
+
+      //      NcVar totalConvHeatBalanceVar =  m_outputNetCDF->ncFile()->getVar("total_conv_heat_balance");
+      //      totalConvHeatBalanceVar.putVar(std::vector<size_t>({currentTime}), std::vector<size_t>({1}), &m_totalConvectiveHeatBalance);
+      m_outputNetCDF->putVar("total_conv_heat_balance", std::vector<size_t>({currentTime}), std::vector<size_t>({1}), &m_totalConvectiveHeatBalance);
+
+      //      NcVar totalRadiationFluxHeatBalanceVar =  m_outputNetCDF->ncFile()->getVar("total_radiation_flux_heat_balance");
+      //      totalRadiationFluxHeatBalanceVar.putVar(std::vector<size_t>({currentTime}), std::vector<size_t>({1}), &m_totalRadiationHeatBalance);
+      m_outputNetCDF->putVar("total_radiation_flux_heat_balance", std::vector<size_t>({currentTime}), std::vector<size_t>({1}), &m_totalRadiationHeatBalance);
+
+      //      NcVar totalExternalHeatFluxBalanceVar =  m_outputNetCDF->ncFile()->getVar("total_external_heat_flux_balance");
+      //      totalExternalHeatFluxBalanceVar.putVar(std::vector<size_t>({currentTime}), std::vector<size_t>({1}), &m_totalExternalHeatFluxBalance);
+      m_outputNetCDF->putVar("total_external_heat_flux_balance", std::vector<size_t>({currentTime}), std::vector<size_t>({1}), &m_totalExternalHeatFluxBalance);
+
+      //      NcVar totalSoluteMassBalanceVar =  m_outputNetCDF->ncFile()->getVar("total_solute_mass_balance");
+      //      totalSoluteMassBalanceVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_solutes.size()}), m_totalSoluteMassBalance.data());
+      m_outputNetCDF->putVar("total_solute_mass_balance", std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_solutes.size()}), m_totalSoluteMassBalance.data());
+
+      //      NcVar totalAdvDispSoluteMassBalanceVar =  m_outputNetCDF->ncFile()->getVar("total_adv_disp_solute_mass_balance");
+      //      totalAdvDispSoluteMassBalanceVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_solutes.size()}), m_totalAdvDispSoluteMassBalance.data());
+      m_outputNetCDF->putVar("total_adv_disp_solute_mass_balance", std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_solutes.size()}), m_totalAdvDispSoluteMassBalance.data());
+
+      //      NcVar totalExternalSoluteFluxMassBalanceVar =  m_outputNetCDF->ncFile()->getVar("total_external_solute_flux_mass_balance");
+      //      totalExternalSoluteFluxMassBalanceVar.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_solutes.size()}), m_totalExternalSoluteFluxMassBalance.data());
+      m_outputNetCDF->putVar("total_external_solute_flux_mass_balance", std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_solutes.size()}), m_totalExternalSoluteFluxMassBalance.data());
+
+      delete[] flow;
+      delete[] depth;
+      delete[] width;
+      delete[] xsectArea;
+      delete[] dispersion;
+      delete[] temperature;
+      delete[] elementEvapHeatFlux;
+      delete[] elementConvHeatFlux;
+      delete[] elementRadiationFlux;
+      delete[] elementHeatFlux;
+      delete[] totalElementHeatBalance;
+      delete[] totalElementAdvDispHeatBalance;
+      delete[] totalElementEvapHeatBalance;
+      delete[] totalElementConvHeatBalance;
+      delete[] totalElementRadiationFluxHeatBalance;
+      delete[] totalElementExternalHeatFluxBalance;
+      delete[] solutes;
+      delete[] totalElementSoluteMassBalance;
+      delete[] totalElementAdvDispSoluteMassBalance;
+      delete[] totalElementExternalSoluteFluxMassBalance;
+      delete[] elementAirTemp ;
+      delete[] elementRH ;
+      delete[] elementWindSpeed ;
+      delete[] elementVaporPress ;
+      delete[] elementSatVaporPress ;
+      delete[] elementAirVaporPress ;
+      delete[] elementAirSatVaporPress ;
+
+      if(m_flushToDisk)
+      {
+        m_outputNetCDF->sync();
+      }
     }
   }
 #endif
@@ -2857,24 +2958,8 @@ void STMModel::writeNetCDFOutput()
 
 void STMModel::closeOutputFiles()
 {
-#ifdef USE_OPENMP
-#pragma omp parallel sections
-#endif
-  {
-#ifdef USE_OPENMP
-#pragma omp section
-#endif
-    {
-      closeCSVOutputFile();
-    }
-
-#ifdef USE_OPENMP
-#pragma omp section
-#endif
-    {
-      closeOutputNetCDFFile();
-    }
-  }
+  closeCSVOutputFile();
+  closeOutputNetCDFFile();
 }
 
 void STMModel::closeCSVOutputFile()
@@ -2892,10 +2977,8 @@ void STMModel::closeOutputNetCDFFile()
 {
 #ifdef USE_NETCDF
 
-  if (m_outputNetCDF && !m_outputNetCDF->isNull())
+  if(m_outputNetCDF)
   {
-    m_outputNetCDF->sync();
-    m_outputNetCDF->close();
     delete m_outputNetCDF;
     m_outputNetCDF = nullptr;
   }
@@ -2923,139 +3006,6 @@ QFileInfo STMModel::relativePathToAbsolute(const QFileInfo &fileInfo)
   return fileInfo;
 }
 
-bool STMModel::readTimeSeries(const QFileInfo &fileInfo, std::map<double, std::vector<double>> &timeSeriesValues, std::vector<string> &headers)
-{
-  timeSeriesValues.clear();
-  headers.clear();
-
-  if (!fileInfo.filePath().isEmpty() && QFile::exists(fileInfo.absoluteFilePath()))
-  {
-    QFile file(fileInfo.absoluteFilePath());
-
-    if (file.open(QIODevice::ReadOnly))
-    {
-      QRegExp commaTabDel("(\\,|\\t|\\\n)");
-      QTextStream streamReader(&file);
-      QString line = file.readLine();
-      QStringList columns = line.split(commaTabDel, QString::SkipEmptyParts);
-      bool noError = true;
-
-      if (columns.size() > 1)
-      {
-        headers.clear();
-
-        for (int i = 1; i < columns.size(); i++)
-        {
-          headers.push_back(columns[i].toStdString());
-        }
-
-        while (!streamReader.atEnd())
-        {
-          line = file.readLine();
-          columns = line.split(commaTabDel, QString::SkipEmptyParts);
-
-          if (columns.size() > (int)(headers.size()))
-          {
-            QDateTime dt;
-
-            if (tryParse(columns[0], dt))
-            {
-              double dateTimeMJD = SDKTemporal::DateTime::toJulianDays(dt);
-
-              std::vector<double> values;
-              values.reserve(headers.size());
-
-              for (int i = 1; i < columns.size(); i++)
-              {
-                bool ok;
-                double value = columns[i].toDouble(&ok);
-
-                if (ok)
-                {
-                  values.push_back(value);
-                }
-                else
-                {
-                  noError = false;
-                  break;
-                }
-              }
-
-              if (noError)
-              {
-                timeSeriesValues[dateTimeMJD] = values;
-              }
-            }
-            else
-            {
-              tryParse(columns[0], dt);
-              noError = false;
-            }
-          }
-          else
-          {
-            noError = false;
-            break;
-          }
-
-          if (noError == false)
-            break;
-        }
-      }
-      else
-      {
-        noError = false;
-      }
-
-      file.close();
-      return noError;
-    }
-  }
-
-  return false;
-}
-
-bool STMModel::tryParse(const QString &dateTimeString, QDateTime &dateTime)
-{
-  QStringList dateCols = dateTimeString.split(m_dateTimeDelim, QString::SkipEmptyParts);
-
-  if (dateCols.size() == 6)
-  {
-
-    bool monthOk;
-    int month = dateCols[0].toInt(&monthOk);
-
-    bool dayOk;
-    int day = dateCols[1].toInt(&dayOk);
-
-    bool yearOk;
-    int year = dateCols[2].toInt(&yearOk);
-
-    bool hourOk;
-    int hour = dateCols[3].toInt(&hourOk);
-
-    bool minuteOk;
-    int minute = dateCols[4].toInt(&minuteOk);
-
-    bool secondOk;
-    int second = dateCols[5].toInt(&secondOk);
-
-    if (monthOk && dayOk && yearOk && hourOk && minuteOk && secondOk)
-    {
-      QDate date(year, month, day);
-      QTime time = QTime(hour, minute, second);
-
-      dateTime = QDateTime(date, time);
-
-      if (dateTime.isValid())
-      {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
 
 const unordered_map<string, int> STMModel::m_inputFileFlags({
                                                               {"[OPTIONS]", 1},
@@ -3101,6 +3051,7 @@ const unordered_map<string, int> STMModel::m_optionsFlags({
                                                             {"BOWENS_COEFF", 24},
                                                             {"PRESSURE_RATIO", 25},
                                                             {"TVD_SCHEME", 26},
+                                                            {"NETCDF_THREAD_SAFE", 27},
 
                                                           });
 

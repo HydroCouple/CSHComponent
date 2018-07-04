@@ -39,9 +39,9 @@ ElementOutput::ElementOutput(const QString &id,
   : TimeGeometryOutputDouble(id, IGeometry::LineString,
                              timeDimension, geometryDimension,
                              valueDefinition, modelComponent),
+    m_component(modelComponent),
     m_variableType(variableType),
-    m_soluteIndex(0),
-    m_component(modelComponent)
+    m_soluteIndex(0)
 {
 
 }
@@ -57,7 +57,6 @@ void ElementOutput::updateValues(HydroCouple::IInput *querySpecifier)
   {
     ITimeComponentDataItem* timeExchangeItem = dynamic_cast<ITimeComponentDataItem*>(querySpecifier);
     QList<IOutput*>updateList;
-//    QList<IOutput*>updateList({this});
 
     if(timeExchangeItem)
     {
@@ -87,6 +86,7 @@ void ElementOutput::updateValues()
 
   int currentTimeIndex = timeCount() - 1;
   DateTime *currentDateTime = m_times[currentTimeIndex];
+
   currentDateTime->setJulianDay(m_component->modelInstance()->currentDateTime());
   resetTimeSpan();
 

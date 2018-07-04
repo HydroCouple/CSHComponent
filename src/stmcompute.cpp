@@ -24,6 +24,12 @@
 #include "iboundarycondition.h"
 #include "stmcomponent.h"
 
+
+#ifdef USE_OPENMP
+#include <omp.h>
+#endif
+
+
 using namespace std;
 
 void STMModel::update()
@@ -32,13 +38,6 @@ void STMModel::update()
   {
     applyBoundaryConditions(m_currentDateTime);
 
-    //Retrieve external data from other coupled models
-
-    //    if(m_retrieveCouplingDataFunction)
-    //    {
-    //      (*m_retrieveCouplingDataFunction)(this, m_currentDateTime);
-    //    }
-
     if(m_component)
       m_component->applyInputValues();
 
@@ -46,63 +45,52 @@ void STMModel::update()
 
     m_timeStep = computeTimeStep();
 
-    //Solve the transport for each element
-    {
-#ifdef USE_OPENMP
-#pragma omp parallel sections
-#endif
-      {
-#ifdef USE_OPENMP
-#pragma omp section
-#endif
-        {
-          //Solve heat transport first
-          solveHeatTransport(m_timeStep);
-        }
-
-#ifdef USE_OPENMP
-#pragma omp section
-#endif
-        {
-
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-          for(int i = 0 ; i < (int)m_solutes.size(); i++)
+    for(int j = 0; j < 2; j++)
+    {
+      switch (j)
+      {
+        case 0:
+          solveHeatTransport(m_timeStep);
+          break;
+        case 1:
           {
-            solveSoluteTransport(i, m_timeStep);
+#ifdef USE_OPENMP
+#pragma omp parallel for
+#endif
+            for(int i = 0 ; i < (int)m_solutes.size(); i++)
+            {
+              solveSoluteTransport(i, m_timeStep);
+            }
           }
-        }
+          break;
       }
     }
 
-    //Solve continuity for each junction
-    {
-#ifdef USE_OPENMP
-#pragma omp parallel sections
-#endif
-      {
-#ifdef USE_OPENMP
-#pragma omp section
-#endif
-        {
-          //Solve heat transport first
-          solveJunctionHeatContinuity(m_timeStep);
-        }
-
-#ifdef USE_OPENMP
-#pragma omp section
-#endif
-        {
 
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-          for(int i = 0 ; i < (int)m_solutes.size(); i++)
+    for(int j = 0; j < 2; j++)
+    {
+      switch (j)
+      {
+        case 0:
+          solveJunctionHeatContinuity(m_timeStep);
+          break;
+        case 1:
           {
-            solveJunctionSoluteContinuity(i, m_timeStep);
+#ifdef USE_OPENMP
+#pragma omp parallel for
+#endif
+            for(int i = 0 ; i < (int)m_solutes.size(); i++)
+            {
+              solveJunctionSoluteContinuity(i, m_timeStep);
+            }
           }
-        }
+          break;
       }
     }
 
@@ -266,42 +254,42 @@ double STMModel::computeTimeStep()
   else if(m_useAdaptiveTimeStep)
   {
 #ifdef _WIN32
-      {
-
-    for(int i = 0 ; i < (int)m_elements.size()  ; i++)
     {
-      Element *element = m_elements[i];
-      double courantFactor = element->computeCourantFactor();
-      //double dispersionFactor = element->computeDispersionFactor();
 
-      if(!isinf(courantFactor) && courantFactor > maxCourantFactor)
+      for(int i = 0 ; i < (int)m_elements.size()  ; i++)
       {
-        maxCourantFactor = courantFactor;
+        Element *element = m_elements[i];
+        double courantFactor = element->computeCourantFactor();
+        //double dispersionFactor = element->computeDispersionFactor();
+
+        if(!isinf(courantFactor) && courantFactor > maxCourantFactor)
+        {
+          maxCourantFactor = courantFactor;
+        }
       }
     }
-      }
 #else
-      {
+    {
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-    for(int i = 0 ; i < (int)m_elements.size()  ; i++)
-    {
-      Element *element = m_elements[i];
-      double courantFactor = element->computeCourantFactor();
-      //double dispersionFactor = element->computeDispersionFactor();
-
-      if(!isinf(courantFactor) && courantFactor > maxCourantFactor)
+      for(int i = 0 ; i < (int)m_elements.size()  ; i++)
       {
+        Element *element = m_elements[i];
+        double courantFactor = element->computeCourantFactor();
+        //double dispersionFactor = element->computeDispersionFactor();
+
+        if(!isinf(courantFactor) && courantFactor > maxCourantFactor)
+        {
 
 #ifdef USE_OPENMP
 #pragma omp atomic read
 #endif
-        maxCourantFactor = courantFactor;
+          maxCourantFactor = courantFactor;
 
+        }
       }
     }
-      }
 #endif
 
     timeStep = maxCourantFactor ? m_timeStepRelaxationFactor / maxCourantFactor : m_maxTimeStep;\
