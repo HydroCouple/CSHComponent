@@ -147,7 +147,12 @@ void STMComponent::update(const QList<HydroCouple::IOutput*> &requiredOutputs)
   {
     setStatus(IModelComponent::Updating);
 
-    m_modelInstance->update();
+    double minConsumerTime = std::max(m_modelInstance->currentDateTime(), getMinimumConsumerTime());
+
+    while (m_modelInstance->currentDateTime() <= minConsumerTime )
+    {
+      m_modelInstance->update();
+    }
 
     updateOutputValues(requiredOutputs);
 

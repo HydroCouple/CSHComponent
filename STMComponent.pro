@@ -27,6 +27,7 @@ DEFINES += USE_MPI
 DEFINES += USE_CVODE
 DEFINES += USE_NETCDF
 #DEFINES += USE_CVODE_OPENMP
+DEFINES += USE_CHPC
 
 #Compile as library or executable
 contains(DEFINES,STMCOMPONENT_LIBRARY){
@@ -162,7 +163,15 @@ INCLUDEPATH += /usr/include \
                  -L/uufs/chpc.utah.edu/sys/installdir/netcdf-cxx/4.3.0-c7/lib -lnetcdf_c++4 \
                  -L../hypre/build/lib -lHYPRE
 
-         message("Compiling on CHPC")
+        contains(DEFINES, USE_CVODE){
+
+            message("CVODE enabled")
+
+            INCLUDEPATH += /uufs/chpc.utah.edu/sys/installdir/sundials/2.6.2-2.7.10py/include
+            LIBS += -L/uufs/chpc.utah.edu/sys/installdir/sundials/2.6.2-2.7.10py/lib -lsundials_cvode
+        }
+
+        message("Compiling on CHPC")
     }
 
     contains(DEFINES,USE_OPENMP){
