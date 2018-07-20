@@ -5,7 +5,7 @@
 *  \section Description
 *  This file and its associated files and libraries are free software;
 *  you can redistribute it and/or modify it under the terms of the
-*  Lesser GNU General Public License as published by the Free Software Foundation;
+*  Lesser GNU Lesser General Public License as published by the Free Software Foundation;
 *  either version 3 of the License, or (at your option) any later version.
 *  fvhmcompopnent.h its associated files is distributed in the hope that it will be useful,
 *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -31,6 +31,7 @@
 #include <QFileInfo>
 #include <QTextStream>
 #include <unordered_map>
+#include "threadsafenetcdf/threadsafencvar.h"
 
 #ifdef USE_NETCDF
 #include <netcdf>
@@ -834,6 +835,7 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
 
 #ifdef USE_NETCDF
      ThreadSafeNcFile *m_outputNetCDF = nullptr; //NetCDF output file object
+     std::unordered_map<std::string, ThreadSafeNcVar> m_outNetCDFVariables;
 #endif
 
     QTextStream m_outputCSVStream; //Output CSV filestream

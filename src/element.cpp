@@ -5,7 +5,7 @@
 *  \section Description
 *  This file and its associated files and libraries are free software;
 *  you can redistribute it and/or modify it under the terms of the
-*  Lesser GNU General Public License as published by the Free Software Foundation;
+*  Lesser GNU Lesser General Public License as published by the Free Software Foundation;
 *  either version 3 of the License, or (at your option) any later version.
 *  fvhmcompopnent.h its associated files is distributed in the hope that it will be useful,
 *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -182,6 +182,11 @@ double Element::computeDTDt(double dt, double T[])
   double DTDt = 0.0;
   double volume = xSectionArea * length;
   double rho_cp_vol = model->m_waterDensity * model->m_cp * volume;
+
+  if(id == "L_17")
+  {
+    printf("");
+  }
 
   if(volume)
   {

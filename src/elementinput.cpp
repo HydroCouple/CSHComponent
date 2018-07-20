@@ -273,6 +273,7 @@ void ElementInput::setVariableType(VariableType variableType)
   m_varType = variableType;
 }
 
+
 ElementHeatSourceInput::ElementHeatSourceInput(const QString &id,
                                                Dimension *timeDimension,
                                                Dimension *geometryDimension,

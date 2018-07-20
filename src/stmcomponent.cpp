@@ -5,7 +5,7 @@
    *  \section Description
    *  This file and its associated files and libraries are free software;
    *  you can redistribute it and/or modify it under the terms of the
-   *  Lesser GNU General Public License as published by the Free Software Foundation;
+   *  Lesser GNU Lesser General Public License as published by the Free Software Foundation;
    *  either version 3 of the License, or (at your option) any later version.
    *  fvhmcompopnent.h its associated files is distributed in the hope that it will be useful,
    *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -86,16 +86,17 @@ STMComponent::~STMComponent()
 
   initializeFailureCleanUp();
 
-  if(m_parent)
-  {
-    m_parent->removeClone(this);
-  }
-
   while (m_clones.size())
   {
     STMComponent *clone =  dynamic_cast<STMComponent*>(m_clones.first());
     removeClone(clone);
     delete clone;
+  }
+
+  if(m_parent)
+  {
+    m_parent->removeClone(this);
+    m_parent = nullptr;
   }
 }
 
@@ -149,9 +150,15 @@ void STMComponent::update(const QList<HydroCouple::IOutput*> &requiredOutputs)
 
     double minConsumerTime = std::max(m_modelInstance->currentDateTime(), getMinimumConsumerTime());
 
-    while (m_modelInstance->currentDateTime() <= minConsumerTime )
+    while (m_modelInstance->currentDateTime() <= minConsumerTime &&
+           m_modelInstance->currentDateTime() < m_modelInstance->endDateTime())
     {
       m_modelInstance->update();
+
+      if(progressChecker()->performStep(m_modelInstance->currentDateTime()))
+      {
+        setStatus(IModelComponent::Updated , "Simulation performed time-step | DateTime: " + QString::number(m_modelInstance->currentDateTime(), 'f') , progressChecker()->progress());
+      }
     }
 
     updateOutputValues(requiredOutputs);
@@ -166,7 +173,7 @@ void STMComponent::update(const QList<HydroCouple::IOutput*> &requiredOutputs)
     {
       if(progressChecker()->performStep(m_modelInstance->currentDateTime()))
       {
-        setStatus(IModelComponent::Updated , "Simulation performed time-step | DateTime: " + QString::number(m_modelInstance->currentDateTime()) , progressChecker()->progress());
+        setStatus(IModelComponent::Updated , "Simulation performed time-step | DateTime: " + QString::number(m_modelInstance->currentDateTime(), 'f') , progressChecker()->progress());
       }
       else
       {
@@ -277,7 +284,7 @@ bool STMComponent::removeClone(STMComponent *component)
   int removed;
 
 #ifdef USE_OPENMP
-#pragma omp critical
+#pragma omp critical (STMComponent)
 #endif
   {
     removed = m_clones.removeAll(component);
@@ -286,7 +293,6 @@ bool STMComponent::removeClone(STMComponent *component)
 
   if(removed)
   {
-    component->m_parent = nullptr;
     emit propertyChanged("Clones");
   }
 
