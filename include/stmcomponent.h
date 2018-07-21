@@ -213,7 +213,7 @@ class STMCOMPONENT_EXPORT STMComponent : public AbstractTimeModelComponent,
     std::vector<QSharedPointer<HCGeometry>> m_elementJunctionGeometries;
     STMModel *m_modelInstance;
 
-    STMComponent *m_parent;
+    STMComponent *m_parent = nullptr;
     QList<HydroCouple::ICloneableModelComponent*> m_clones;
 };
 

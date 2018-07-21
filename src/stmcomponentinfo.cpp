@@ -32,6 +32,13 @@ STMComponentInfo::STMComponentInfo(QObject *parent)
   setId("Stream Temperature Model 1.0.0");
   setCaption("STM Component");
   setIconFilePath("./../../resources/images/hydrocouplecomposer.png");
+
+#ifdef QT_DEBUG
+  setIconFilePath("./../../resources/images/hydrocouplecomposer.png");
+#else
+  setIconFilePath("./STMComponent.ico");
+#endif
+
   setDescription("A one-dimensional channel heat and solute transport model.");
   setCategory("Hydrodyanmics\\Heat Transport");
   setCopyright("");

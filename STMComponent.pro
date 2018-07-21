@@ -223,9 +223,14 @@ win32{
     contains(DEFINES, USE_CVODE){
     message("CVODE enabled")
     CONFIG(debug, debug|release) {
+        message("CVODE debug")
+
         LIBS += -L$${VSPKGDIR}/debug/lib -lsundials_cvode
+
         } else {
+
         LIBS += -L$${VSPKGDIR}/lib -lsundials_cvode
+
         }
     }
 
@@ -266,12 +271,13 @@ win32{
      }
 
     QMAKE_CXXFLAGS += /MP
+    QMAKE_LFLAGS += /MP /incremental /debug:fastlink
 }
 
 CONFIG(debug, debug|release) {
 
     win32 {
-       QMAKE_CXXFLAGS_DEBUG = $$QMAKE_CXXFLAGS /MDd  /O2
+       QMAKE_CXXFLAGS +=/MDd  /O2
     }
 
     macx {
@@ -315,7 +321,7 @@ CONFIG(debug, debug|release) {
 CONFIG(release, debug|release) {
 
    win32 {
-    QMAKE_CXXFLAGS_RELEASE = $$QMAKE_CXXFLAGS /MD
+    QMAKE_CXXFLAGS += /MD
    }
 
     RELEASE_EXTRAS = ./build/release
