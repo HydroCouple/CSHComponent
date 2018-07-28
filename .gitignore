@@ -245,3 +245,4 @@ CMakeLists.txt.user
 [Bb]uild/
 [Ll]ib/
 *.rc
+*.rc

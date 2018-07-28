@@ -454,7 +454,7 @@ void STMModel::computeDSoluteDt(double t, double y[], double dydt[], void *userD
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-  for(size_t i = 0 ; i < modelInstance->m_elements.size(); i++)
+  for(int i = 0 ; i < (int)modelInstance->m_elements.size(); i++)
   {
     Element *element = modelInstance->m_elements[i];
     dydt[element->index] = element->computeDSoluteDt(dt,y,solverUserData->variableIndex);
