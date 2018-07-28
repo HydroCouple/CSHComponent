@@ -12,17 +12,14 @@ QT += testlib
 
 CONFIG += c++11
 CONFIG += debug_and_release
-CONFIG += optimize_full
+#CONFIG += optimize_full
 
 DEFINES += STMCOMPONENT_LIBRARY
-#DEFINES += USE_OPENMPRV
 DEFINES += USE_OPENMP
 DEFINES += USE_MPI
 DEFINES += USE_CVODE
 DEFINES += USE_NETCDF
-#DEFINES += USE_CVODE_OPENMP
 DEFINES += USE_CHPC
-#DEFINES += QT_NO_VERSION_TAGGING
 
 #Compile as library or executable
 contains(DEFINES,STMCOMPONENT_LIBRARY){
@@ -116,19 +113,17 @@ macx{
         INCLUDEPATH += /usr/local/opt/llvm/lib/clang/5.0.0/include
         LIBS += -L /usr/local/opt/llvm/lib -lomp
 
-      message("OpenMP enabled")
-    } else {
-      message("OpenMP disabled")
+        message("OpenMP enabled")
+
+       } else {
+
+        message("OpenMP disabled")
     }
 
     contains(DEFINES,USE_MPI){
 
         QMAKE_CXX = /usr/local/bin/mpicxx
         QMAKE_LINK = /usr/local/bin/mpicxx
-
-        QMAKE_CFLAGS += $$system(mpicc --showme:compile)
-        QMAKE_CXXFLAGS += $$system(mpic++ --showme:compile)
-        QMAKE_LFLAGS += $$system(mpic++ --showme:link)
 
         LIBS += -L/usr/local/lib -lmpi
 
@@ -191,10 +186,6 @@ linux{
         QMAKE_CXX = mpic++
         QMAKE_LINK = mpic++
 
-        QMAKE_CFLAGS += $$system(mpicc --showme:compile)
-        QMAKE_CXXFLAGS += $$system(mpic++ --showme:compile)
-        QMAKE_LFLAGS += $$system(mpic++ --showme:link)
-
         LIBS += -L/usr/local/lib/ -lmpi
 
         message("MPI enabled")
@@ -208,16 +199,16 @@ linux{
 
 win32{
 
-    #Windows vspkg package manager installation path
-    VSPKGDIR = C:/vcpkg/installed/x64-windows
+    #Windows vspkg package manager installation path if environment variable is not set
+    #VCPKGDIR = C:/vcpkg/installed/x64-windows
 
-    INCLUDEPATH += $${VSPKGDIR}/include \
-                   $${VSPKGDIR}/include/gdal
+    INCLUDEPATH += $${VCPKGDIR}/include \
+                   $${VCPKGDIR}/include/gdal
 
     CONFIG(debug, debug|release) {
-    LIBS += -L$${VSPKGDIR}/debug/lib -lgdald
+    LIBS += -L$${VCPKGDIR}/debug/lib -lgdald
         } else {
-    LIBS += -L$${VSPKGDIR}/lib -lgdal
+    LIBS += -L$${VCPKGDIR}/lib -lgdal
     }
 
     contains(DEFINES, USE_CVODE){
@@ -225,11 +216,11 @@ win32{
     CONFIG(debug, debug|release) {
         message("CVODE debug")
 
-        LIBS += -L$${VSPKGDIR}/debug/lib -lsundials_cvode
+        LIBS += -L$${VCPKGDIR}/debug/lib -lsundials_cvode
 
         } else {
 
-        LIBS += -L$${VSPKGDIR}/lib -lsundials_cvode
+        LIBS += -L$${VCPKGDIR}/lib -lsundials_cvode
 
         }
     }
@@ -237,11 +228,11 @@ win32{
     contains(DEFINES, USE_NETCDF){
     message("NetCDF enabled")
     CONFIG(release, debug|release) {
-        LIBS += -L$${VSPKGDIR}/lib -lnetcdf \
-                -L$${VSPKGDIR}/lib -lnetcdf-cxx4
+        LIBS += -L$${VCPKGDIR}/lib -lnetcdf \
+                -L$${VCPKGDIR}/lib -lnetcdf-cxx4
         } else {
-        LIBS += -L$${VSPKGDIR}/debug/lib -lnetcdf \
-                -L$${VSPKGDIR}/debug/lib -lnetcdf-cxx4
+        LIBS += -L$${VCPKGDIR}/debug/lib -lnetcdf \
+                -L$${VCPKGDIR}/debug/lib -lnetcdf-cxx4
         }
     }
 
@@ -259,16 +250,18 @@ win32{
      }
 
     contains(DEFINES,USE_MPI){
-
-       LIBS += -L$$(MSMPI_LIB64)/ -lmsmpi
-
        message("MPI enabled")
 
-     } else {
+        CONFIG(debug, debug|release) {
+            LIBS += -L$${VCPKGDIR}/debug/lib -lmsmpi
+          } else {
+            LIBS += -L$${VCPKGDIR}/lib -lmsmpi
+        }
 
+    } else {
       message("MPI disabled")
+    }
 
-     }
 
     QMAKE_CXXFLAGS += /MP
     QMAKE_LFLAGS += /MP /incremental /debug:fastlink
@@ -277,17 +270,15 @@ win32{
 CONFIG(debug, debug|release) {
 
     win32 {
-       QMAKE_CXXFLAGS +=/MDd  /O2
+       QMAKE_CXXFLAGS += /MDd /O2
     }
 
     macx {
-     QMAKE_CFLAGS_DEBUG = $$QMAKE_CFLAGS -g -O3
-     QMAKE_CXXFLAGS_DEBUG = $$QMAKE_CXXFLAGS -g -O3
+       QMAKE_CXXFLAGS += -O3
     }
 
     linux {
-     QMAKE_CFLAGS_DEBUG = $$QMAKE_CFLAGS -g -O3
-     QMAKE_CXXFLAGS_DEBUG = $$QMAKE_CXXFLAGS -g -O3
+       QMAKE_CXXFLAGS += -O3
     }
 
    DESTDIR = ./build/debug

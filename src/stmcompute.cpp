@@ -115,9 +115,9 @@ void STMModel:: update()
 void STMModel::prepareForNextTimeStep()
 {
 
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
+  //#ifdef USE_OPENMP
+  //#pragma omp parallel for
+  //#endif
   for(int i = 0 ; i < (int)m_elementJunctions.size(); i++)
   {
     ElementJunction *elementJunction = m_elementJunctions[i];
@@ -183,9 +183,9 @@ void STMModel::applyInitialConditions()
   std::fill(m_totalExternalSoluteFluxMassBalance.begin(), m_totalExternalSoluteFluxMassBalance.end(), 0.0);
 
   //Interpolate nodal temperatures and solute concentrations
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
+  //#ifdef USE_OPENMP
+  //#pragma omp parallel for
+  //#endif
   for(int i = 0 ; i < (int)m_elementJunctions.size(); i++)
   {
     ElementJunction *elementJunction = m_elementJunctions[i];
@@ -270,9 +270,9 @@ double STMModel::computeTimeStep()
     }
 #else
     {
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
+      //#ifdef USE_OPENMP
+      //#pragma omp parallel for
+      //#endif
       for(int i = 0 ; i < (int)m_elements.size()  ; i++)
       {
         Element *element = m_elements[i];
@@ -282,9 +282,9 @@ double STMModel::computeTimeStep()
         if(!std::isinf(courantFactor) && courantFactor > maxCourantFactor)
         {
 
-#ifdef USE_OPENMP
-#pragma omp atomic read
-#endif
+          //#ifdef USE_OPENMP
+          //#pragma omp atomic read
+          //#endif
           maxCourantFactor = courantFactor;
 
         }
@@ -358,9 +358,9 @@ void STMModel::solveHeatTransport(double timeStep)
   double *outputTemperatures = new double[m_elements.size()];
 
   //Set initial input and output values to current values.
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
+  //#ifdef USE_OPENMP
+  //#pragma omp parallel for
+  //#endif
   for(int i = 0 ; i < (int)m_elements.size(); i++)
   {
     Element *element = m_elements[i];
@@ -374,9 +374,9 @@ void STMModel::solveHeatTransport(double timeStep)
                       outputTemperatures, &STMModel::computeDTDt, &solverUserData);
 
   //Apply computed values;
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
+  //#ifdef USE_OPENMP
+  //#pragma omp parallel for
+  //#endif
   for(int i = 0 ; i < (int)m_elements.size(); i++)
   {
     Element *element = m_elements[i];
@@ -395,9 +395,9 @@ void STMModel::solveSoluteTransport(int soluteIndex, double timeStep)
   double *outputSoluteConcs = new double[m_elements.size()];
 
   //Set initial values.
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
+  //#ifdef USE_OPENMP
+  //#pragma omp parallel for
+  //#endif
   for(int i = 0 ; i < (int)m_elements.size(); i++)
   {
     Element *element = m_elements[i];
@@ -412,9 +412,9 @@ void STMModel::solveSoluteTransport(int soluteIndex, double timeStep)
 
 
   //Apply computed values;
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
+  //#ifdef USE_OPENMP
+  //#pragma omp parallel for
+  //#endif
   for(int i = 0 ; i < (int)m_elements.size(); i++)
   {
     Element *element = m_elements[i];
@@ -452,7 +452,7 @@ void STMModel::computeDSoluteDt(double t, double y[], double dydt[], void *userD
   double dt = t - modelInstance->m_currentDateTime *  86400.0;
 
 #ifdef USE_OPENMP
-  //#pragma omp parallel for
+#pragma omp parallel for
 #endif
   for(size_t i = 0 ; i < modelInstance->m_elements.size(); i++)
   {

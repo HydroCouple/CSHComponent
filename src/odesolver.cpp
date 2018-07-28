@@ -503,9 +503,9 @@ int ODESolver::solveCVODE(double y[], int n, double t, double dt, double yout[],
   double *y0 =  N_VGetArrayPointer_Serial(m_cvy);
 #endif
 
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
+  //#ifdef USE_OPENMP
+  //#pragma omp parallel for
+  //#endif
   for(int i = 0; i < n; i++)
   {
     y0[i] = y[i];

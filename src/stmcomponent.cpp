@@ -342,6 +342,9 @@ bool STMComponent::initializeArguments(QString &message)
   if(initialized)
   {
     createGeometries();
+
+    for(AbstractOutput *output : outputsInternal())
+      output->updateValues();
   }
   else
   {

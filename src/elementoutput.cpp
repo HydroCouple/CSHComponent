@@ -95,9 +95,9 @@ void ElementOutput::updateValues()
     case Flow:
       {
 
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
+//#ifdef USE_OPENMP
+//#pragma omp parallel for
+//#endif
         for(int i = 0 ; i < (int)m_geometries.size() ; i++)
         {
           Element *element = m_component->modelInstance()->getElement(i);
@@ -108,9 +108,9 @@ void ElementOutput::updateValues()
       break;
     case XSectionArea:
       {
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
+        //#ifdef USE_OPENMP
+        //#pragma omp parallel for
+        //#endif
         for(int i = 0 ; i < (int)m_geometries.size() ; i++)
         {
           Element *element = m_component->modelInstance()->getElement(i);
@@ -121,9 +121,9 @@ void ElementOutput::updateValues()
       break;
     case Depth:
       {
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
+        //#ifdef USE_OPENMP
+        //#pragma omp parallel for
+        //#endif
         for(int i = 0 ; i < (int)m_geometries.size() ; i++)
         {
           Element *element = m_component->modelInstance()->getElement(i);
@@ -134,9 +134,9 @@ void ElementOutput::updateValues()
       break;
     case TopWidth:
       {
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
+        //#ifdef USE_OPENMP
+        //#pragma omp parallel for
+        //#endif
         for(int i = 0 ; i <(int) m_geometries.size() ; i++)
         {
           Element *element = m_component->modelInstance()->getElement(i);
@@ -147,9 +147,9 @@ void ElementOutput::updateValues()
       break;
     case Temperature:
       {
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
+        //#ifdef USE_OPENMP
+        //#pragma omp parallel for
+        //#endif
         for(int i = 0 ; i < (int)m_geometries.size() ; i++)
         {
           Element *element = m_component->modelInstance()->getElement(i);
@@ -160,9 +160,9 @@ void ElementOutput::updateValues()
       break;
     case SoluteConc:
       {
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
+        //#ifdef USE_OPENMP
+        //#pragma omp parallel for
+        //#endif
         for(int i = 0 ; i < (int)m_geometries.size() ; i++)
         {
           Element *element = m_component->modelInstance()->getElement(i);
