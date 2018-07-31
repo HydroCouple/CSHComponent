@@ -113,22 +113,22 @@ void ElementJunction::interpLongDispersion()
 void ElementJunction::interpTemp()
 {
   //IDW interpolation for
-  this->temperature.value = 0;
   double sum_x = 0;
+  double tempTemp = 0;
 
   for(Element *element : this->outgoingElements)
   {
-    this->temperature.value += element->temperature.value / element->length / 2.0;
+    tempTemp += element->temperature.value / element->length / 2.0;
     sum_x += 1.0 / element->length / 2.0;
   }
 
   for(Element *element : this->incomingElements)
   {
-    this->temperature.value += element->temperature.value / element->length / 2.0;
+    tempTemp += element->temperature.value / element->length / 2.0;
     sum_x += 1.0 / element->length / 2.0;
   }
 
-  this->temperature.value /= sum_x;
+  this->temperature.value = tempTemp / sum_x;
 }
 
 void ElementJunction::interpXSectionArea()

@@ -513,6 +513,25 @@ bool STMModel::initializeNetCDFOutputFile(list<string> &errors)
 
     delete[] elementIds;
 
+
+    //hydraulics variables
+    ThreadSafeNcVar lengthVar =  m_outputNetCDF->addVar("length", "double",
+                                                      std::vector<std::string>({"elements"}));
+    lengthVar.putAtt("length:long_name", "flow");
+    lengthVar.putAtt("length:units", "m");
+    m_outNetCDFVariables["length"] = lengthVar;
+
+    std::vector<double> lengths(m_elements.size());
+
+    for(int i = 0; i < m_elements.size(); i++)
+    {
+      lengths[i] = m_elements[i]->length;
+    }
+
+    lengthVar.putVar(lengths.data());
+
+
+
     //hydraulics variables
     ThreadSafeNcVar flowVar =  m_outputNetCDF->addVar("flow", "double",
                                                       std::vector<std::string>({"time", "elements"}));
@@ -1055,6 +1074,9 @@ bool STMModel::readInputFileOptionTag(const QString &line, QString &errorMessage
               case 4:
                 m_heatSolver->setSolverType(ODESolver::CVODE_BDF);
                 break;
+              case 5:
+                m_heatSolver->setSolverType(ODESolver::EULER);
+                break;
               default:
                 foundError = true;
                 break;
@@ -1450,6 +1472,9 @@ bool STMModel::readInputFileSolutesTag(const QString &line, QString &errorMessag
             break;
           case 4:
             m_soluteSolvers[m_addedSoluteCount]->setSolverType(ODESolver::CVODE_BDF);
+            break;
+          case 5:
+            m_soluteSolvers[m_addedSoluteCount]->setSolverType(ODESolver::EULER);
             break;
           default:
             foundError = true;
@@ -3038,7 +3063,9 @@ const unordered_map<string, int> STMModel::m_advectionFlags({
 const unordered_map<string, int> STMModel::m_solverTypeFlags({{"RK4", 1},
                                                               {"RKQS", 2},
                                                               {"ADAMS", 3},
-                                                              {"BDF", 4}});
+                                                              {"BDF", 4},
+                                                              {"EULER", 5}
+                                                             });
 
 const unordered_map<string, int> STMModel::m_hydraulicVariableFlags({{"DEPTH", 1},
                                                                      {"WIDTH", 2},

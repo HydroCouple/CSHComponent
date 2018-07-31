@@ -45,6 +45,32 @@ void STMModel:: update()
 
     m_timeStep = computeTimeStep();
 
+
+#ifdef USE_OPENMP
+#pragma omp parallel for
+#endif
+    for(int j = 0; j < 2; j++)
+    {
+      switch (j)
+      {
+        case 0:
+          solveJunctionHeatContinuity(m_timeStep);
+          break;
+        case 1:
+          {
+#ifdef USE_OPENMP
+#pragma omp parallel for
+#endif
+            for(int i = 0 ; i < (int)m_solutes.size(); i++)
+            {
+              solveJunctionSoluteContinuity(i, m_timeStep);
+            }
+          }
+          break;
+      }
+    }
+
+
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
@@ -70,29 +96,7 @@ void STMModel:: update()
     }
 
 
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-    for(int j = 0; j < 2; j++)
-    {
-      switch (j)
-      {
-        case 0:
-          solveJunctionHeatContinuity(m_timeStep);
-          break;
-        case 1:
-          {
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-            for(int i = 0 ; i < (int)m_solutes.size(); i++)
-            {
-              solveJunctionSoluteContinuity(i, m_timeStep);
-            }
-          }
-          break;
-      }
-    }
+
 
     m_prevDateTime = m_currentDateTime;
     m_currentDateTime = m_currentDateTime + m_timeStep / 86400.0;

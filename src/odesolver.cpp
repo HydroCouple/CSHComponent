@@ -72,6 +72,11 @@ void ODESolver::initialize()
 
   switch (m_solverType)
   {
+    case EULER:
+      {
+        m_solver = &ODESolver::euler;
+      }
+      break;
     case RKQS:
       {
         m_solver = &ODESolver::rkqsDriver;
@@ -206,6 +211,31 @@ int ODESolver::solve(double y[], int n, double t, double dt, double yout[], Comp
 {
   return (this->*m_solver)(y, n, t, dt, yout, derivs, userData);
 }
+
+int ODESolver::euler(double y[], int n, double t, double dt, double yout[], ComputeDerivatives derivs, void* userData)
+{
+  double *dydt = new double[n]();
+  double tdt = t + dt;
+  derivs(tdt, y, dydt, userData);
+
+#ifdef USE_OPENMP
+#pragma omp parallel for
+#endif
+  for (int i = 0; i < n; i++)
+  {
+    yout[i] = y[i] + dt * dydt[i];
+  }
+
+
+
+  delete[] dydt;
+
+  m_currentIterations = 1;
+
+  return 0;
+}
+
+
 
 int ODESolver::rk4(double y[], int n, double t, double dt, double yout[], ComputeDerivatives derivs, void* userData)
 {

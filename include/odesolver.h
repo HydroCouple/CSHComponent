@@ -60,6 +60,7 @@ class ODESolver
 
     enum SolverType
     {
+      EULER,
       RK4,
       RKQS,
 
@@ -120,6 +121,9 @@ class ODESolver
     int solve(double y[], int n, double t, double dt, double yout[], ComputeDerivatives derivs, void* userData);
 
   private:
+
+    int euler(double y[], int n, double t, double dt, double yout[], ComputeDerivatives derivs, void* userData);
+
 
     /*!
      * \brief rk4 Given values for the variables y[1..n] and their derivatives dydx[1..n] known at t, use the

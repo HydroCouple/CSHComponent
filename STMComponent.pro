@@ -12,7 +12,7 @@ QT += testlib
 
 CONFIG += c++11
 CONFIG += debug_and_release
-#CONFIG += optimize_full
+CONFIG += optimize_full
 
 DEFINES += STMCOMPONENT_LIBRARY
 DEFINES += USE_OPENMP
