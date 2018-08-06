@@ -534,7 +534,7 @@ bool STMModel::initializeNetCDFOutputFile(list<string> &errors)
 
     std::vector<double> lengths(m_elements.size());
 
-    for(int i = 0; i < m_elements.size(); i++)
+    for(size_t i = 0; i < m_elements.size(); i++)
     {
       lengths[i] = m_elements[i]->length;
     }
