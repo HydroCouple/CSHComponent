@@ -208,13 +208,6 @@ double Element::computeDTDt(double dt, double T[])
     }
   }
 
-
-  if(fabs(DTDt) > 1e-4)
-  {
-    //Compute advection
-    (this->*computeTempAdv)(dt, T);
-  }
-
   return DTDt;
 }
 

@@ -300,6 +300,11 @@ struct STMCOMPONENT_EXPORT Element
    double downstreamElementDirection;
 
    /*!
+    * \brief distanceFromUpStreamJunction
+    */
+   double distanceFromUpStreamJunction;
+
+   /*!
     * \brief model
     */
    STMModel *model;

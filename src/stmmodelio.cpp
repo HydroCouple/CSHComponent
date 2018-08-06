@@ -121,7 +121,7 @@ void STMModel::printStatus()
     {
       std::string &solute = m_solutes[j];
       ODESolver *solver = m_soluteSolvers[j];
-      printf("\t%s (kg/m) { Iters: %i/%i\tMin: %f\tMax: %f\tTotalMassBalance: %g (kg)}", solute.c_str(), solver->getIterations(), solver->maxIterations(),
+      printf("\t%s (kg/m^3) { Iters: %i/%i\tMin: %f\tMax: %f\tTotalMassBalance: %g (kg)}", solute.c_str(), solver->getIterations(), solver->maxIterations(),
              m_minSolute[j], m_maxSolute[j], m_totalSoluteMassBalance[j]);
     }
 
@@ -354,15 +354,16 @@ bool STMModel::initializeNetCDFOutputFile(list<string> &errors)
     //time variable
     ThreadSafeNcDim timeDim =  m_outputNetCDF->addDim("time");
     ThreadSafeNcVar timeVar =  m_outputNetCDF->addVar("time", NcType::nc_DOUBLE, timeDim);
-    timeVar.putAtt("time:long_name", "time");
-    timeVar.putAtt("time:units", "days since 1858-11-17 0:0:0");
-    timeVar.putAtt("time:calendar", "modified_julian");
+    timeVar.putAtt("long_name", "Time");
+    timeVar.putAtt("standard_name", "time");
+//    timeVar.putAtt("units", "days since 1473-01-01 00:00:00 BCE");
+    timeVar.putAtt("calendar", "julian");
     m_outNetCDFVariables["time"] = timeVar;
 
     //Add Solutes
     ThreadSafeNcDim solutesDim =  m_outputNetCDF->addDim("solutes", m_solutes.size());
     ThreadSafeNcVar solutes =  m_outputNetCDF->addVar("solute_names", NcType::nc_STRING, solutesDim);
-    solutes.putAtt("solute_names::long_name", "solute names");
+    solutes.putAtt("long_name", "Solutes");
     m_outNetCDFVariables["solutes"] = solutes;
 
     if (m_solutes.size())
@@ -390,22 +391,22 @@ bool STMModel::initializeNetCDFOutputFile(list<string> &errors)
     ThreadSafeNcDim junctionDim =  m_outputNetCDF->addDim("element_junctions", m_elementJunctions.size());
 
     ThreadSafeNcVar junctionIdentifiers =  m_outputNetCDF->addVar("element_junction_id", NcType::nc_STRING, junctionDim);
-    junctionIdentifiers.putAtt("element_junction_id::long_name", "element junction identifier");
+    junctionIdentifiers.putAtt("long_name", "Element Junction Identifiers");
     m_outNetCDFVariables["element_junction_id"] = junctionIdentifiers;
 
     ThreadSafeNcVar junctionX =  m_outputNetCDF->addVar("x", NcType::nc_DOUBLE, junctionDim);
-    junctionX.putAtt("x:long_name", "projection_x_coordinate");
-    junctionX.putAtt("x:units", "m");
+    junctionX.putAtt("long_name", "Junction X Coordinate");
+    junctionX.putAtt("units", "m");
     m_outNetCDFVariables["x"] = junctionX;
 
     ThreadSafeNcVar junctionY =  m_outputNetCDF->addVar("y", NcType::nc_DOUBLE, junctionDim);
-    junctionY.putAtt("y:long_name", "projection_y_coordinate");
-    junctionY.putAtt("y:units", "m");
+    junctionY.putAtt("long_name", "Junction Y Coordinate");
+    junctionY.putAtt("units", "m");
     m_outNetCDFVariables["y"] = junctionY;
 
     ThreadSafeNcVar junctionZ =  m_outputNetCDF->addVar("z", NcType::nc_DOUBLE, junctionDim);
-    junctionZ.putAtt("z:long_name", "projection_z_coordinate");
-    junctionZ.putAtt("z:units", "m");
+    junctionZ.putAtt("long_name", "Junction Z Coordinate");
+    junctionZ.putAtt("units", "m");
     m_outNetCDFVariables["z"] = junctionZ;
 
     double *vertx = new double[m_elementJunctions.size()];
@@ -449,34 +450,41 @@ bool STMModel::initializeNetCDFOutputFile(list<string> &errors)
     ThreadSafeNcDim elementsDim =  m_outputNetCDF->addDim("elements", m_elements.size());
 
     ThreadSafeNcVar elementIdentifiers =  m_outputNetCDF->addVar("element_id", NcType::nc_STRING, elementsDim);
-    elementIdentifiers.putAtt("element_id::long_name", "element identifier");
+    elementIdentifiers.putAtt("long_name", "Element Identifier");
     m_outNetCDFVariables["element_id"] = elementIdentifiers;
 
     ThreadSafeNcVar elementFromJunction =  m_outputNetCDF->addVar("from_junction", NcType::nc_INT64, elementsDim);
-    elementFromJunction.putAtt("from_junction:long_name", "upstream junction");
+    elementFromJunction.putAtt("long_name", "Upstream Junction");
     m_outNetCDFVariables["from_junction"] = elementFromJunction;
 
     ThreadSafeNcVar elementToJunction =  m_outputNetCDF->addVar("to_junction", NcType::nc_INT64, elementsDim);
-    elementToJunction.putAtt("to_junction:long_name", "downstream junction");
+    elementToJunction.putAtt("long_name", "Downstream Junction");
     m_outNetCDFVariables["to_junction"] = elementToJunction;
 
     ThreadSafeNcVar element_x =  m_outputNetCDF->addVar("element_x", NcType::nc_DOUBLE, elementsDim);
-    element_x.putAtt("element_x:standard_name", "projection_x_coordinate");
-    element_x.putAtt("element_x:long_name", "projection_x_coordinate");
-    element_x.putAtt("element_x:units", "m");
+    element_x.putAtt("standard_name", "projection_x_coordinate");
+    element_x.putAtt("long_name", "Element X Coordinate");
+    element_x.putAtt("units", "m");
     m_outNetCDFVariables["element_x"] = element_x;
 
     ThreadSafeNcVar element_y =  m_outputNetCDF->addVar("element_y", NcType::nc_DOUBLE, elementsDim);
-    element_y.putAtt("element_y:standard_name", "projection_y_coordinate");
-    element_y.putAtt("element_y:long_name", "projection_y_coordinate");
-    element_y.putAtt("element_y:units", "m");
+    element_y.putAtt("standard_name", "projection_y_coordinate");
+    element_y.putAtt("long_name", "Element Y Coordinate");
+    element_y.putAtt("units", "m");
     m_outNetCDFVariables["element_y"] = element_y;
+
+    ThreadSafeNcVar elementsVar =  m_outputNetCDF->addVar("elements", NcType::nc_DOUBLE, elementsDim);
+    elementsVar.putAtt("long_name", "Distance");
+    elementsVar.putAtt("units", "m");
+    m_outNetCDFVariables["elements"] = elementsVar;
+
 
     int *fromJunctions = new int[m_elements.size()];
     int *toJunctions = new int[m_elements.size()];
     char **elementIds = new char *[m_elements.size()];
     double *elX = new double[m_elements.size()];
     double *elY = new double[m_elements.size()];
+    double *els = new double[m_elements.size()];
 
 #ifdef USE_OPENMP
 #pragma omp parallel for
@@ -493,6 +501,7 @@ bool STMModel::initializeNetCDFOutputFile(list<string> &errors)
 
       elX[i] = element->x;
       elY[i] = element->y;
+      els[i] = element->distanceFromUpStreamJunction;
     }
 
     elementIdentifiers.putVar(elementIds);
@@ -500,11 +509,13 @@ bool STMModel::initializeNetCDFOutputFile(list<string> &errors)
     elementToJunction.putVar(toJunctions);
     element_x.putVar(elX);
     element_y.putVar(elY);
+    elementsVar.putVar(els);
 
     delete[] fromJunctions;
     delete[] toJunctions;
     delete[] elX;
     delete[] elY;
+    delete[] els;
 
     for (size_t i = 0; i < m_elements.size(); i++)
     {
@@ -517,8 +528,8 @@ bool STMModel::initializeNetCDFOutputFile(list<string> &errors)
     //hydraulics variables
     ThreadSafeNcVar lengthVar =  m_outputNetCDF->addVar("length", "double",
                                                       std::vector<std::string>({"elements"}));
-    lengthVar.putAtt("length:long_name", "flow");
-    lengthVar.putAtt("length:units", "m");
+    lengthVar.putAtt("long_name", "Element Length");
+    lengthVar.putAtt("units", "m");
     m_outNetCDFVariables["length"] = lengthVar;
 
     std::vector<double> lengths(m_elements.size());
@@ -530,245 +541,243 @@ bool STMModel::initializeNetCDFOutputFile(list<string> &errors)
 
     lengthVar.putVar(lengths.data());
 
-
-
     //hydraulics variables
     ThreadSafeNcVar flowVar =  m_outputNetCDF->addVar("flow", "double",
                                                       std::vector<std::string>({"time", "elements"}));
-    flowVar.putAtt("flow:long_name", "flow");
-    flowVar.putAtt("flow:units", "m^3/s");
+    flowVar.putAtt("long_name", "Flow");
+    flowVar.putAtt("units", "m^3/s");
     m_outNetCDFVariables["flow"] = flowVar;
 
     ThreadSafeNcVar depthVar =  m_outputNetCDF->addVar("depth", "double",
                                                        std::vector<std::string>({"time", "elements"}));
-    depthVar.putAtt("depth:long_name", "channel flow depth");
-    depthVar.putAtt("depth:units", "m");
+    depthVar.putAtt("long_name", "Flow Depth");
+    depthVar.putAtt("units", "m");
     m_outNetCDFVariables["depth"] = depthVar;
 
     ThreadSafeNcVar widthVar =  m_outputNetCDF->addVar("width", "double",
                                                        std::vector<std::string>({"time", "elements"}));
-    widthVar.putAtt("width:long_name", "channel flow top width");
-    widthVar.putAtt("width:units", "m");
+    widthVar.putAtt("long_name", "Flow Top Width");
+    widthVar.putAtt("units", "m");
     m_outNetCDFVariables["width"] = widthVar;
 
     ThreadSafeNcVar xsectAreaVar =  m_outputNetCDF->addVar("xsection_area", "double",
                                                            std::vector<std::string>({"time", "elements"}));
-    xsectAreaVar.putAtt("xsection_area:long_name", "flow cross-section area");
-    xsectAreaVar.putAtt("xsection_area:units", "m^2");
+    xsectAreaVar.putAtt("long_name", "Flow Cross-Sectional Area");
+    xsectAreaVar.putAtt("units", "m^2");
     m_outNetCDFVariables["xsection_area"] = xsectAreaVar;
 
     ThreadSafeNcVar dispersionVar =  m_outputNetCDF->addVar("dispersion", "double",
                                                             std::vector<std::string>({"time", "elements"}));
-    dispersionVar.putAtt("dispersion:long_name", "longitudinal dispersion");
-    dispersionVar.putAtt("dispersion:units", "m^2/s");
+    dispersionVar.putAtt("long_name", "Longitudinal Dispersion");
+    dispersionVar.putAtt("units", "m^2/s");
     m_outNetCDFVariables["dispersion"] = dispersionVar;
 
     ThreadSafeNcVar temperatureVar =  m_outputNetCDF->addVar("temperature", "double",
                                                              std::vector<std::string>({"time", "elements"}));
-    temperatureVar.putAtt("temperature:long_name", "temperature");
-    temperatureVar.putAtt("temperature:units", "°C");
+    temperatureVar.putAtt("long_name", "Temperature");
+    temperatureVar.putAtt("units", "°C");
     m_outNetCDFVariables["temperature"] = temperatureVar;
 
 
     ThreadSafeNcVar totalElementHeatBalanceVar =  m_outputNetCDF->addVar("total_element_heat_balance", "double",
                                                                          std::vector<std::string>({"time", "elements"}));
-    totalElementHeatBalanceVar.putAtt("total_element_heat_balance:long_name", "total heat balance");
-    totalElementHeatBalanceVar.putAtt("total_element_heat_balance:units", "KJ");
+    totalElementHeatBalanceVar.putAtt("long_name", "Total Element Heat Balance");
+    totalElementHeatBalanceVar.putAtt("units", "KJ");
     m_outNetCDFVariables["total_element_heat_balance"] = totalElementHeatBalanceVar;
 
     ThreadSafeNcVar totalElementAdvDispHeatBalanceVar =  m_outputNetCDF->addVar("total_element_adv_disp_heat_balance", "double",
                                                                                 std::vector<std::string>({"time", "elements"}));
-    totalElementAdvDispHeatBalanceVar.putAtt("total_element_adv_disp_heat_balance:long_name", "total element advection dispersion heat balance");
-    totalElementAdvDispHeatBalanceVar.putAtt("total_element_adv_disp_heat_balance:units", "KJ");
+    totalElementAdvDispHeatBalanceVar.putAtt("long_name", "Total Element Advection Dispersion Heat Balance");
+    totalElementAdvDispHeatBalanceVar.putAtt("units", "KJ");
     m_outNetCDFVariables["total_element_adv_disp_heat_balance"] = totalElementAdvDispHeatBalanceVar;
 
     ThreadSafeNcVar totalElementEvapHeatBalanceVar =  m_outputNetCDF->addVar("total_element_evap_heat_balance", "double",
                                                                              std::vector<std::string>({"time", "elements"}));
-    totalElementEvapHeatBalanceVar.putAtt("total_element_evap_heat_balance:long_name", "total element evaporation heat balance");
-    totalElementEvapHeatBalanceVar.putAtt("total_element_evap_heat_balance:units", "KJ");
+    totalElementEvapHeatBalanceVar.putAtt("long_name", "Total Element Evaporation Heat Balance");
+    totalElementEvapHeatBalanceVar.putAtt("units", "KJ");
     m_outNetCDFVariables["total_element_evap_heat_balance"] = totalElementEvapHeatBalanceVar;
 
     ThreadSafeNcVar totalElementConvHeatBalanceVar =  m_outputNetCDF->addVar("total_element_conv_heat_balance", "double",
                                                                              std::vector<std::string>({"time", "elements"}));
-    totalElementConvHeatBalanceVar.putAtt("total_element_conv_heat_balance:long_name", "total element convection heat balance");
-    totalElementConvHeatBalanceVar.putAtt("total_element_conv_heat_balance:units", "KJ");
+    totalElementConvHeatBalanceVar.putAtt("long_name", "Total Element Convection Heat Balance");
+    totalElementConvHeatBalanceVar.putAtt("units", "KJ");
     m_outNetCDFVariables["total_element_conv_heat_balance"] = totalElementConvHeatBalanceVar;
 
 
     ThreadSafeNcVar totalElementRadiationFluxHeatBalanceVar =  m_outputNetCDF->addVar("total_element_radiation_flux_heat_balance", "double",
                                                                                       std::vector<std::string>({"time", "elements"}));
-    totalElementRadiationFluxHeatBalanceVar.putAtt("total_element_radiation_flux_heat_balance:long_name", "total element radiation flux heat balance");
-    totalElementRadiationFluxHeatBalanceVar.putAtt("total_element_radiation_flux_heat_balance:units", "KJ");
+    totalElementRadiationFluxHeatBalanceVar.putAtt("long_name", "Total Element Radiation Flux Heat Balance");
+    totalElementRadiationFluxHeatBalanceVar.putAtt("units", "KJ");
     m_outNetCDFVariables["total_element_radiation_flux_heat_balance"] = totalElementRadiationFluxHeatBalanceVar;
 
     ThreadSafeNcVar totalElementExternalHeatFluxBalanceVar =  m_outputNetCDF->addVar("total_element_external_heat_flux_balance", "double",
                                                                                      std::vector<std::string>({"time", "elements"}));
-    totalElementExternalHeatFluxBalanceVar.putAtt("total_element_external_heat_flux_balance:long_name", "total element external heat flux balance");
-    totalElementExternalHeatFluxBalanceVar.putAtt("total_element_external_heat_flux_balance:units", "KJ");
+    totalElementExternalHeatFluxBalanceVar.putAtt("long_name", "Total Element External Heat Flux Balance");
+    totalElementExternalHeatFluxBalanceVar.putAtt("units", "KJ");
     m_outNetCDFVariables["total_element_external_heat_flux_balance"] = totalElementExternalHeatFluxBalanceVar;
 
     ThreadSafeNcVar totalElementSoluteMassBalanceVar =  m_outputNetCDF->addVar("total_element_solute_mass_balance", "double",
                                                                                std::vector<std::string>({"time", "solutes", "elements"}));
-    totalElementSoluteMassBalanceVar.putAtt("total_element_solute_mass_balance:long_name", "total element solute mass balance");
-    totalElementSoluteMassBalanceVar.putAtt("total_element_solute_mass_balance:units", "kg");
+    totalElementSoluteMassBalanceVar.putAtt("long_name", "Total Element Solute Mass Balance");
+    totalElementSoluteMassBalanceVar.putAtt("units", "kg");
     m_outNetCDFVariables["total_element_solute_mass_balance"] = totalElementSoluteMassBalanceVar;
 
     ThreadSafeNcVar totalElementAdvDispSoluteMassBalanceVar =  m_outputNetCDF->addVar("total_element_adv_disp_solute_mass_balance", "double",
                                                                                       std::vector<std::string>({"time", "solutes", "elements"}));
-    totalElementAdvDispSoluteMassBalanceVar.putAtt("total_element_adv_disp_solute_mass_balance:long_name", "total element advection dispersion solute mass balance");
-    totalElementAdvDispSoluteMassBalanceVar.putAtt("total_element_adv_disp_solute_mass_balance:units", "kg");
+    totalElementAdvDispSoluteMassBalanceVar.putAtt("long_name", "Total Element Advection Dispersion Solute Mass Balance");
+    totalElementAdvDispSoluteMassBalanceVar.putAtt("units", "kg");
     m_outNetCDFVariables["total_element_adv_disp_solute_mass_balance"] = totalElementAdvDispSoluteMassBalanceVar;
 
     ThreadSafeNcVar totalElementExternalSoluteFluxMassBalanceVar =  m_outputNetCDF->addVar("total_element_external_solute_flux_mass_balance", "double",
                                                                                            std::vector<std::string>({"time", "solutes"}));
-    totalElementExternalSoluteFluxMassBalanceVar.putAtt("total_element_external_solute_flux_mass_balance:long_name", "total external solute flux mass balance");
-    totalElementExternalSoluteFluxMassBalanceVar.putAtt("total_element_external_solute_flux_mass_balance:units", "kg");
+    totalElementExternalSoluteFluxMassBalanceVar.putAtt("long_name", "Total External Solute Flux Mass Balance");
+    totalElementExternalSoluteFluxMassBalanceVar.putAtt("units", "kg");
     m_outNetCDFVariables["total_element_external_solute_flux_mass_balance"] = totalElementExternalSoluteFluxMassBalanceVar;
 
     ThreadSafeNcVar elementEvapHeatFluxVar =  m_outputNetCDF->addVar("element_evap_heat_flux", "double",
                                                                      std::vector<std::string>({"time", "elements"}));
 
-    elementEvapHeatFluxVar.putAtt("element_evap_heat_flux:long_name", "element evaporation heat flux");
-    elementEvapHeatFluxVar.putAtt("element_evap_heat_flux:units", "W/m^2");
+    elementEvapHeatFluxVar.putAtt("long_name", "Element Evaporation Heat Flux");
+    elementEvapHeatFluxVar.putAtt("units", "W/m^2");
     m_outNetCDFVariables["element_evap_heat_flux"] = elementEvapHeatFluxVar;
 
     ThreadSafeNcVar elementConvHeatFluxVar =  m_outputNetCDF->addVar("element_conv_heat_flux", "double",
                                                                      std::vector<std::string>({"time", "elements"}));
 
-    elementConvHeatFluxVar.putAtt("element_conv_heat_flux:long_name", "element convective heat flux");
-    elementConvHeatFluxVar.putAtt("element_conv_heat_flux:units", "W/m^2");
+    elementConvHeatFluxVar.putAtt("long_name", "Element Convective Heat Flux");
+    elementConvHeatFluxVar.putAtt("units", "W/m^2");
     m_outNetCDFVariables["element_conv_heat_flux"] = elementConvHeatFluxVar;
 
 
     ThreadSafeNcVar elementRadiationFluxVar =  m_outputNetCDF->addVar("element_radiation_flux", "double",
                                                                       std::vector<std::string>({"time", "elements"}));
 
-    elementRadiationFluxVar.putAtt("element_radiation_flux:long_name", "element radiation flux");
-    elementRadiationFluxVar.putAtt("element_radiation_flux:units", "W/m^2");
+    elementRadiationFluxVar.putAtt("long_name", "Element Radiation Flux");
+    elementRadiationFluxVar.putAtt("units", "W/m^2");
     m_outNetCDFVariables["element_radiation_flux"] = elementRadiationFluxVar;
 
     ThreadSafeNcVar elementHeatFluxVar =  m_outputNetCDF->addVar("element_heat_flux", "double",
                                                                  std::vector<std::string>({"time", "elements"}));
 
-    elementHeatFluxVar.putAtt("element_heat_flux:long_name", "element heat flux");
-    elementHeatFluxVar.putAtt("element_heat_flux:units", "J/s");
+    elementHeatFluxVar.putAtt("long_name", "Element Heat Flux");
+    elementHeatFluxVar.putAtt("units", "J/s");
     m_outNetCDFVariables["element_heat_flux"] = elementHeatFluxVar;
 
 
     ThreadSafeNcVar elementAirTempVar =  m_outputNetCDF->addVar("element_air_temp", "double",
                                                                 std::vector<std::string>({"time", "elements"}));
 
-    elementAirTempVar.putAtt("element_air_temp:long_name", "Air temperature");
-    elementAirTempVar.putAtt("element_air_temp:units", "C");
+    elementAirTempVar.putAtt("long_name", "Air Temperature");
+    elementAirTempVar.putAtt("units", "C");
     m_outNetCDFVariables["element_air_temp"] = elementAirTempVar;
 
 
     ThreadSafeNcVar elementRHVar =  m_outputNetCDF->addVar("element_relative_humidity", "double",
                                                            std::vector<std::string>({"time", "elements"}));
 
-    elementRHVar.putAtt("element_relative_humidity:long_name", "Relative Humidity");
-    elementRHVar.putAtt("element_relative_humidity:units", "%");
+    elementRHVar.putAtt("long_name", "Relative Humidity");
+    elementRHVar.putAtt("units", "%");
     m_outNetCDFVariables["element_relative_humidity"] = elementRHVar;
 
 
     ThreadSafeNcVar elementWindSpeedVar =  m_outputNetCDF->addVar("element_wind_speed", "double",
                                                                   std::vector<std::string>({"time", "elements"}));
 
-    elementWindSpeedVar.putAtt("element_wind_speed:long_name", "Relative Humidity");
-    elementWindSpeedVar.putAtt("element_wind_speed:units", "m/s");
+    elementWindSpeedVar.putAtt("long_name", "Wind Speed");
+    elementWindSpeedVar.putAtt("units", "m/s");
     m_outNetCDFVariables["element_wind_speed"] = elementWindSpeedVar;
 
     ThreadSafeNcVar elementVaporPressVar =  m_outputNetCDF->addVar("element_vapor_pressure", "double",
                                                                    std::vector<std::string>({"time", "elements"}));
 
-    elementVaporPressVar.putAtt("element_vapor_pressure:long_name", " VaporPressure");
-    elementVaporPressVar.putAtt("element_vapor_pressure:units", "kPa");
+    elementVaporPressVar.putAtt("long_name", "Vapor Pressure");
+    elementVaporPressVar.putAtt("units", "kPa");
     m_outNetCDFVariables["element_vapor_pressure"] = elementVaporPressVar;
 
     ThreadSafeNcVar elementSatVaporPressVar =  m_outputNetCDF->addVar("element_saturated_vapor_pressure", "double",
                                                                       std::vector<std::string>({"time", "elements"}));
 
-    elementSatVaporPressVar.putAtt("element_saturated_vapor_pressure:long_name", "Saturated Vapor Pressure");
-    elementSatVaporPressVar.putAtt("element_saturated_vapor_pressure:units", "kPa");
+    elementSatVaporPressVar.putAtt("long_name", "Saturated Vapor Pressure");
+    elementSatVaporPressVar.putAtt("units", "kPa");
     m_outNetCDFVariables["element_saturated_vapor_pressure"] = elementSatVaporPressVar;
 
 
     ThreadSafeNcVar elementAirVaporPressVar =  m_outputNetCDF->addVar("element_air_vapor_pressure", "double",
                                                                       std::vector<std::string>({"time", "elements"}));
 
-    elementAirVaporPressVar.putAtt("element_air_vapor_pressure:long_name", " VaporPressure");
-    elementAirVaporPressVar.putAtt("element_air_vapor_pressure:units", "kPa");
+    elementAirVaporPressVar.putAtt("long_name", "Air Vapor Pressure");
+    elementAirVaporPressVar.putAtt("units", "kPa");
     m_outNetCDFVariables["element_air_vapor_pressure"] = elementAirVaporPressVar;
 
     ThreadSafeNcVar elementAirSatVaporPressVar =  m_outputNetCDF->addVar("element_air_saturated_vapor_pressure", "double",
                                                                          std::vector<std::string>({"time", "elements"}));
 
-    elementAirSatVaporPressVar.putAtt("element_air_saturated_vapor_pressure:long_name", "Saturated Vapor Pressure");
-    elementAirSatVaporPressVar.putAtt("element_air_saturated_vapor_pressure:units", "kPa");
+    elementAirSatVaporPressVar.putAtt("long_name", "Saturated Air Vapor Pressure");
+    elementAirSatVaporPressVar.putAtt("units", "kPa");
     m_outNetCDFVariables["element_air_saturated_vapor_pressure"] = elementAirSatVaporPressVar;
 
     ThreadSafeNcVar totalHeatBalanceVar =  m_outputNetCDF->addVar("total_heat_balance", "double",
                                                                   std::vector<std::string>({"time"}));
-    totalHeatBalanceVar.putAtt("total_heat_balance:long_name", "total heat balance");
-    totalHeatBalanceVar.putAtt("total_heat_balance:units", "KJ");
+    totalHeatBalanceVar.putAtt("long_name", "Total Heat Balance");
+    totalHeatBalanceVar.putAtt("units", "KJ");
     m_outNetCDFVariables["total_heat_balance"] = totalHeatBalanceVar;
 
     ThreadSafeNcVar totalAdvDispHeatBalanceVar =  m_outputNetCDF->addVar("total_adv_disp_heat_balance", "double",
                                                                          std::vector<std::string>({"time"}));
-    totalAdvDispHeatBalanceVar.putAtt("total_adv_disp_heat_balance:long_name", "total advection dispersion heat balance");
-    totalAdvDispHeatBalanceVar.putAtt("total_adv_disp_heat_balance:units", "KJ");
+    totalAdvDispHeatBalanceVar.putAtt("long_name", "Total Advection Dispersion Heat Balance");
+    totalAdvDispHeatBalanceVar.putAtt("units", "KJ");
     m_outNetCDFVariables["total_adv_disp_heat_balance"] = totalAdvDispHeatBalanceVar;
 
 
     ThreadSafeNcVar totalEvapHeatBalanceVar =  m_outputNetCDF->addVar("total_evap_heat_balance", "double",
                                                                       std::vector<std::string>({"time"}));
-    totalEvapHeatBalanceVar.putAtt("total_evap_heat_balance:long_name", "total evaporation heat balance");
-    totalEvapHeatBalanceVar.putAtt("total_evap_heat_balance:units", "KJ");
+    totalEvapHeatBalanceVar.putAtt("long_name", "Total Evaporation Heat Balance");
+    totalEvapHeatBalanceVar.putAtt("units", "KJ");
     m_outNetCDFVariables["total_evap_heat_balance"] = totalEvapHeatBalanceVar;
 
 
     ThreadSafeNcVar totalConvHeatBalanceVar =  m_outputNetCDF->addVar("total_conv_heat_balance", "double",
                                                                       std::vector<std::string>({"time"}));
-    totalConvHeatBalanceVar.putAtt("total_conv_heat_balance:long_name", "total convection heat balance");
-    totalConvHeatBalanceVar.putAtt("total_conv_heat_balance:units", "KJ");
+    totalConvHeatBalanceVar.putAtt("long_name", "Total Convection Heat Balance");
+    totalConvHeatBalanceVar.putAtt("units", "KJ");
     m_outNetCDFVariables["total_conv_heat_balance"] = totalConvHeatBalanceVar;
 
 
     ThreadSafeNcVar totalRadiationFluxHeatBalanceVar =  m_outputNetCDF->addVar("total_radiation_flux_heat_balance", "double",
                                                                                std::vector<std::string>({"time"}));
-    totalRadiationFluxHeatBalanceVar.putAtt("total_radiation_flux_heat_balance:long_name", "total radiation flux heat balance");
-    totalRadiationFluxHeatBalanceVar.putAtt("total_radiation_flux_heat_balance:units", "KJ");
+    totalRadiationFluxHeatBalanceVar.putAtt("long_name", "Total Radiation Flux Heat Balance");
+    totalRadiationFluxHeatBalanceVar.putAtt("units", "KJ");
     m_outNetCDFVariables["total_radiation_flux_heat_balance"] = totalRadiationFluxHeatBalanceVar;
 
     ThreadSafeNcVar totalExternalHeatFluxBalanceVar =  m_outputNetCDF->addVar("total_external_heat_flux_balance", "double",
                                                                               std::vector<std::string>({"time"}));
-    totalExternalHeatFluxBalanceVar.putAtt("total_external_heat_flux_balance:long_name", "total external heat flux balance");
-    totalExternalHeatFluxBalanceVar.putAtt("total_external_heat_flux_balance:units", "KJ");
+    totalExternalHeatFluxBalanceVar.putAtt("long_name", "Total External Heat Flux Balance");
+    totalExternalHeatFluxBalanceVar.putAtt("units", "KJ");
     m_outNetCDFVariables["total_external_heat_flux_balance"] = totalExternalHeatFluxBalanceVar;
 
 
     ThreadSafeNcVar solutesVar =  m_outputNetCDF->addVar("solute_concentration", "double",
                                                          std::vector<std::string>({"time", "solutes", "elements"}));
-    solutesVar.putAtt("solute_concentration:long_name", "solute concentrations");
-    solutesVar.putAtt("solute_concentration:units", "kg/m^3");
+    solutesVar.putAtt("long_name", "Solute Concentration");
+    solutesVar.putAtt("units", "kg/m^3");
     m_outNetCDFVariables["solute_concentration"] = solutesVar;
 
     ThreadSafeNcVar totalSoluteMassBalanceVar =  m_outputNetCDF->addVar("total_solute_mass_balance", "double",
                                                                         std::vector<std::string>({"time", "solutes"}));
-    totalSoluteMassBalanceVar.putAtt("total_solute_mass_balance:long_name", "total solute mass balance");
-    totalSoluteMassBalanceVar.putAtt("total_solute_mass_balance:units", "kg");
+    totalSoluteMassBalanceVar.putAtt("long_name", "Total Solute Mass Balance");
+    totalSoluteMassBalanceVar.putAtt("units", "kg");
     m_outNetCDFVariables["total_solute_mass_balance"] = totalSoluteMassBalanceVar;
 
     ThreadSafeNcVar totalAdvDispSoluteMassBalanceVar =  m_outputNetCDF->addVar("total_adv_disp_solute_mass_balance", "double",
                                                                                std::vector<std::string>({"time", "solutes"}));
-    totalAdvDispSoluteMassBalanceVar.putAtt("total_adv_disp_solute_mass_balance:long_name", "total advection dispersion solute mass balance");
-    totalAdvDispSoluteMassBalanceVar.putAtt("total_adv_disp_solute_mass_balance:units", "kg");
+    totalAdvDispSoluteMassBalanceVar.putAtt("long_name", "Total Advection Dispersion Solute Mass Balance");
+    totalAdvDispSoluteMassBalanceVar.putAtt("units", "kg");
     m_outNetCDFVariables["total_adv_disp_solute_mass_balance"] = totalAdvDispSoluteMassBalanceVar;
 
     ThreadSafeNcVar totalExternalSoluteFluxMassBalanceVar =  m_outputNetCDF->addVar("total_external_solute_flux_mass_balance", "double",
                                                                                     std::vector<std::string>({"time", "solutes"}));
-    totalExternalSoluteFluxMassBalanceVar.putAtt("total_external_solute_flux_mass_balance:long_name", "total external solute flux mass balance");
-    totalExternalSoluteFluxMassBalanceVar.putAtt("total_external_solute_flux_mass_balance:units", "kg");
+    totalExternalSoluteFluxMassBalanceVar.putAtt("long_name", "Total External Solute Flux Mass Balance");
+    totalExternalSoluteFluxMassBalanceVar.putAtt("units", "kg");
     m_outNetCDFVariables["total_external_solute_flux_mass_balance"] = totalExternalSoluteFluxMassBalanceVar;
 
     m_outputNetCDF->sync();

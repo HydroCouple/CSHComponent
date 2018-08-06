@@ -526,7 +526,13 @@ bool STMModel::initializeElements(std::list<string> &errors)
   {
     Element *element = m_elements[i];
     element->index = i;
+    element->distanceFromUpStreamJunction = 0;
     element->initialize();
+  }
+
+  for(int i = 0 ; i < (int)m_elements.size()  ; i++)
+  {
+    calculateDistanceFromUpstreamJunction(m_elements[i]);
   }
 
   //Set tempearture continuity junctions
@@ -633,4 +639,24 @@ bool STMModel::findProfile(Element *from, Element *to, std::list<Element *> &pro
   }
 
   return false;
+}
+
+void STMModel::calculateDistanceFromUpstreamJunction(Element *element)
+{
+  if(element->distanceFromUpStreamJunction == 0)
+  {
+    if(element->upstreamElement != nullptr)
+    {
+      if(element->upstreamElement->distanceFromUpStreamJunction == 0)
+      {
+        calculateDistanceFromUpstreamJunction(element->upstreamElement);
+      }
+
+      element->distanceFromUpStreamJunction = element->upstreamElement->distanceFromUpStreamJunction + element->length / 2.0;
+    }
+    else
+    {
+      element->distanceFromUpStreamJunction = element->length / 2.0;
+    }
+  }
 }
