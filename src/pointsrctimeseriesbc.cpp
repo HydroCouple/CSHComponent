@@ -22,7 +22,7 @@
 #include "stmmodel.h"
 
 PointSrcTimeSeriesBC::PointSrcTimeSeriesBC(Element *element, VariableType variableType, STMModel *model)
-  :AbstractTimeSeriesBC(model),
+  : AbstractTimeSeriesBC(model),
     m_element(element),
     m_variableType(variableType),
     m_soluteIndex(-1)

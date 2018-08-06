@@ -21,7 +21,7 @@
 #include "elementjunction.h"
 
 JunctionTimeSeriesBC::JunctionTimeSeriesBC(ElementJunction *elementJunction, int variableIndex, STMModel *model)
-  :AbstractTimeSeriesBC(model),
+  : AbstractTimeSeriesBC(model),
     m_elementJunction(elementJunction),
     m_variableIndex(variableIndex)
 {
