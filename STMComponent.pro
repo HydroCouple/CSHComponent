@@ -332,12 +332,12 @@ CONFIG(release, debug|release) {
 
    linux{
     LIBS += -L./../HydroCoupleSDK/lib/linux -lHydroCoupleSDK \
-            -L./../ODESolver/lib/macx -lODESolver
+            -L./../ODESolver/lib/linux -lODESolver
    }
 
    win32{
     LIBS += -L./../HydroCoupleSDK/lib/win32 -lHydroCoupleSDK1 \
-            -L./../ODESolver/lib/macx -lODESolver1
+            -L./../ODESolver/lib/win32 -lODESolver1
    }
 
      contains(DEFINES,HTSCOMPONENT_LIBRARY){
