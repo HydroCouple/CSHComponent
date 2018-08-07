@@ -340,7 +340,7 @@ CONFIG(release, debug|release) {
             -L./../ODESolver/lib/win32 -lODESolver1
    }
 
-     contains(DEFINES,HTSCOMPONENT_LIBRARY){
+     contains(DEFINES,STMCOMPONENT_LIBRARY){
          #MacOS
          macx{
              DESTDIR = lib/macx
