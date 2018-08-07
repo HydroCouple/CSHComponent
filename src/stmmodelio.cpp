@@ -473,10 +473,10 @@ bool STMModel::initializeNetCDFOutputFile(list<string> &errors)
     element_y.putAtt("units", "m");
     m_outNetCDFVariables["element_y"] = element_y;
 
-    ThreadSafeNcVar elementsVar =  m_outputNetCDF->addVar("elements", NcType::nc_DOUBLE, elementsDim);
-    elementsVar.putAtt("long_name", "Distance");
-    elementsVar.putAtt("units", "m");
-    m_outNetCDFVariables["elements"] = elementsVar;
+//    ThreadSafeNcVar elementsVar =  m_outputNetCDF->addVar("elements", NcType::nc_DOUBLE, elementsDim);
+//    elementsVar.putAtt("long_name", "Distance");
+//    elementsVar.putAtt("units", "m");
+//    m_outNetCDFVariables["elements"] = elementsVar;
 
 
     int *fromJunctions = new int[m_elements.size()];
@@ -484,7 +484,7 @@ bool STMModel::initializeNetCDFOutputFile(list<string> &errors)
     char **elementIds = new char *[m_elements.size()];
     double *elX = new double[m_elements.size()];
     double *elY = new double[m_elements.size()];
-    double *els = new double[m_elements.size()];
+//    double *els = new double[m_elements.size()];
 
 #ifdef USE_OPENMP
 #pragma omp parallel for
@@ -501,7 +501,7 @@ bool STMModel::initializeNetCDFOutputFile(list<string> &errors)
 
       elX[i] = element->x;
       elY[i] = element->y;
-      els[i] = element->distanceFromUpStreamJunction;
+//      els[i] = element->distanceFromUpStreamJunction;
     }
 
     elementIdentifiers.putVar(elementIds);
@@ -509,13 +509,13 @@ bool STMModel::initializeNetCDFOutputFile(list<string> &errors)
     elementToJunction.putVar(toJunctions);
     element_x.putVar(elX);
     element_y.putVar(elY);
-    elementsVar.putVar(els);
+//    elementsVar.putVar(els);
 
     delete[] fromJunctions;
     delete[] toJunctions;
     delete[] elX;
     delete[] elY;
-    delete[] els;
+//    delete[] els;
 
     for (size_t i = 0; i < m_elements.size(); i++)
     {
