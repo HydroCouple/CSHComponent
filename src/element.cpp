@@ -183,7 +183,7 @@ double Element::computeDTDt(double dt, double T[])
   double volume = xSectionArea * length;
   double rho_cp_vol = model->m_waterDensity * model->m_cp * volume;
 
-  if(volume)
+  if(volume > 0)
   {
     //Compute advection
     DTDt += (this->*computeTempAdv)(dt, T);
@@ -207,6 +207,7 @@ double Element::computeDTDt(double dt, double T[])
       }
     }
   }
+
 
   return DTDt;
 }

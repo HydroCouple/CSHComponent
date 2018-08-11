@@ -344,14 +344,14 @@ CONFIG(release, debug|release) {
          #MacOS
          macx{
              DESTDIR = lib/macx
-             QMAKE_POST_LINK += "cp -a ./../HydroCoupleSDK/lib/macx/*HydroCoupleSDK.* ./lib/macx/ &&";
+             QMAKE_POST_LINK += "cp -a ./../HydroCoupleSDK/lib/macx/*HydroCoupleSDK.* ./lib/macx/ &&"
              QMAKE_POST_LINK += "cp -a ./../ODESolver/lib/macx/*ODESolver.* ./lib/macx/";
           }
 
          #Linux
          linux{
              DESTDIR = lib/linux
-             QMAKE_POST_LINK += "cp -a ./../HydroCoupleSDK/lib/linux/*HydroCoupleSDK.* ./lib/linux/ &&";
+             QMAKE_POST_LINK += "cp -a ./../HydroCoupleSDK/lib/linux/*HydroCoupleSDK.* ./lib/linux/ &&"
              QMAKE_POST_LINK += "cp -a ./../ODESolver/lib/linux/*ODESolver.* ./lib/linux/";
           }
 
