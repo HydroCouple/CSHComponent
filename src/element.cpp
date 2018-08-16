@@ -790,10 +790,10 @@ double Element::computeDispersionFactor() const
 void Element::computeLongDispersion()
 {
   double vel = flow / xSectionArea;
+  slope = max(0.00001, fabs(upstreamJunction->z - downstreamJunction->z) / length);
 
   double fricVel = sqrt(9.81 * depth * slope);
   double dispFischer = 0.11 * vel * vel * width * width / (depth * fricVel);
-
   double dispNumerical = fabs( vel * length / 2.0);
 
   longDispersion.value = dispNumerical <= dispFischer ? dispFischer - dispNumerical : 0.0;
@@ -933,38 +933,38 @@ void Element::setDownStreamElement()
 void Element::computeUpstreamFlow()
 {
 
-//  if(upstreamElement != nullptr)
-//  {
-//    upstreamFlow =  ((upstreamElement->flow * upstreamElementDirection  / (upstreamElement->length * 0.5)) +
-//                     (flow / (length * 0.5))) /
-//                    ((1.0 / (upstreamElement->length * 0.5)) + (1.0 / (length * 0.5)));
+  if(upstreamElement != nullptr)
+  {
+    upstreamFlow =  ((upstreamElement->flow * upstreamElementDirection  / (upstreamElement->length * 0.5)) +
+                     (flow / (length * 0.5))) /
+                    ((1.0 / (upstreamElement->length * 0.5)) + (1.0 / (length * 0.5)));
 
-//    upstreamVelocity =  (((upstreamElement->flow / upstreamElement->xSectionArea )* upstreamElementDirection  / (upstreamElement->length * 0.5)) +
-//                         ((flow / xSectionArea) / (length * 0.5))) /
-//                        ((1.0 / (upstreamElement->length * 0.5)) + (1.0 / (length * 0.5)));
-//  }
-//  else
-//  {
-//    upstreamFlow = flow;
-//    upstreamVelocity = upstreamFlow / xSectionArea;
-//  }
+    upstreamVelocity =  (((upstreamElement->flow / upstreamElement->xSectionArea )* upstreamElementDirection  / (upstreamElement->length * 0.5)) +
+                         ((flow / xSectionArea) / (length * 0.5))) /
+                        ((1.0 / (upstreamElement->length * 0.5)) + (1.0 / (length * 0.5)));
+  }
+  else
+  {
+    upstreamFlow = flow;
+    upstreamVelocity = upstreamFlow / xSectionArea;
+  }
 }
 
 void Element::computeDownstreamFlow()
 {
-//  if(downstreamElement != nullptr)
-//  {
-//    downstreamFlow = ((downstreamElement->flow * downstreamElementDirection  / (downstreamElement->length * 0.5)) +
-//                      (flow / (length * 0.5))) /
-//                     ((1.0 / (downstreamElement->length * 0.5)) + (1.0 / (length * 0.5)));
+  if(downstreamElement != nullptr)
+  {
+    downstreamFlow = ((downstreamElement->flow * downstreamElementDirection  / (downstreamElement->length * 0.5)) +
+                      (flow / (length * 0.5))) /
+                     ((1.0 / (downstreamElement->length * 0.5)) + (1.0 / (length * 0.5)));
 
-//    downstreamVelocity = (((downstreamElement->flow / downstreamElement->xSectionArea ) * downstreamElementDirection / (downstreamElement->length * 0.5)) +
-//                          ((flow / xSectionArea) / (length * 0.5))) /
-//                         ((1.0 / (downstreamElement->length * 0.5)) + (1.0 / (length * 0.5)));
-//  }
-//  else
-//  {
-//    downstreamFlow = flow;
-//    downstreamVelocity = downstreamFlow / xSectionArea;
-//  }
+    downstreamVelocity = (((downstreamElement->flow / downstreamElement->xSectionArea ) * downstreamElementDirection / (downstreamElement->length * 0.5)) +
+                          ((flow / xSectionArea) / (length * 0.5))) /
+                         ((1.0 / (downstreamElement->length * 0.5)) + (1.0 / (length * 0.5)));
+  }
+  else
+  {
+    downstreamFlow = flow;
+    downstreamVelocity = downstreamFlow / xSectionArea;
+  }
 }

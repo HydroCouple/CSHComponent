@@ -456,7 +456,13 @@ void ElementHeatSourceInput::applyData()
                 timeGeometryDataItem->getValue(previousTimeIndex,it.second, &value2);
 
                 Element *element =  m_component->modelInstance()->getElement(it.first);
-                element->externalHeatFluxes += value2 + factor *(value1 - value2);
+                double interpValue = value2 + factor *(value1 - value2);
+                element->externalHeatFluxes += interpValue;
+
+                //                if(provider->id() == "DownstreamMissingHeat" && it.second == 0)
+                //                {
+                //                  printf("Provider Id: %s, Value (j/s): %f\n", provider->id().toStdString().c_str(), interpValue);
+                //                }
               }
             }
             break;

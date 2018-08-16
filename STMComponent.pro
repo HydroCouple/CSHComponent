@@ -107,7 +107,7 @@ macx{
         QMAKE_LFLAGS+= -fopenmp
         QMAKE_CXXFLAGS+= -fopenmp
 
-        INCLUDEPATH += /usr/local/opt/llvm/lib/clang/5.0.0/include
+        INCLUDEPATH += /usr/local/opt/llvm/lib/clang/6.0.1/include
         LIBS += -L /usr/local/opt/llvm/lib -lomp
 
         message("OpenMP enabled")

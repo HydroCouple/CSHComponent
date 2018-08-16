@@ -87,7 +87,7 @@ void ElementJunction::initializeSolutes()
 
 void ElementJunction::interpLongDispersion()
 {
-  //IDW interpolation for
+//  IDW interpolation for
   this->longDispersion = 0;
   this->longDispersion_length = 0;
   double sum_x = 0;
