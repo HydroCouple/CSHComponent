@@ -296,7 +296,7 @@ CONFIG(debug, debug|release) {
    linux{
 
     QMAKE_POST_LINK += "cp -a ./../HydroCoupleSDK/build/debug/*HydroCoupleSDK.* ./build/debug/ &&"
-    QMAKE_POST_LINK += "cp -a ./../HydroCoupleSDK/build/debug/*ODESolver.* ./build/debug/";
+    QMAKE_POST_LINK += "cp -a ./../ODESolver/build/debug/*ODESolver.* ./build/debug/";
 
     LIBS += -L./../HydroCoupleSDK/build/debug -lHydroCoupleSDK \
             -L./../ODESolver/build/debug -lODESolver
@@ -305,7 +305,7 @@ CONFIG(debug, debug|release) {
    win32{
 
     QMAKE_POST_LINK += "copy /B .\..\HydroCoupleSDK\build\debug\HydroCoupleSDK* .\build\debug &&"
-    QMAKE_POST_LINK += "copy /B .\..\HydroCoupleSDK\build\debug\ODESolver* .\build\debug"
+    QMAKE_POST_LINK += "copy /B .\..\ODESolver\build\debug\ODESolver* .\build\debug"
 
     LIBS += -L./../HydroCoupleSDK/build/debug -lHydroCoupleSDK1 \
             -L./../ODESolver/build/debug -lODESolver1
