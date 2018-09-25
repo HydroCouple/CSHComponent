@@ -22,11 +22,11 @@
 
 #include "abstracttimeseriesbc.h"
 
-class STMCOMPONENT_EXPORT MeteorologyTimeSeriesBC : public AbstractTimeSeriesBC
+class CSHComponent_EXPORT MeteorologyTimeSeriesBC : public AbstractTimeSeriesBC
 {
   public:
 
-    MeteorologyTimeSeriesBC(Element *element, int variableIndex, STMModel *model);
+    MeteorologyTimeSeriesBC(Element *element, int variableIndex, CSHModel *model);
 
     virtual ~MeteorologyTimeSeriesBC();
 
@@ -47,11 +47,11 @@ class STMCOMPONENT_EXPORT MeteorologyTimeSeriesBC : public AbstractTimeSeriesBC
 };
 
 
-class STMCOMPONENT_EXPORT UniformMeteorologyTimeSeriesBC : public AbstractTimeSeriesBC
+class CSHComponent_EXPORT UniformMeteorologyTimeSeriesBC : public AbstractTimeSeriesBC
 {
   public:
 
-    UniformMeteorologyTimeSeriesBC(Element *startElement, Element *endElement, int variableIndex, STMModel *model);
+    UniformMeteorologyTimeSeriesBC(Element *startElement, Element *endElement, int variableIndex, CSHModel *model);
 
     virtual ~UniformMeteorologyTimeSeriesBC();
 

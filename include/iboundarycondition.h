@@ -20,9 +20,9 @@
 #ifndef IBOUNDARYCONDITION_H
 #define IBOUNDARYCONDITION_H
 
-#include "stmcomponent_global.h"
+#include "cshcomponent_global.h"
 
-class STMCOMPONENT_EXPORT IBoundaryCondition
+class CSHComponent_EXPORT IBoundaryCondition
 {
   public:
 
@@ -38,7 +38,7 @@ class STMCOMPONENT_EXPORT IBoundaryCondition
 
 };
 
-//Q_DECLARE_INTERFACE(IBoundaryCondition, "STMModel::IBoundaryCondition")
+//Q_DECLARE_INTERFACE(IBoundaryCondition, "CSHModel::IBoundaryCondition")
 
 #endif // BOUNDARYCONDITION_H
 

@@ -19,9 +19,9 @@
 
 #include "meteorologytimeseriesbc.h"
 #include "element.h"
-#include "stmmodel.h"
+#include "cshmodel.h"
 
-MeteorologyTimeSeriesBC::MeteorologyTimeSeriesBC(Element *element, int variableIndex, STMModel *model)
+MeteorologyTimeSeriesBC::MeteorologyTimeSeriesBC(Element *element, int variableIndex, CSHModel *model)
   : AbstractTimeSeriesBC(model),
     m_element(element),
     m_variableIndex(variableIndex)
@@ -84,7 +84,7 @@ void MeteorologyTimeSeriesBC::setElement(Element *element)
 
 
 
-UniformMeteorologyTimeSeriesBC::UniformMeteorologyTimeSeriesBC(Element *startElement, Element *endElement, int variableIndex, STMModel *model)
+UniformMeteorologyTimeSeriesBC::UniformMeteorologyTimeSeriesBC(Element *startElement, Element *endElement, int variableIndex, CSHModel *model)
   :AbstractTimeSeriesBC(model),
    m_startElement(startElement),
    m_endElement(endElement),

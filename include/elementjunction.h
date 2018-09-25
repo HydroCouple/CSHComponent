@@ -21,19 +21,19 @@
 #define ELEMENJUNCTION_H
 
 #include "variable.h"
-#include "stmcomponent_global.h"
+#include "cshcomponent_global.h"
 
 #include <string>
 #include <set>
 
-class STMModel;
+class CSHModel;
 class HCVertex;
 struct Element;
 
 /*!
  * \brief The ElementJunction struct represents the
  */
-struct  STMCOMPONENT_EXPORT ElementJunction
+struct  CSHComponent_EXPORT ElementJunction
 {
 
     enum JunctionType
@@ -49,7 +49,7 @@ struct  STMCOMPONENT_EXPORT ElementJunction
      * \param numsolutes - Number of solutes
      * \param model -
      */
-    ElementJunction(const std::string &id, double x, double y, double z, STMModel *model);
+    ElementJunction(const std::string &id, double x, double y, double z, CSHModel *model);
 
     /*!
      * \brief ~ElementJunction - Deletes the ElementJunction and its associated data.
@@ -97,11 +97,6 @@ struct  STMCOMPONENT_EXPORT ElementJunction
     int numSolutes;
 
     /*!
-     * \brief xSectionArea
-     */
-    double xSectionArea;
-
-    /*!
      * \brief temperature
      */
     Variable temperature;
@@ -131,15 +126,6 @@ struct  STMCOMPONENT_EXPORT ElementJunction
      */
     std::set<Element*> outgoingElements;
 
-    /*!
-     * \brief longDispersion
-     */
-    double longDispersion;
-
-    /*!
-     * \brief longDispersion_length
-     */
-    double longDispersion_length;
 
     /*!
      * \brief junctionType
@@ -149,7 +135,7 @@ struct  STMCOMPONENT_EXPORT ElementJunction
     /*!
      * \brief model
      */
-    STMModel *model;
+    CSHModel *model;
 
     /*!
      * \brief initializeSolutes
@@ -158,19 +144,10 @@ struct  STMCOMPONENT_EXPORT ElementJunction
     void initializeSolutes();
 
     /*!
-     * \brief interpLongDispersion
-     */
-    void interpLongDispersion();
-
-    /*!
      * \brief interpTemp
      */
     void interpTemp();
 
-    /*!
-     * \brief interpXSectionArea
-     */
-    void interpXSectionArea();
 
     /*!
      * \brief interpSoluteConcs

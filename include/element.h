@@ -22,13 +22,13 @@
 
 
 #include "variable.h"
-#include "stmcomponent_global.h"
+#include "cshcomponent_global.h"
 
 #include <string>
 
 struct Element;
 struct ElementJunction;
-class STMModel;
+class CSHModel;
 
 
 /*!
@@ -44,7 +44,7 @@ typedef double (Element::*ComputeSoluteAdv)(double dt, double S[], int soluteInd
 /*!
  * \brief This struct represents the channel control volume
  */
-struct STMCOMPONENT_EXPORT Element
+struct CSHComponent_EXPORT Element
 {
     /*!
     * \brief Element - Creates an instance of the control volume element used to represent a computational
@@ -54,7 +54,7 @@ struct STMCOMPONENT_EXPORT Element
     * \param to - The downstream junction of this element.
     * \param project
     */
-   Element(const std::string &id, ElementJunction *upstream, ElementJunction *downstream,  STMModel *model);
+   Element(const std::string &id, ElementJunction *upstream, ElementJunction *downstream,  CSHModel *model);
 
    /*!
     * \brief ~Element - Destructor for this class.
@@ -140,6 +140,16 @@ struct STMCOMPONENT_EXPORT Element
     * \brief xSectionArea (m^2)
     */
    double xSectionArea;
+
+   /*!
+    * \brief upstreamXSectionArea
+    */
+   double upstreamXSectionArea;
+
+   /*!
+    * \brief downstreamXSectionArea
+    */
+   double downstreamXSectionArea;
 
    /*!
     * \brief width (m)
@@ -307,7 +317,7 @@ struct STMCOMPONENT_EXPORT Element
    /*!
     * \brief model
     */
-   STMModel *model;
+   CSHModel *model;
 
    /*!
     * \brief initializeSolutes
@@ -327,14 +337,6 @@ struct STMCOMPONENT_EXPORT Element
     * \return
     */
    double computeDTDt(double dt, double T[]);
-
-   /*!
-    * \brief computeDTDtDispersion
-    * \param dt
-    * \param T
-    * \return
-    */
-   double computeDTDtDispersion(double dt, double T[]);
 
    /*!
     * \brief computeDTDtUpwind
@@ -369,12 +371,12 @@ struct STMCOMPONENT_EXPORT Element
    double computeDTDtTVD(double dt, double T[]);
 
    /*!
-    * \brief computeDTDtBackWaterRadiation
+    * \brief computeDTDtDispersion
     * \param dt
     * \param T
     * \return
     */
-   double computeDTDtBackWaterRadiation(double dt, double T[]);
+   double computeDTDtDispersion(double dt, double T[]);
 
    /*!
     * \brief computeEvaporation
@@ -400,15 +402,6 @@ struct STMCOMPONENT_EXPORT Element
     * \return
     */
    double computeDSoluteDt(double dt, double S[], int soluteIndex);
-
-   /*!
-    * \brief computeDSoluteDtDispersion
-    * \param dt
-    * \param S
-    * \param soluteIndex
-    * \return
-    */
-   double computeDSoluteDtDispersion(double dt, double S[], int soluteIndex);
 
    /*!
     * \brief computeDSoluteDtUpwind
@@ -445,6 +438,15 @@ struct STMCOMPONENT_EXPORT Element
     * \return
     */
    double computeDSoluteDtTVD(double dt, double S[], int soluteIndex);
+
+   /*!
+    * \brief computeDSoluteDtDispersion
+    * \param dt
+    * \param S
+    * \param soluteIndex
+    * \return
+    */
+   double computeDSoluteDtDispersion(double dt, double S[], int soluteIndex);
 
    /*!
     * \brief computeCourantNumber
@@ -512,6 +514,11 @@ struct STMCOMPONENT_EXPORT Element
    void computeDownstreamFlow();
 
    /*!
+    * \brief downstreamDispersion
+    */
+   double downstreamLongDispersion;
+
+   /*!
     * \brief downStreamPecletNumber
     */
    double downstreamPecletNumber;
@@ -525,6 +532,11 @@ struct STMCOMPONENT_EXPORT Element
     * \brief downstreamVelocity
     */
    double downstreamVelocity;
+
+   /*!
+    * \brief upstreamDispersion
+    */
+   double upstreamLongDispersion;
 
    /*!
     * \brief upStreamPecletNumber

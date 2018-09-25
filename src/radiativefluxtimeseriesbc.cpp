@@ -19,10 +19,10 @@
 
 
 #include "radiativefluxtimeseriesbc.h"
-#include "stmmodel.h"
+#include "cshmodel.h"
 #include "element.h"
 
-RadiativeFluxTimeSeriesBC::RadiativeFluxTimeSeriesBC(Element *element, STMModel *model)
+RadiativeFluxTimeSeriesBC::RadiativeFluxTimeSeriesBC(Element *element, CSHModel *model)
   :AbstractTimeSeriesBC(model),
     m_element(element)
 {
@@ -67,7 +67,7 @@ void RadiativeFluxTimeSeriesBC::setElement(Element *element)
 
 
 
-UniformRadiativeFluxTimeSeriesBC::UniformRadiativeFluxTimeSeriesBC(Element *startElement, Element *endElement, STMModel *model)
+UniformRadiativeFluxTimeSeriesBC::UniformRadiativeFluxTimeSeriesBC(Element *startElement, Element *endElement, CSHModel *model)
   :AbstractTimeSeriesBC(model),
    m_startElement(startElement),
    m_endElement(endElement)

@@ -2,11 +2,11 @@
 #Email caleb.buahin@gmail.com
 #Date 2018
 #License GNU Lesser General Public License (see <http: //www.gnu.org/licenses/> for details).
-#The STMComponent is a component-based stream heat and solute transport model
+#The CSHComponent is a component-based stream heat and solute transport model
 
 TEMPLATE = lib
 VERSION = 1.0.0
-TARGET = STMComponent
+TARGET = CSHComponent
 QT -= gui
 QT += testlib
 
@@ -14,7 +14,7 @@ CONFIG += c++11
 CONFIG += debug_and_release
 CONFIG += optimize_full
 
-DEFINES += STMCOMPONENT_LIBRARY
+DEFINES += CSHCOMPONENT_LIBRARY
 DEFINES += USE_OPENMP
 DEFINES += USE_MPI
 DEFINES += USE_CVODE
@@ -22,13 +22,13 @@ DEFINES += USE_NETCDF
 DEFINES += USE_CHPC
 
 #Compile as library or executable
-contains(DEFINES,STMCOMPONENT_LIBRARY){
+contains(DEFINES,CSHCOMPONENT_LIBRARY){
   TEMPLATE = lib
-  message("Compiling STMComponent as library")
+  message("Compiling CSHComponent as library")
 } else {
   TEMPLATE = app
   CONFIG-=app_bundle
-  message("Compiling STMComponent as application")
+  message("Compiling CSHComponent as application")
 }
 
 PRECOMPILED_HEADER = ./include/stdafx.h
@@ -41,13 +41,13 @@ INCLUDEPATH += .\
 
 
 HEADERS += ./include/stdafx.h\
-           ./include/stmcomponent_global.h \
-           ./include/stmcomponent.h \
-           ./include/stmcomponentinfo.h \
-           ./include/stmmodel.h \
+           ./include/cshcomponent_global.h \
+           ./include/cshcomponent.h \
+           ./include/cshcomponentinfo.h \
+           ./include/cshmodel.h \
            ./include/iboundarycondition.h \
            ./include/elementjunction.h \
-           ./include/test/stmcomponenttest.h \
+           ./include/test/cshcomponenttest.h \
            ./include/variable.h \
            ./include/element.h \
            ./include/iboundarycondition.h \
@@ -62,15 +62,15 @@ HEADERS += ./include/stdafx.h\
            ./include/elementoutput.h
 
 SOURCES +=./src/stdafx.cpp \
-          ./src/stmcomponent.cpp \
-          ./src/stmcomponentinfo.cpp \ 
+          ./src/CSHComponent.cpp \
+          ./src/CSHComponentinfo.cpp \ 
           ./src/main.cpp \
           ./src/element.cpp \
-          ./src/stmmodel.cpp \
+          ./src/cshmodel.cpp \
           ./src/elementjunction.cpp \
-          ./src/test/stmcomponenttest.cpp \
-          ./src/stmmodelio.cpp \
-          ./src/stmcompute.cpp \
+          ./src/test/cshcomponenttest.cpp \
+          ./src/cshmodelio.cpp \
+          ./src/cshcompute.cpp \
           ./src/abstracttimeseriesbc.cpp \
           ./src/junctiontimeseriesbc.cpp \
           ./src/radiativefluxtimeseriesbc.cpp \
@@ -271,7 +271,7 @@ CONFIG(debug, debug|release) {
     }
 
     macx {
-       QMAKE_CXXFLAGS += -O3
+       QMAKE_CXXFLAGS += -O1
     }
 
     linux {
@@ -340,7 +340,7 @@ CONFIG(release, debug|release) {
             -L./../ODESolver/lib/win32 -lODESolver1
    }
 
-     contains(DEFINES,STMCOMPONENT_LIBRARY){
+     contains(DEFINES,CSHCOMPONENT_LIBRARY){
          #MacOS
          macx{
              DESTDIR = lib/macx

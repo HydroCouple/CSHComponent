@@ -24,11 +24,11 @@
 #include "abstracttimeseriesbc.h"
 
 
-class STMCOMPONENT_EXPORT JunctionTimeSeriesBC : public AbstractTimeSeriesBC
+class CSHComponent_EXPORT JunctionTimeSeriesBC : public AbstractTimeSeriesBC
 {
   public:
 
-    JunctionTimeSeriesBC(ElementJunction *elementJunction, int variableIndex, STMModel *model);
+    JunctionTimeSeriesBC(ElementJunction *elementJunction, int variableIndex, CSHModel *model);
 
     virtual ~JunctionTimeSeriesBC();
 

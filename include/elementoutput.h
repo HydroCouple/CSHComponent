@@ -22,12 +22,12 @@
 #ifndef ELEMENTOUTPUT_H
 #define ELEMENTOUTPUT_H
 
-#include "stmcomponent_global.h"
+#include "cshcomponent_global.h"
 #include "spatiotemporal/timegeometryoutput.h"
 
-class STMComponent;
+class CSHComponent;
 
-class STMCOMPONENT_EXPORT ElementOutput: public TimeGeometryOutputDouble
+class CSHComponent_EXPORT ElementOutput: public TimeGeometryOutputDouble
 {
 
     Q_OBJECT
@@ -49,7 +49,7 @@ class STMCOMPONENT_EXPORT ElementOutput: public TimeGeometryOutputDouble
                   Dimension *geometryDimension,
                   ValueDefinition *valueDefinition,
                   VariableType variableType,
-                  STMComponent *modelComponent);
+                  CSHComponent *modelComponent);
 
 
     virtual ~ElementOutput();
@@ -64,7 +64,7 @@ class STMCOMPONENT_EXPORT ElementOutput: public TimeGeometryOutputDouble
 
   private:
 
-    STMComponent *m_component;
+    CSHComponent *m_component;
     int m_variableType;
     int m_soluteIndex;
 };

@@ -1,5 +1,5 @@
 /*!
- *  \file    stmcomponentinfo.cpp
+ *  \file    CSHComponentinfo.cpp
  *  \author  Caleb Amoa Buahin <caleb.buahin@gmail.com>
  *  \version 1.0.0
  *  \section Description
@@ -18,29 +18,29 @@
  */
 
 #include "stdafx.h"
-#include "stmcomponentinfo.h"
-#include "stmcomponent.h"
+#include "cshcomponentinfo.h"
+#include "cshcomponent.h"
 #include "spatial/geometryfactory.h"
 
 using namespace HydroCouple;
 
-STMComponentInfo::STMComponentInfo(QObject *parent)
+CSHComponentInfo::CSHComponentInfo(QObject *parent)
   :AbstractModelComponentInfo(parent)
 {
   GeometryFactory::registerGDAL();
 
   setId("Stream Temperature Model 1.0.0");
-  setCaption("STM Component");
+  setCaption("CSH Component");
   setIconFilePath("./../../resources/images/hydrocouplecomposer.png");
 
 #ifdef QT_DEBUG
   setIconFilePath("./../../resources/images/hydrocouplecomposer.png");
 #else
-  setIconFilePath("./STMComponent.ico");
+  setIconFilePath("./CSHComponent.ico");
 #endif
 
   setDescription("A one-dimensional channel heat and solute transport model.");
-  setCategory("Hydrodyanmics\\Heat Transport");
+  setCategory("Hydrodyanmics\\Heat & Solute Transport");
   setCopyright("");
   setVendor("");
   setUrl("www.hydrocouple.org");
@@ -53,14 +53,14 @@ STMComponentInfo::STMComponentInfo(QObject *parent)
 
 }
 
-STMComponentInfo::~STMComponentInfo()
+CSHComponentInfo::~CSHComponentInfo()
 {
 }
 
-IModelComponent *STMComponentInfo::createComponentInstance()
+IModelComponent *CSHComponentInfo::createComponentInstance()
 {
   QString id =  QUuid::createUuid().toString();
-  STMComponent *component = new STMComponent(id, this);
-  component->setDescription("STM Model Instance");
+  CSHComponent *component = new CSHComponent(id, this);
+  component->setDescription("CSH Model Instance");
   return component;
 }

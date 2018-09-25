@@ -21,22 +21,22 @@
 #define ABSTRACTTIMESERIESBC_H
 
 #include "iboundarycondition.h"
-#include "stmcomponent_global.h"
+#include "cshcomponent_global.h"
 
 #include <vector>
 #include <unordered_map>
 #include <list>
 
-class STMModel;
+class CSHModel;
 struct Element;
 struct ElementJunction;
 
-class STMCOMPONENT_EXPORT AbstractTimeSeriesBC : public virtual IBoundaryCondition
+class CSHComponent_EXPORT AbstractTimeSeriesBC : public virtual IBoundaryCondition
 {
 
   public:
 
-    AbstractTimeSeriesBC(STMModel *model);
+    AbstractTimeSeriesBC(CSHModel *model);
 
     virtual ~AbstractTimeSeriesBC();
 
@@ -62,7 +62,7 @@ class STMCOMPONENT_EXPORT AbstractTimeSeriesBC : public virtual IBoundaryConditi
 
   protected:
 
-    STMModel *m_model;
+    CSHModel *m_model;
     static const std::unordered_map<std::string,int> m_variableIndexes;
 
   private:

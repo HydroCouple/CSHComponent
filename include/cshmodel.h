@@ -1,5 +1,5 @@
 /*!
-*  \file    stmproject.h
+*  \file    CSHproject.h
 *  \author  Caleb Amoa Buahin <caleb.buahin@gmail.com>
 *  \version 1.0.0
 *  \section Description
@@ -18,10 +18,10 @@
 *  \warning
 */
 
-#ifndef STMMODEL_H
-#define STMMODEL_H
+#ifndef CSHModel_H
+#define CSHModel_H
 
-#include "stmcomponent_global.h"
+#include "cshcomponent_global.h"
 #include "spatial/network.h"
 #include "odesolver.h"
 
@@ -37,23 +37,23 @@
 #include <netcdf>
 #endif
 
-class STMComponent;
+class CSHComponent;
 struct Element;
 struct ElementJunction;
 class Edge;
-class STMModel;
+class CSHModel;
 class IBoundaryCondition;
 class ThreadSafeNcFile;
 
-struct STMCOMPONENT_EXPORT SolverUserData
+struct CSHComponent_EXPORT SolverUserData
 {
-    STMModel *model = nullptr;
+    CSHModel *model = nullptr;
     int variableIndex = -1;
 };
 
-typedef void (*RetrieveCouplingData)(STMModel *model, double dateTime);
+typedef void (*RetrieveCouplingData)(CSHModel *model, double dateTime);
 
-class STMCOMPONENT_EXPORT STMModel : public QObject
+class CSHComponent_EXPORT CSHModel : public QObject
 {
     Q_OBJECT
 
@@ -94,14 +94,14 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
     };
 
     /*!
-     * \brief STMModel - Constructor for the Computational engine for the Stream Temperature Model.
+     * \brief CSHModel - Constructor for the Computational engine for the Stream Temperature Model.
      */
-    STMModel(STMComponent *component);
+    CSHModel(CSHComponent *component);
 
     /*!
-     * \brief ~STMModel - Destructor for the Computational engine for the Stream Temperature Model.
+     * \brief ~CSHModel - Destructor for the Computational engine for the Stream Temperature Model.
      */
-    ~STMModel();
+    ~CSHModel();
 
     /*!
      * \brief minTimeStep - Minimum timestep for the model in seconds.
@@ -860,7 +860,7 @@ class STMCOMPONENT_EXPORT STMModel : public QObject
     RetrieveCouplingData m_retrieveCouplingDataFunction;
 
     //Parent component
-    STMComponent *m_component;
+    CSHComponent *m_component;
 };
 
-#endif // STMMODEL_H
+#endif // CSHModel_H

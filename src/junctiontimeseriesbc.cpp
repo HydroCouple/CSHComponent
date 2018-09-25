@@ -20,7 +20,7 @@
 #include "junctiontimeseriesbc.h"
 #include "elementjunction.h"
 
-JunctionTimeSeriesBC::JunctionTimeSeriesBC(ElementJunction *elementJunction, int variableIndex, STMModel *model)
+JunctionTimeSeriesBC::JunctionTimeSeriesBC(ElementJunction *elementJunction, int variableIndex, CSHModel *model)
   : AbstractTimeSeriesBC(model),
     m_elementJunction(elementJunction),
     m_variableIndex(variableIndex)

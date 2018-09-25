@@ -1,9 +1,9 @@
 
 #include "element.h"
-#include "stmmodel.h"
+#include "cshmodel.h"
 #include "hydraulicstimeseriesbc.h"
 
-HydraulicsTimeSeriesBC::HydraulicsTimeSeriesBC(Element *element, int variableIndex, STMModel *model)
+HydraulicsTimeSeriesBC::HydraulicsTimeSeriesBC(Element *element, int variableIndex, CSHModel *model)
   :AbstractTimeSeriesBC(model),
    m_element(element),
    m_variableIndex(variableIndex)
@@ -62,7 +62,7 @@ void HydraulicsTimeSeriesBC::setElement(Element *element)
 }
 
 
-UniformHydraulicsTimeSeriesBC::UniformHydraulicsTimeSeriesBC(Element *startElement, Element *endElement, int variableIndex, STMModel *model)
+UniformHydraulicsTimeSeriesBC::UniformHydraulicsTimeSeriesBC(Element *startElement, Element *endElement, int variableIndex, CSHModel *model)
   :AbstractTimeSeriesBC(model),
    m_startElement(startElement),
    m_endElement(endElement),

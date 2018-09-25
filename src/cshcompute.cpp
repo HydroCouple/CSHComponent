@@ -1,5 +1,5 @@
 /*!
-*  \file    stmcompute.cpp
+*  \file    CSHcompute.cpp
 *  \author  Caleb Amoa Buahin <caleb.buahin@gmail.com>
 *  \version 1.0.0
 *  \section Description
@@ -18,11 +18,11 @@
 */
 
 
-#include "stmmodel.h"
+#include "cshmodel.h"
 #include "element.h"
 #include "elementjunction.h"
 #include "iboundarycondition.h"
-#include "stmcomponent.h"
+#include "cshcomponent.h"
 
 
 #ifdef USE_OPENMP
@@ -32,7 +32,7 @@
 
 using namespace std;
 
-void STMModel:: update()
+void CSHModel:: update()
 {
   if(m_currentDateTime < m_endDateTime)
   {
@@ -116,7 +116,7 @@ void STMModel:: update()
   }
 }
 
-void STMModel::prepareForNextTimeStep()
+void CSHModel::prepareForNextTimeStep()
 {
 
   //#ifdef USE_OPENMP
@@ -171,7 +171,7 @@ void STMModel::prepareForNextTimeStep()
   }
 }
 
-void STMModel::applyInitialConditions()
+void CSHModel::applyInitialConditions()
 {
 
   //Initialize heat and solute balance trackers
@@ -217,7 +217,7 @@ void STMModel::applyInitialConditions()
   m_nextOutputTime += m_outputInterval / 86400.0;
 }
 
-void STMModel::applyBoundaryConditions(double dateTime)
+void CSHModel::applyBoundaryConditions(double dateTime)
 {
   //reset external fluxes
 #ifdef USE_OPENMMP
@@ -245,7 +245,7 @@ void STMModel::applyBoundaryConditions(double dateTime)
   }
 }
 
-double STMModel::computeTimeStep()
+double CSHModel::computeTimeStep()
 {
   double timeStep = m_maxTimeStep;
   double maxCourantFactor = 0.0;
@@ -283,7 +283,7 @@ double STMModel::computeTimeStep()
         double courantFactor = element->computeCourantFactor();
         //double dispersionFactor = element->computeDispersionFactor();
 
-        if(!std::isinf(courantFactor) && courantFactor > maxCourantFactor)
+        if(!(std::isinf(courantFactor) || std::isnan(courantFactor)) && courantFactor > maxCourantFactor)
         {
 
           //#ifdef USE_OPENMP
@@ -296,7 +296,7 @@ double STMModel::computeTimeStep()
     }
 #endif
 
-    timeStep = maxCourantFactor ? m_timeStepRelaxationFactor / maxCourantFactor : m_maxTimeStep;\
+    timeStep = maxCourantFactor ? m_timeStepRelaxationFactor / maxCourantFactor : m_maxTimeStep;
   }
 
   double nextTime = m_currentDateTime + timeStep / 86400.0;
@@ -311,7 +311,7 @@ double STMModel::computeTimeStep()
   return timeStep;
 }
 
-void STMModel::computeLongDispersion()
+void CSHModel::computeLongDispersion()
 {
   if(m_computeDispersion)
   {
@@ -323,16 +323,6 @@ void STMModel::computeLongDispersion()
       Element *element = m_elements[i];
       element->computeLongDispersion();
     }
-  }
-
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-  for(int i = 0 ; i < (int)m_elementJunctions.size(); i++)
-  {
-    ElementJunction *elementJunction = m_elementJunctions[i];
-    elementJunction->interpXSectionArea();
-    elementJunction->interpLongDispersion();
   }
 
 #ifdef USE_OPENMP
@@ -355,16 +345,16 @@ void STMModel::computeLongDispersion()
   }
 }
 
-void STMModel::solveHeatTransport(double timeStep)
+void CSHModel::solveHeatTransport(double timeStep)
 {
   //Allocate memory to store inputs and outputs
   double *currentTemperatures = new double[m_elements.size()];
   double *outputTemperatures = new double[m_elements.size()];
 
   //Set initial input and output values to current values.
-  //#ifdef USE_OPENMP
-  //#pragma omp parallel for
-  //#endif
+#ifdef USE_OPENMP
+#pragma omp parallel for
+#endif
   for(int i = 0 ; i < (int)m_elements.size(); i++)
   {
     Element *element = m_elements[i];
@@ -374,13 +364,17 @@ void STMModel::solveHeatTransport(double timeStep)
 
   //Solve using ODE solver
   SolverUserData solverUserData; solverUserData.model = this; solverUserData.variableIndex = -1;
-  m_heatSolver->solve(currentTemperatures, m_elements.size() , m_currentDateTime * 86400.0, timeStep,
-                      outputTemperatures, &STMModel::computeDTDt, &solverUserData);
+
+  if(m_heatSolver->solve(currentTemperatures, m_elements.size() , m_currentDateTime * 86400.0, timeStep,
+                      outputTemperatures, &CSHModel::computeDTDt, &solverUserData))
+  {
+    printf("CSH Temperature Solver failed \n");
+  }
 
   //Apply computed values;
-  //#ifdef USE_OPENMP
-  //#pragma omp parallel for
-  //#endif
+#ifdef USE_OPENMP
+#pragma omp parallel for
+#endif
   for(int i = 0 ; i < (int)m_elements.size(); i++)
   {
     Element *element = m_elements[i];
@@ -393,15 +387,15 @@ void STMModel::solveHeatTransport(double timeStep)
   delete[] outputTemperatures;
 }
 
-void STMModel::solveSoluteTransport(int soluteIndex, double timeStep)
+void CSHModel::solveSoluteTransport(int soluteIndex, double timeStep)
 {
   double *currentSoluteConcs = new double[m_elements.size()];
   double *outputSoluteConcs = new double[m_elements.size()];
 
   //Set initial values.
-  //#ifdef USE_OPENMP
-  //#pragma omp parallel for
-  //#endif
+#ifdef USE_OPENMP
+#pragma omp parallel for
+#endif
   for(int i = 0 ; i < (int)m_elements.size(); i++)
   {
     Element *element = m_elements[i];
@@ -411,14 +405,18 @@ void STMModel::solveSoluteTransport(int soluteIndex, double timeStep)
 
   //Solve using ODE solver
   SolverUserData solverUserData; solverUserData.model = this; solverUserData.variableIndex = soluteIndex;
-  m_soluteSolvers[soluteIndex]->solve(outputSoluteConcs, m_elements.size() , m_currentDateTime * 86400.0, timeStep,
-                                      outputSoluteConcs, &STMModel::computeDSoluteDt, &solverUserData);
+
+  if(m_soluteSolvers[soluteIndex]->solve(outputSoluteConcs, m_elements.size() , m_currentDateTime * 86400.0, timeStep,
+                                      outputSoluteConcs, &CSHModel::computeDSoluteDt, &solverUserData))
+  {
+    printf("CSH Solute Solver failed \n");
+  }
 
 
   //Apply computed values;
-  //#ifdef USE_OPENMP
-  //#pragma omp parallel for
-  //#endif
+#ifdef USE_OPENMP
+#pragma omp parallel for
+#endif
   for(int i = 0 ; i < (int)m_elements.size(); i++)
   {
     Element *element = m_elements[i];
@@ -432,11 +430,11 @@ void STMModel::solveSoluteTransport(int soluteIndex, double timeStep)
 
 }
 
-void STMModel::computeDTDt(double t, double y[], double dydt[], void* userData)
+void CSHModel::computeDTDt(double t, double y[], double dydt[], void* userData)
 {
 
   SolverUserData *solverUserData = (SolverUserData*) userData;
-  STMModel *modelInstance = solverUserData->model;
+  CSHModel *modelInstance = solverUserData->model;
   double dt = t - (modelInstance->m_currentDateTime *  86400.0);
 
 #ifdef USE_OPENMP
@@ -449,10 +447,10 @@ void STMModel::computeDTDt(double t, double y[], double dydt[], void* userData)
   }
 }
 
-void STMModel::computeDSoluteDt(double t, double y[], double dydt[], void *userData)
+void CSHModel::computeDSoluteDt(double t, double y[], double dydt[], void *userData)
 {
   SolverUserData *solverUserData = (SolverUserData*) userData;
-  STMModel *modelInstance = solverUserData->model;
+  CSHModel *modelInstance = solverUserData->model;
   double dt = t - modelInstance->m_currentDateTime *  86400.0;
 
 #ifdef USE_OPENMP
@@ -466,7 +464,7 @@ void STMModel::computeDSoluteDt(double t, double y[], double dydt[], void *userD
 
 }
 
-void STMModel::solveJunctionHeatContinuity(double timeStep)
+void CSHModel::solveJunctionHeatContinuity(double timeStep)
 {
 #ifdef USE_OPENMP
 #pragma omp parallel for
@@ -486,7 +484,7 @@ void STMModel::solveJunctionHeatContinuity(double timeStep)
   }
 }
 
-void STMModel::solveJunctionSoluteContinuity(int soluteIndex, double timeStep)
+void CSHModel::solveJunctionSoluteContinuity(int soluteIndex, double timeStep)
 {
 #ifdef USE_OPENMP
 #pragma omp parallel for

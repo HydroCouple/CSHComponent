@@ -20,13 +20,13 @@
 #include "stdafx.h"
 #include "element.h"
 #include "elementjunction.h"
-#include "stmmodel.h"
+#include "cshmodel.h"
 
 #include <math.h>
 
 using namespace std;
 
-Element::Element(const std::string &id, ElementJunction *upstream, ElementJunction *downstream,  STMModel *model)
+Element::Element(const std::string &id, ElementJunction *upstream, ElementJunction *downstream,  CSHModel *model)
   : id(id),
     numSolutes(0),
     soluteConcs(nullptr),
@@ -112,19 +112,19 @@ void Element::initialize()
 
   switch (model->m_advectionMode)
   {
-    case STMModel::AdvectionDiscretizationMode::Central:
+    case CSHModel::AdvectionDiscretizationMode::Central:
       {
         computeTempAdv = &Element::computeDTDtCentral;
         computeSoluteAdv = &Element::computeDSoluteDtCentral;
       }
       break;
-    case STMModel::AdvectionDiscretizationMode::Hybrid:
+    case CSHModel::AdvectionDiscretizationMode::Hybrid:
       {
         computeTempAdv = &Element::computeDTDtHybrid;
         computeSoluteAdv = &Element::computeDSoluteDtHybrid;
       }
       break;
-    case STMModel::AdvectionDiscretizationMode::TVD:
+    case CSHModel::AdvectionDiscretizationMode::TVD:
       {
         computeTempAdv = &Element::computeDTDtTVD;
         computeSoluteAdv = &Element::computeDSoluteDtTVD;
@@ -143,7 +143,7 @@ void Element::initialize()
       totalRadiationFluxesHeatBalance = relativeHumidity =
       evaporationRate = saturationVaporPressureAir = saturationVaporPressureWater =
       vaporPressureAir = vaporPressureWater = windSpeed = airTemperature =
-      evaporationHeatFlux = convectionHeatFlux = 0.0;
+      evaporationHeatFlux = convectionHeatFlux = upstreamLongDispersion = downstreamLongDispersion = 0.0;
 
   for(int i = 0; i < numSolutes; i++)
   {
@@ -183,7 +183,7 @@ double Element::computeDTDt(double dt, double T[])
   double volume = xSectionArea * length;
   double rho_cp_vol = model->m_waterDensity * model->m_cp * volume;
 
-  if(volume > 0)
+  if(volume)
   {
     //Compute advection
     DTDt += (this->*computeTempAdv)(dt, T);
@@ -212,79 +212,43 @@ double Element::computeDTDt(double dt, double T[])
   return DTDt;
 }
 
-double Element::computeDTDtDispersion(double dt, double T[])
-{
-  double volume = xSectionArea * length;
-  double DTDt = 0.0;
-
-  //If upstream element exists and upstream junction is not a boundary condition
-  //use upstream element to compute derivative.
-  if(upstreamElement != nullptr && !upstreamJunction->temperature.isBC)
-  {
-
-    DTDt += upstreamJunction->longDispersion * upstreamJunction->xSectionArea *
-            (T[upstreamElement->index] - T[index]) / (volume * (length + upstreamElement->length) / 2.0);
-
-  }
-  //Otherwise use upstream junction to compute temperature derivate
-  else
-  {
-    DTDt +=  upstreamJunction->longDispersion * upstreamJunction->xSectionArea *
-             (upstreamJunction->temperature.value - T[index]) / (volume * length / 2.0);
-  }
-
-  //If downstream element exists and downstream junction element is not a boundary condition
-  //use downstream element to compute derivative.
-  if(downstreamElement != nullptr && !downstreamJunction->temperature.isBC)
-  {
-    DTDt -= downstreamJunction->longDispersion * downstreamJunction->xSectionArea *
-            (T[index] - T[downstreamElement->index]) / (volume * (length + downstreamElement->length) / 2.0);
-  }
-  //Otherwise use downstream element junction
-  else
-  {
-    DTDt -= downstreamJunction->longDispersion * downstreamJunction->xSectionArea *
-            (T[index] - downstreamJunction->temperature.value) / (volume * length / 2.0);
-  }
-
-  return DTDt;
-}
-
 double Element::computeDTDtUpwind(double dt, double T[])
 {
-
   double volume = xSectionArea * length;
   double incomingFlux = 0.0;
   double outgoingFlux = 0.0;
 
+
   //Flow goes from upstream to downstream
   if(flow >= 0)
   {
+    outgoingFlux = flow * T[index];
+
     if(upstreamElement != nullptr && !upstreamJunction->temperature.isBC)
     {
-      incomingFlux = flow * T[upstreamElement->index];
-      outgoingFlux = flow * T[index];
+      incomingFlux = upstreamElement->flow * upstreamElementDirection * T[upstreamElement->index];
     }
     else
     {
       incomingFlux = flow * upstreamJunction->temperature.value;
-      outgoingFlux = flow * T[index];
     }
+
   }
   //Opposite Direction
   else
   {
+    incomingFlux = flow * T[index];
+
     if(downstreamElement != nullptr && !downstreamJunction->temperature.isBC)
     {
-      incomingFlux = flow * T[index];
-      outgoingFlux = flow *  T[downstreamElement->index];
+      outgoingFlux = downstreamElement->flow * downstreamElementDirection * T[downstreamElement->index];
     }
     else
     {
-      incomingFlux = flow * T[index];
       outgoingFlux = flow * downstreamJunction->temperature.value;
     }
   }
+
 
   return (incomingFlux - outgoingFlux) / volume ;
 
@@ -303,7 +267,7 @@ double Element::computeDTDtCentral(double dt, double T[])
     double centerFactor = 1.0 / length / 2.0 / denom;
     double upstreamFactor = 1.0 / upstreamElement->length / 2.0 / denom;
 
-    incomingFlux = flow * (T[upstreamElement->index] * centerFactor +
+    incomingFlux = upstreamFlow * (T[upstreamElement->index] * centerFactor +
                    T[index] * upstreamFactor) / volume;
   }
   else
@@ -318,7 +282,7 @@ double Element::computeDTDtCentral(double dt, double T[])
     double downstreamFactor = 1.0 / downstreamElement->length / 2.0 / denom;
 
 
-    outgoingFlux = flow * (T[downstreamElement->index] * downstreamFactor +
+    outgoingFlux = downstreamFlow * (T[downstreamElement->index] * downstreamFactor +
                    T[index] * centerFactor) / volume;
   }
   else
@@ -340,18 +304,18 @@ double Element::computeDTDtHybrid(double dt, double T[])
   bool hasDownstream = downstreamElement != nullptr && !downstreamJunction->temperature.isBC;
 
   //If peclet number is zero use central differencing
-  if(hasUpstream && fabs(upstreamPecletNumber - 0.0) > std::numeric_limits<double>::epsilon() == 0)
+  if(hasUpstream && fabs(upstreamPecletNumber - 0.0) < std::numeric_limits<double>::epsilon())
   {
     double denom = (1.0 / upstreamElement->length / 2.0) + (1.0 / length/ 2.0);
     double centerFactor = 1.0 / length / 2.0 / denom;
     double upstreamFactor = 1.0 / upstreamElement->length / 2.0 / denom;
 
-    incomingFlux = flow * (T[upstreamElement->index] * centerFactor +
+    incomingFlux = upstreamFlow * (T[upstreamElement->index] * centerFactor +
                    T[index] * upstreamFactor) / volume;
   }
   else if(hasUpstream && upstreamPecletNumber >= 2.0)
   {
-    incomingFlux = flow * T[upstreamElement->index] / volume;
+    incomingFlux = upstreamElement->flow * upstreamElementDirection * T[upstreamElement->index] / volume;
   }
   else if(upstreamPecletNumber <= -2.0)
   {
@@ -370,7 +334,7 @@ double Element::computeDTDtHybrid(double dt, double T[])
     upstreamFactor = (1 + (1.0 / upstreamPecletNumber / upstreamFactor)) * upstreamFactor;
     centerFactor   = (1 - (1.0 / upstreamPecletNumber / centerFactor)) * centerFactor;
 
-    incomingFlux =  flow * (T[upstreamElement->index] * upstreamFactor +
+    incomingFlux =  upstreamFlow * (T[upstreamElement->index] * upstreamFactor +
                     T[index] * centerFactor) / volume;
   }
   else
@@ -379,14 +343,13 @@ double Element::computeDTDtHybrid(double dt, double T[])
   }
 
 
-  if(hasDownstream && fabs(downstreamPecletNumber - 0.0) > std::numeric_limits<double>::epsilon() == 0)
+  if(hasDownstream && fabs(downstreamPecletNumber - 0.0) < std::numeric_limits<double>::epsilon())
   {
     double denom = (1.0 / downstreamElement->length / 2.0) + (1.0 / length/ 2.0);
     double centerFactor = 1.0 / length / 2.0 / denom;
     double downstreamFactor = 1.0 / downstreamElement->length / 2.0 / denom;
 
-
-    outgoingFlux = flow * (T[downstreamElement->index] * downstreamFactor +
+    outgoingFlux = downstreamFlow * (T[downstreamElement->index] * downstreamFactor +
                    T[index] * centerFactor) / volume;
   }
   else if(downstreamPecletNumber >= 2.0)
@@ -395,7 +358,7 @@ double Element::computeDTDtHybrid(double dt, double T[])
   }
   else if(hasDownstream && downstreamPecletNumber <= -2.0)
   {
-    outgoingFlux = flow * T[downstreamElement->index] / volume;
+    outgoingFlux = downstreamElement->flow * downstreamElementDirection * T[downstreamElement->index] / volume;
   }
   else if(hasDownstream)
   {
@@ -410,7 +373,7 @@ double Element::computeDTDtHybrid(double dt, double T[])
     centerFactor = (1 + (1.0 / downstreamPecletNumber/ centerFactor)) * centerFactor;
     downstreamFactor = (1 - (1.0 / downstreamPecletNumber / downstreamFactor)) * downstreamFactor;
 
-    outgoingFlux =  flow * (T[index] * centerFactor +
+    outgoingFlux =  downstreamFlow * (T[index] * centerFactor +
                                       T[downstreamElement->index] * downstreamFactor) / volume;
   }
   else
@@ -477,9 +440,47 @@ double Element::computeDTDtTVD(double dt, double T[])
   return incomingFlux - outgoingFlux;
 }
 
+double Element::computeDTDtDispersion(double dt, double T[])
+{
+  double volume = xSectionArea * length;
+  double DTDt = 0.0;
+
+  //If upstream element exists and upstream junction is not a boundary condition
+  //use upstream element to compute derivative.
+  if(upstreamElement != nullptr && !upstreamJunction->temperature.isBC)
+  {
+
+    DTDt -= upstreamLongDispersion * upstreamXSectionArea *
+            (T[index] - T[upstreamElement->index]) / (volume * (length + upstreamElement->length) / 2.0);
+
+  }
+  //Otherwise use upstream junction to compute temperature derivate
+  else
+  {
+    DTDt -=  upstreamLongDispersion * upstreamXSectionArea *
+             (T[index] - upstreamJunction->temperature.value) / (volume * length / 2.0);
+  }
+
+  //If downstream element exists and downstream junction element is not a boundary condition
+  //use downstream element to compute derivative.
+  if(downstreamElement != nullptr && !downstreamJunction->temperature.isBC)
+  {
+    DTDt += downstreamLongDispersion * downstreamXSectionArea *
+            (T[downstreamElement->index] - T[index]) / (volume * (length + downstreamElement->length) / 2.0);
+  }
+  //Otherwise use downstream element junction
+  else
+  {
+    DTDt += downstreamLongDispersion * downstreamXSectionArea *
+            (downstreamJunction->temperature.value - T[index]) / (volume * length / 2.0);
+  }
+
+  return DTDt;
+}
+
 double Element::computeDTDtEvaporation(double dt, double T[])
 {
-  double currentTemp = /*prevTemperature.value;//*/ T[index];
+  double currentTemp = T[index];
   double DTDt = 0.0;
 
   {
@@ -495,7 +496,7 @@ double Element::computeDTDtEvaporation(double dt, double T[])
 
     windFunction = model->m_evapWindFuncCoeffA + model->m_evapWindFuncCoeffB * fabs(windSpeed);
 
-//    windFunction = 0.069 + model->m_evapWindFuncCoeffB * fabs(windSpeed);
+    //    windFunction = 0.069 + model->m_evapWindFuncCoeffB * fabs(windSpeed);
 
     evaporationRate = windFunction * (saturationVaporPressureWater - vaporPressureAir);
 
@@ -520,7 +521,7 @@ double Element::computeDTDtEvaporation(double dt, double T[])
 
 double Element::computeDTDtConvection(double dt, double T[])
 {
-  double currentTemp = /*prevTemperature.value; //*/T[index];
+  double currentTemp = T[index];
   double DTDt = 0.0;
 
   {
@@ -563,44 +564,6 @@ double Element::computeDSoluteDt(double dt, double S[], int soluteIndex)
   return DSoluteDt;
 }
 
-double Element::computeDSoluteDtDispersion(double dt, double S[], int soluteIndex)
-{
-  double volume = xSectionArea * length;
-  double DSoluteDt = 0.0;
-
-  //If upstream element exists and upstream junction is not a boundary condition
-  //use upstream element to compute derivative.
-  if(upstreamElement != nullptr && !upstreamJunction->soluteConcs[soluteIndex].isBC)
-  {
-
-    DSoluteDt += upstreamJunction->longDispersion * upstreamJunction->xSectionArea *
-                 (S[upstreamElement->index] - S[index]) / (volume * (length + upstreamElement->length) / 2.0);
-
-  }
-  //Otherwise use upstream junction to compute temperature derivate
-  else
-  {
-    DSoluteDt +=  upstreamJunction->longDispersion * upstreamJunction->xSectionArea *
-                  (upstreamJunction->soluteConcs[soluteIndex].value - S[index]) / (volume * length / 2.0);
-  }
-
-  //If downstream element exists and downstream junction element is not a boundary condition
-  //use downstream element to compute derivative.
-  if(downstreamElement != nullptr && !downstreamJunction->temperature.isBC)
-  {
-    DSoluteDt -= downstreamJunction->longDispersion * downstreamJunction->xSectionArea *
-                 (S[index] - S[downstreamElement->index]) / (volume * (length + downstreamElement->length) / 2.0);
-  }
-  //Otherwise use downstream element junction
-  else
-  {
-    DSoluteDt -= downstreamJunction->longDispersion * downstreamJunction->xSectionArea *
-                 (S[index] - downstreamJunction->soluteConcs[soluteIndex].value) / (volume * length / 2.0);
-  }
-
-  return DSoluteDt;
-}
-
 double Element::computeDSoluteDtUpwind(double dt, double S[], int soluteIndex)
 {
   double volume = xSectionArea * length;
@@ -610,33 +573,33 @@ double Element::computeDSoluteDtUpwind(double dt, double S[], int soluteIndex)
   //Flow goes from upstream to downstream
   if(flow >= 0)
   {
+    outgoingFlux = flow * S[index];
+
     if(upstreamElement != nullptr && !upstreamJunction->soluteConcs[soluteIndex].isBC)
     {
-      incomingFlux = flow * S[upstreamElement->index] / volume;
-      outgoingFlux = flow * S[index] / volume;
+      incomingFlux = upstreamElement->flow * upstreamElementDirection * S[upstreamElement->index];
     }
     else
     {
-      incomingFlux = flow * upstreamJunction->soluteConcs[soluteIndex].value / volume;
-      outgoingFlux = flow * S[index] / volume;
+      incomingFlux = flow * upstreamJunction->soluteConcs[soluteIndex].value;
     }
   }
   //Opposite Direction
   else
   {
+    incomingFlux = flow * S[index];
+
     if(downstreamElement != nullptr && !downstreamJunction->soluteConcs[soluteIndex].isBC)
     {
-      incomingFlux = flow * S[index] / volume;
-      outgoingFlux = flow *  S[downstreamElement->index] / volume ;
+      outgoingFlux = downstreamElement->flow * downstreamElementDirection * S[downstreamElement->index];
     }
     else
     {
-      incomingFlux = flow * S[index] / volume;
-      outgoingFlux = flow * downstreamJunction->soluteConcs[soluteIndex].value / volume ;
+      outgoingFlux = flow * downstreamJunction->soluteConcs[soluteIndex].value;
     }
   }
 
-  return incomingFlux - outgoingFlux;
+  return (incomingFlux - outgoingFlux) / volume;
 }
 
 double Element::computeDSoluteDtCentral(double dt, double S[], int soluteIndex)
@@ -651,7 +614,7 @@ double Element::computeDSoluteDtCentral(double dt, double S[], int soluteIndex)
     double centerFactor = 1.0 / length / 2.0 / denom;
     double upstreamFactor = 1.0 / upstreamElement->length / 2.0 / denom;
 
-    incomingFlux = flow * (S[upstreamElement->index] * centerFactor +
+    incomingFlux = upstreamFlow * (S[upstreamElement->index] * centerFactor +
                    S[index] * upstreamFactor) / volume;
   }
   else
@@ -666,7 +629,7 @@ double Element::computeDSoluteDtCentral(double dt, double S[], int soluteIndex)
     double downstreamFactor = 1.0 / downstreamElement->length / 2.0 / denom;
 
 
-    outgoingFlux = flow * (S[downstreamElement->index] * downstreamFactor +
+    outgoingFlux = downstreamFlow * (S[downstreamElement->index] * downstreamFactor +
                    S[index] * centerFactor) / volume;
   }
   else
@@ -688,18 +651,18 @@ double Element::computeDSoluteDtHybrid(double dt, double S[], int soluteIndex)
   bool hasDownstream = downstreamElement != nullptr && !downstreamJunction->soluteConcs[soluteIndex].isBC;
 
   //If peclet number is zero use central differencing
-  if(hasUpstream && fabs(upstreamPecletNumber - 0.0) > std::numeric_limits<double>::epsilon() == 0)
+  if(hasUpstream && fabs(upstreamPecletNumber - 0.0) < std::numeric_limits<double>::epsilon())
   {
     double denom = (1.0 / upstreamElement->length / 2.0) + (1.0 / length/ 2.0);
     double centerFactor = 1.0 / length / 2.0 / denom;
     double upstreamFactor = 1.0 / upstreamElement->length / 2.0 / denom;
 
-    incomingFlux = flow * (S[upstreamElement->index] * centerFactor +
+    incomingFlux = upstreamFlow * (S[upstreamElement->index] * centerFactor +
                    S[index] * upstreamFactor) / volume;
   }
   else if(hasUpstream && upstreamPecletNumber >= 2.0)
   {
-    incomingFlux = flow * S[upstreamElement->index] / volume;
+    incomingFlux = upstreamElement->flow * upstreamElementDirection * S[upstreamElement->index] / volume;
   }
   else if(upstreamPecletNumber <= -2.0)
   {
@@ -718,7 +681,7 @@ double Element::computeDSoluteDtHybrid(double dt, double S[], int soluteIndex)
     upstreamFactor = (1 + (1.0 / upstreamPecletNumber / upstreamFactor)) * upstreamFactor;
     centerFactor   = (1 - (1.0 / upstreamPecletNumber / centerFactor)) * centerFactor;
 
-    incomingFlux =  flow * (S[upstreamElement->index] * upstreamFactor +
+    incomingFlux =  upstreamFlow * (S[upstreamElement->index] * upstreamFactor +
                     S[index] * centerFactor) / volume;
   }
   else
@@ -734,7 +697,7 @@ double Element::computeDSoluteDtHybrid(double dt, double S[], int soluteIndex)
     double downstreamFactor = 1.0 / downstreamElement->length / 2.0 / denom;
 
 
-    outgoingFlux = flow * (S[downstreamElement->index] * downstreamFactor +
+    outgoingFlux = downstreamFlow * (S[downstreamElement->index] * downstreamFactor +
                    S[index] * centerFactor) / volume;
   }
   else if(downstreamPecletNumber >= 2.0)
@@ -743,7 +706,7 @@ double Element::computeDSoluteDtHybrid(double dt, double S[], int soluteIndex)
   }
   else if(hasDownstream && downstreamPecletNumber <= -2.0)
   {
-    outgoingFlux = flow * S[downstreamElement->index] / volume;
+    outgoingFlux = downstreamElement->flow * downstreamElementDirection * S[downstreamElement->index] / volume;
   }
   else if(hasDownstream)
   {
@@ -758,8 +721,8 @@ double Element::computeDSoluteDtHybrid(double dt, double S[], int soluteIndex)
     centerFactor = (1 + (1.0 / downstreamPecletNumber/ centerFactor)) * centerFactor;
     downstreamFactor = (1 - (1.0 / downstreamPecletNumber / downstreamFactor)) * downstreamFactor;
 
-    outgoingFlux =  flow * (S[index] * centerFactor +
-                                      S[downstreamElement->index] * downstreamFactor) / volume;
+    outgoingFlux =  downstreamFlow * (S[index] * centerFactor +
+                            S[downstreamElement->index] * downstreamFactor) / volume;
   }
   else
   {
@@ -777,6 +740,44 @@ double Element::computeDSoluteDtTVD(double dt, double S[], int soluteIndex)
   return 0.0;
 }
 
+double Element::computeDSoluteDtDispersion(double dt, double S[], int soluteIndex)
+{
+  double volume = xSectionArea * length;
+  double DSoluteDt = 0.0;
+
+  //If upstream element exists and upstream junction is not a boundary condition
+  //use upstream element to compute derivative.
+  if(upstreamElement != nullptr && !upstreamJunction->soluteConcs[soluteIndex].isBC)
+  {
+
+    DSoluteDt -= upstreamLongDispersion * upstreamXSectionArea *
+                 (S[index] - S[upstreamElement->index]) / (volume * (length + upstreamElement->length) / 2.0);
+
+  }
+  //Otherwise use upstream junction to compute temperature derivate
+  else
+  {
+    DSoluteDt -=  upstreamLongDispersion * upstreamXSectionArea *
+                  (S[index] - upstreamJunction->soluteConcs[soluteIndex].value) / (volume * length / 2.0);
+  }
+
+  //If downstream element exists and downstream junction element is not a boundary condition
+  //use downstream element to compute derivative.
+  if(downstreamElement != nullptr && !downstreamJunction->soluteConcs[soluteIndex].isBC)
+  {
+    DSoluteDt += downstreamLongDispersion * downstreamXSectionArea *
+                 (S[downstreamElement->index] - S[index]) / (volume * (length + downstreamElement->length) / 2.0);
+  }
+  //Otherwise use downstream element junction
+  else
+  {
+    DSoluteDt += downstreamLongDispersion * downstreamXSectionArea *
+                 (downstreamJunction->soluteConcs[soluteIndex].value - S[index]) / (volume * length / 2.0);
+  }
+
+  return DSoluteDt;
+}
+
 double Element::computeCourantFactor() const
 {
   return  fabs(flow / xSectionArea / length);
@@ -790,10 +791,10 @@ double Element::computeDispersionFactor() const
 void Element::computeLongDispersion()
 {
   double vel = flow / xSectionArea;
-  slope = max(0.00001, fabs(upstreamJunction->z - downstreamJunction->z) / length);
+  slope = max(0.000001, fabs(upstreamJunction->z - downstreamJunction->z) / length);
 
   double fricVel = sqrt(9.81 * depth * slope);
-  double dispFischer = 0.11 * vel * vel * width * width / (depth * fricVel);
+  double dispFischer = (0.011 * vel * vel * width * width) / (depth * fricVel);
   double dispNumerical = fabs( vel * length / 2.0);
 
   longDispersion.value = dispNumerical <= dispFischer ? dispFischer - dispNumerical : 0.0;
@@ -806,32 +807,63 @@ void Element::computePecletNumbers()
 
 void Element::computeUpstreamPeclet()
 {
-  computeUpstreamFlow();
-
-  if(upstreamElement != nullptr && !upstreamJunction->temperature.isBC)
+  if(upstreamElement != nullptr)
   {
-    upstreamPecletNumber = upstreamJunction->longDispersion ?
-                             upstreamVelocity * ((upstreamElement->length / 2.0) + (length / 2.0)) / (upstreamJunction->longDispersion)
-                           : upstreamVelocity * 10000 / fabs(upstreamVelocity);
+    upstreamFlow =  ((upstreamElement->flow * upstreamElementDirection  / (upstreamElement->length * 0.5)) +
+                     (flow / (length * 0.5))) /
+                    ((1.0 / (upstreamElement->length * 0.5)) + (1.0 / (length * 0.5)));
+
+    upstreamVelocity =  (((upstreamElement->flow / upstreamElement->xSectionArea )* upstreamElementDirection  / (upstreamElement->length * 0.5)) +
+                         ((flow / xSectionArea) / (length * 0.5))) /
+                        ((1.0 / (upstreamElement->length * 0.5)) + (1.0 / (length * 0.5)));
+
+    upstreamXSectionArea = ((upstreamElement->xSectionArea / (upstreamElement->length * 0.5)) + (xSectionArea / (length * 0.5))) /
+                           ((1.0 / (upstreamElement->length * 0.5)) + (1.0 / (length * 0.5)));
+
+    upstreamLongDispersion =  ((upstreamElement->longDispersion.value / (upstreamElement->length * 0.5)) + (longDispersion.value / (length * 0.5))) /
+                              ((1.0 / (upstreamElement->length * 0.5)) + (1.0 / (length * 0.5)));
+
+    upstreamPecletNumber = upstreamLongDispersion > 0 ? upstreamVelocity * ((upstreamElement->length / 2.0) + (length / 2.0)) / (upstreamLongDispersion)
+                                                      : upstreamVelocity * 10000 / fabs(upstreamVelocity);
   }
   else
   {
+    upstreamFlow = flow;
+    upstreamVelocity = upstreamFlow / xSectionArea;
+    upstreamXSectionArea = xSectionArea;
+    upstreamLongDispersion = longDispersion.value;
     upstreamPecletNumber = pecletNumber;
   }
+
 }
 
 void Element::computeDownstreamPeclet()
 {
-  computeDownstreamFlow();
-
-  if(downstreamElement != nullptr && !downstreamJunction->temperature.isBC)
+  if(downstreamElement != nullptr)
   {
-    downstreamPecletNumber = downstreamJunction->longDispersion ?
-                               downstreamVelocity * ((downstreamElement->length / 2.0) + (length / 2.0)) / (downstreamJunction->longDispersion)
-                             : downstreamVelocity * 10000 / fabs(downstreamVelocity);
+    downstreamFlow = ((downstreamElement->flow * downstreamElementDirection  / (downstreamElement->length * 0.5)) +
+                      (flow / (length * 0.5))) /
+                     ((1.0 / (downstreamElement->length * 0.5)) + (1.0 / (length * 0.5)));
+
+    downstreamVelocity = (((downstreamElement->flow / downstreamElement->xSectionArea )* downstreamElementDirection  / (downstreamElement->length * 0.5)) +
+                          ((flow / xSectionArea) / (length * 0.5))) /
+                         ((1.0 / (downstreamElement->length * 0.5)) + (1.0 / (length * 0.5)));
+
+    downstreamXSectionArea = ((downstreamElement->xSectionArea / (downstreamElement->length * 0.5)) + (xSectionArea / (length * 0.5))) /
+                             ((1.0 / (downstreamElement->length * 0.5)) + (1.0 / (length * 0.5)));
+
+    downstreamLongDispersion = ((downstreamElement->longDispersion.value / (downstreamElement->length * 0.5)) + (longDispersion.value / (length * 0.5))) /
+                               ((1.0 / (downstreamElement->length * 0.5)) + (1.0 / (length * 0.5)));
+
+    downstreamPecletNumber = downstreamLongDispersion > 0 ? downstreamVelocity * ((downstreamElement->length / 2.0) + (length / 2.0)) / (downstreamLongDispersion)
+                                                          : downstreamVelocity * 10000 / fabs(downstreamVelocity);
   }
   else
   {
+    downstreamFlow = flow;
+    downstreamVelocity = downstreamFlow / xSectionArea;
+    downstreamXSectionArea = xSectionArea;
+    downstreamLongDispersion = longDispersion.value;
     downstreamPecletNumber = pecletNumber;
   }
 }
@@ -927,26 +959,6 @@ void Element::setDownStreamElement()
         return;
       }
     }
-  }
-}
-
-void Element::computeUpstreamFlow()
-{
-
-  if(upstreamElement != nullptr)
-  {
-    upstreamFlow =  ((upstreamElement->flow * upstreamElementDirection  / (upstreamElement->length * 0.5)) +
-                     (flow / (length * 0.5))) /
-                    ((1.0 / (upstreamElement->length * 0.5)) + (1.0 / (length * 0.5)));
-
-    upstreamVelocity =  (((upstreamElement->flow / upstreamElement->xSectionArea )* upstreamElementDirection  / (upstreamElement->length * 0.5)) +
-                         ((flow / xSectionArea) / (length * 0.5))) /
-                        ((1.0 / (upstreamElement->length * 0.5)) + (1.0 / (length * 0.5)));
-  }
-  else
-  {
-    upstreamFlow = flow;
-    upstreamVelocity = upstreamFlow / xSectionArea;
   }
 }
 

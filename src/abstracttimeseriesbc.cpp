@@ -21,11 +21,11 @@
 #include "abstracttimeseriesbc.h"
 #include "element.h"
 #include "elementjunction.h"
-#include "stmmodel.h"
+#include "cshmodel.h"
 
 using namespace std;
 
-AbstractTimeSeriesBC::AbstractTimeSeriesBC(STMModel *model)
+AbstractTimeSeriesBC::AbstractTimeSeriesBC(CSHModel *model)
   : m_model(model),
     m_cursor(0)
 {

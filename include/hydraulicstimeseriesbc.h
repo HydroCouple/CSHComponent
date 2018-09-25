@@ -23,11 +23,11 @@
 
 #include "abstracttimeseriesbc.h"
 
-class STMCOMPONENT_EXPORT HydraulicsTimeSeriesBC : public AbstractTimeSeriesBC
+class CSHComponent_EXPORT HydraulicsTimeSeriesBC : public AbstractTimeSeriesBC
 {
   public:
 
-    HydraulicsTimeSeriesBC(Element *element, int variableIndex, STMModel *model);
+    HydraulicsTimeSeriesBC(Element *element, int variableIndex, CSHModel *model);
 
     virtual ~HydraulicsTimeSeriesBC();
 
@@ -47,11 +47,11 @@ class STMCOMPONENT_EXPORT HydraulicsTimeSeriesBC : public AbstractTimeSeriesBC
     int m_variableIndex;
 };
 
-class STMCOMPONENT_EXPORT UniformHydraulicsTimeSeriesBC : public AbstractTimeSeriesBC
+class CSHComponent_EXPORT UniformHydraulicsTimeSeriesBC : public AbstractTimeSeriesBC
 {
   public:
 
-    UniformHydraulicsTimeSeriesBC(Element *startElement, Element *endElement, int variableIndex, STMModel *model);
+    UniformHydraulicsTimeSeriesBC(Element *startElement, Element *endElement, int variableIndex, CSHModel *model);
 
     virtual ~UniformHydraulicsTimeSeriesBC();
 

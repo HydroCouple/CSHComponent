@@ -19,9 +19,9 @@
 
 #include "pointsrctimeseriesbc.h"
 #include "element.h"
-#include "stmmodel.h"
+#include "cshmodel.h"
 
-PointSrcTimeSeriesBC::PointSrcTimeSeriesBC(Element *element, VariableType variableType, STMModel *model)
+PointSrcTimeSeriesBC::PointSrcTimeSeriesBC(Element *element, VariableType variableType, CSHModel *model)
   : AbstractTimeSeriesBC(model),
     m_element(element),
     m_variableType(variableType),
@@ -61,11 +61,11 @@ void PointSrcTimeSeriesBC::applyBoundaryConditions(double dateTime)
         break;
       case FlowSource:
         {
-          m_element->externalHeatFluxes +=  m_model->m_cp * m_model->m_waterDensity * value * m_element->prevTemperature.value;
+          m_element->externalHeatFluxes +=  m_model->m_cp * m_model->m_waterDensity * value * m_element->temperature.value;
 
           for(size_t i = 0; i < m_model->m_solutes.size(); i++)
           {
-            m_element->externalSoluteFluxes[i] += m_model->m_waterDensity * value * m_element->prevSoluteConcs[i].value;
+            m_element->externalSoluteFluxes[i] += m_model->m_waterDensity * value * m_element->soluteConcs[i].value;
           }
         }
         break;

@@ -19,11 +19,11 @@
 
 #include "nonpointsrctimeseriesbc.h"
 #include "element.h"
-#include "stmmodel.h"
+#include "cshmodel.h"
 
 NonPointSrcTimeSeriesBC::NonPointSrcTimeSeriesBC(Element *startElement, double startElementLFactor,
                                                  Element *endElement, double endElementLFactor,
-                                                 VariableType variableType, STMModel *model)
+                                                 VariableType variableType, CSHModel *model)
   :AbstractTimeSeriesBC(model),
     m_startElement(startElement),
     m_endElement(endElement),
@@ -83,12 +83,12 @@ void NonPointSrcTimeSeriesBC::applyBoundaryConditions(double dateTime)
           double factor = m_factors[element];
 
           element->externalHeatFluxes += m_model->m_cp * m_model->m_waterDensity * value *
-                                         element->prevTemperature.value * factor;
+                                         element->temperature.value * factor;
 
           for(size_t i = 0; i < m_model->m_solutes.size(); i++)
           {
             element->externalSoluteFluxes[i] += m_model->m_waterDensity * value *
-                                                element->prevSoluteConcs[i].value * factor;
+                                                element->soluteConcs[i].value * factor;
           }
 
         }

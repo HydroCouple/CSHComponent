@@ -22,11 +22,11 @@
 
 #include "abstracttimeseriesbc.h"
 
-class STMCOMPONENT_EXPORT RadiativeFluxTimeSeriesBC : public AbstractTimeSeriesBC
+class CSHComponent_EXPORT RadiativeFluxTimeSeriesBC : public AbstractTimeSeriesBC
 {
   public:
 
-    RadiativeFluxTimeSeriesBC(Element *element, STMModel *model);
+    RadiativeFluxTimeSeriesBC(Element *element, CSHModel *model);
 
     virtual ~RadiativeFluxTimeSeriesBC();
 
@@ -47,11 +47,11 @@ class STMCOMPONENT_EXPORT RadiativeFluxTimeSeriesBC : public AbstractTimeSeriesB
 };
 
 
-class STMCOMPONENT_EXPORT UniformRadiativeFluxTimeSeriesBC : public AbstractTimeSeriesBC
+class CSHComponent_EXPORT UniformRadiativeFluxTimeSeriesBC : public AbstractTimeSeriesBC
 {
   public:
 
-    UniformRadiativeFluxTimeSeriesBC(Element *startElement, Element *endElement, STMModel *model);
+    UniformRadiativeFluxTimeSeriesBC(Element *startElement, Element *endElement, CSHModel *model);
 
     virtual ~UniformRadiativeFluxTimeSeriesBC();
 

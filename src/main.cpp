@@ -19,15 +19,15 @@
 
 #include "stdafx.h"
 #include "elementjunction.h"
-#include "stmmodel.h"
-#include "test/stmcomponenttest.h"
+#include "cshmodel.h"
+#include "test/cshcomponenttest.h"
 
 #include <QCoreApplication>
 #include <QCommandLineParser>
 
 void initializeCommandLineParser(QCommandLineParser &commandLineParser)
 {
-  commandLineParser.setApplicationDescription("STMComponent");
+  commandLineParser.setApplicationDescription("CSHComponent");
   commandLineParser.setSingleDashWordOptionMode(QCommandLineParser::ParseAsLongOptions);
   commandLineParser.addHelpOption();
   commandLineParser.addVersionOption();
@@ -49,7 +49,7 @@ int main(int argc, char** argv)
   QCoreApplication *application = new QCoreApplication(argc, argv);
   application->setOrganizationName("hydrocouple");
   application->setOrganizationDomain("hydrocouple.org");
-  application->setApplicationName("stmcomponent");
+  application->setApplicationName("CSHComponent");
   application->setApplicationVersion("1.0.0");
 
   QCommandLineParser commandLineParser;
@@ -74,7 +74,7 @@ int main(int argc, char** argv)
     std::list<std::string> errors;
 
     //Stream temperature model instance
-    STMModel *model = new STMModel(nullptr);
+    CSHModel *model = new CSHModel(nullptr);
     model->setInputFile(QFileInfo(commandLineParser.positionalArguments().first()));
 
     //initialize model
@@ -107,7 +107,7 @@ int main(int argc, char** argv)
     std::list<std::string> errors;
 
     //Stream temperature model instance
-    STMModel *model = new STMModel(nullptr);
+    CSHModel *model = new CSHModel(nullptr);
     model->setInputFile(QFileInfo(commandLineParser.positionalArguments().first()));
 
     //initialize model
@@ -142,7 +142,7 @@ int main(int argc, char** argv)
     //Test One
     {
 
-      STMComponentTest modelTest;
+      CSHComponentTest modelTest;
       status |= QTest::qExec(&modelTest, argc, argv);
     }
   }

@@ -1,5 +1,5 @@
 /*!
- *  \file    stmcomponent_global.h
+ *  \file    CSHComponentinfo.h
  *  \author  Caleb Amoa Buahin <caleb.buahin@gmail.com>
  *  \version 1.0.0
  *  \section Description
@@ -17,15 +17,28 @@
  *  \warning
  */
 
-#ifndef STMCOMPONENT_GLOBAL_H
-#define STMCOMPONENT_GLOBAL_H
+#ifndef CSHComponentINFO_H
+#define CSHComponentINFO_H
 
-#include <QtCore/qglobal.h>
+#include "cshcomponent_global.h"
+#include "core/abstractmodelcomponentinfo.h"
 
-#ifdef STMCOMPONENT_LIBRARY
-# define STMCOMPONENT_EXPORT Q_DECL_EXPORT
-#else
-# define STMCOMPONENT_EXPORT //Q_DECL_IMPORT
-#endif
 
-#endif // STMCOMPONENT_GLOBAL_H
+class CSHComponent_EXPORT CSHComponentInfo : public AbstractModelComponentInfo
+{
+    Q_OBJECT
+    Q_PLUGIN_METADATA(IID "CSHComponentInfo")
+
+  public:
+
+    CSHComponentInfo(QObject *parent = nullptr);
+
+    virtual ~CSHComponentInfo();
+
+    HydroCouple::IModelComponent* createComponentInstance() override;
+};
+
+
+Q_DECLARE_METATYPE(CSHComponentInfo*)
+
+#endif //CSHComponentINFO_H

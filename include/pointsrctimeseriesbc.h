@@ -22,7 +22,7 @@
 
 #include "abstracttimeseriesbc.h"
 
-class STMCOMPONENT_EXPORT PointSrcTimeSeriesBC : public AbstractTimeSeriesBC
+class CSHComponent_EXPORT PointSrcTimeSeriesBC : public AbstractTimeSeriesBC
 {
   public:
 
@@ -33,7 +33,7 @@ class STMCOMPONENT_EXPORT PointSrcTimeSeriesBC : public AbstractTimeSeriesBC
       SoluteSource,
     };
 
-    PointSrcTimeSeriesBC(Element *element, VariableType variableType, STMModel *model);
+    PointSrcTimeSeriesBC(Element *element, VariableType variableType, CSHModel *model);
 
     virtual ~PointSrcTimeSeriesBC();
 

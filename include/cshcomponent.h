@@ -1,5 +1,5 @@
 /*!
- *  \file    stmcomponent.h
+ *  \file    CSHComponent.h
  *  \author  Caleb Amoa Buahin <caleb.buahin@gmail.com>
  *  \version 1.0.0
  *  \section Description
@@ -17,16 +17,16 @@
  *  \warning
  */
 
-#ifndef STMCOMPONENT_H
-#define STMCOMPONENT_H
+#ifndef CSHComponent_H
+#define CSHComponent_H
 
-#include "stmcomponent_global.h"
-#include "stmcomponentinfo.h"
+#include "cshcomponent_global.h"
+#include "cshcomponentinfo.h"
 #include "temporal/abstracttimemodelcomponent.h"
 
 #include <unordered_map>
 
-class STMModel;
+class CSHModel;
 class HCGeometry;
 struct Element;
 class ElementInput;
@@ -35,7 +35,7 @@ class Dimension;
 class ElementHeatSourceInput;
 class Unit;
 
-class STMCOMPONENT_EXPORT STMComponent : public AbstractTimeModelComponent,
+class CSHComponent_EXPORT CSHComponent : public AbstractTimeModelComponent,
     public virtual HydroCouple::ICloneableModelComponent
 {
     Q_OBJECT
@@ -44,16 +44,16 @@ class STMCOMPONENT_EXPORT STMComponent : public AbstractTimeModelComponent,
   public:
 
     /*!
-     * \brief STMComponent constructor
+     * \brief CSHComponent constructor
      * \param id Unique identifier for this component instance.
      * \param modelComponentInfo the parent ModelComponentInfo that generated this component instance.
      */
-    STMComponent(const QString &id, STMComponentInfo* modelComponentInfo = nullptr);
+    CSHComponent(const QString &id, CSHComponentInfo* modelComponentInfo = nullptr);
 
     /*!
-     * \brief ~STMComponent destructor
+     * \brief ~CSHComponent destructor
      */
-    virtual ~STMComponent();
+    virtual ~CSHComponent();
 
     /*!
      * \brief validate validates this component model instance
@@ -81,7 +81,7 @@ class STMCOMPONENT_EXPORT STMComponent : public AbstractTimeModelComponent,
      * \brief modelInstance
      * \return
      */
-    STMModel *modelInstance() const;
+    CSHModel *modelInstance() const;
 
     /*!
      * \brief parent
@@ -103,7 +103,7 @@ class STMCOMPONENT_EXPORT STMComponent : public AbstractTimeModelComponent,
 
   protected:
 
-    bool removeClone(STMComponent *component);
+    bool removeClone(CSHComponent *component);
 
 
     /*!
@@ -211,10 +211,10 @@ class STMCOMPONENT_EXPORT STMComponent : public AbstractTimeModelComponent,
 
     std::vector<QSharedPointer<HCGeometry>> m_elementGeometries;
     std::vector<QSharedPointer<HCGeometry>> m_elementJunctionGeometries;
-    STMModel *m_modelInstance;
+    CSHModel *m_modelInstance;
 
-    STMComponent *m_parent = nullptr;
+    CSHComponent *m_parent = nullptr;
     QList<HydroCouple::ICloneableModelComponent*> m_clones;
 };
 
-#endif //STMCOMPONENT_H
+#endif //CSHComponent_H

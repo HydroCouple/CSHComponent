@@ -1,9 +1,9 @@
 #include "stdafx.h"
-#include "stmcomponent.h"
+#include "cshcomponent.h"
 #include "elementinput.h"
 #include "spatial/point.h"
 #include "spatial/linestring.h"
-#include "stmmodel.h"
+#include "cshmodel.h"
 #include "element.h"
 #include "temporal/timedata.h"
 
@@ -19,7 +19,7 @@ ElementInput::ElementInput(const QString &id,
                            Dimension *geometryDimension,
                            ValueDefinition *valueDefinition,
                            VariableType varType,
-                           STMComponent *modelComponent)
+                           CSHComponent *modelComponent)
   : TimeGeometryInputDouble(id, IGeometry::LineString, timeDimension, geometryDimension,
                             valueDefinition, modelComponent),
     m_component(modelComponent),
@@ -279,7 +279,7 @@ ElementHeatSourceInput::ElementHeatSourceInput(const QString &id,
                                                Dimension *geometryDimension,
                                                ValueDefinition *valueDefinition,
                                                SourceType srcType,
-                                               STMComponent *modelComponent)
+                                               CSHComponent *modelComponent)
   : TimeGeometryMultiInputDouble(id, IGeometry::LineString, timeDimension, geometryDimension,
                                  valueDefinition, modelComponent),
     m_component(modelComponent),
@@ -458,11 +458,6 @@ void ElementHeatSourceInput::applyData()
                 Element *element =  m_component->modelInstance()->getElement(it.first);
                 double interpValue = value2 + factor *(value1 - value2);
                 element->externalHeatFluxes += interpValue;
-
-                //                if(provider->id() == "DownstreamMissingHeat" && it.second == 0)
-                //                {
-                //                  printf("Provider Id: %s, Value (j/s): %f\n", provider->id().toStdString().c_str(), interpValue);
-                //                }
               }
             }
             break;

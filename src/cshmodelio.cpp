@@ -1,5 +1,5 @@
 /*!
-*  \file    stmmodelio.cpp
+*  \file    CSHModelio.cpp
 *  \author  Caleb Amoa Buahin <caleb.buahin@gmail.com>
 *  \version 1.0.0
 *  \section Description
@@ -17,7 +17,7 @@
 *  \warning
 */
 
-#include "stmmodel.h"
+#include "cshmodel.h"
 #include "element.h"
 #include "elementjunction.h"
 #include "junctiontimeseriesbc.h"
@@ -47,74 +47,74 @@ using namespace netCDF::exceptions;
 
 using namespace std;
 
-bool STMModel::verbose() const
+bool CSHModel::verbose() const
 {
   return m_verbose;
 }
 
-void STMModel::setVerbose(bool verbose)
+void CSHModel::setVerbose(bool verbose)
 {
   m_verbose = verbose;
 }
 
-int STMModel::printFrequency() const
+int CSHModel::printFrequency() const
 {
   return m_printFrequency;
 }
 
-void STMModel::setPrintFrequency(int printFreq)
+void CSHModel::setPrintFrequency(int printFreq)
 {
   m_printFrequency = printFreq;
 }
 
-int STMModel::flushToDiskFrequency() const
+int CSHModel::flushToDiskFrequency() const
 {
   return m_flushToDiskFrequency;
 }
 
-void STMModel::setFlushToDiskFrequency(int diskFlushFrequency)
+void CSHModel::setFlushToDiskFrequency(int diskFlushFrequency)
 {
   m_flushToDiskFrequency = diskFlushFrequency;
 }
 
-QFileInfo STMModel::inputFile() const
+QFileInfo CSHModel::inputFile() const
 {
   return m_inputFile;
 }
 
-void STMModel::setInputFile(const QFileInfo &inputFile)
+void CSHModel::setInputFile(const QFileInfo &inputFile)
 {
   m_inputFile = inputFile;
 }
 
-QFileInfo STMModel::outputCSVFile() const
+QFileInfo CSHModel::outputCSVFile() const
 {
   return m_outputCSVFileInfo;
 }
 
-void STMModel::setOutputCSVFile(const QFileInfo &outputFile)
+void CSHModel::setOutputCSVFile(const QFileInfo &outputFile)
 {
   m_outputCSVFileInfo = outputFile;
 }
 
-QFileInfo STMModel::outputNetCDFFile() const
+QFileInfo CSHModel::outputNetCDFFile() const
 {
   return m_outputNetCDFFileInfo;
 }
 
-void STMModel::setOutputNetCDFFile(const QFileInfo &outputNetCDFFile)
+void CSHModel::setOutputNetCDFFile(const QFileInfo &outputNetCDFFile)
 {
   m_outputNetCDFFileInfo = outputNetCDFFile;
 }
 
-void STMModel::printStatus()
+void CSHModel::printStatus()
 {
   m_currentPrintCount++;
 
   if (m_currentPrintCount >= m_printFrequency)
   {
 
-    printf("STM TimeStep (s): %f\tDateTime: %f\tTemp (°C) { Iters: %i/%i\tMin: %f\tMax: %f\tTotalHeatBalance: %g (KJ)}", m_timeStep, m_currentDateTime,
+    printf("CSH TimeStep (s): %f\tDateTime: %f\tTemp (°C) { Iters: %i/%i\tMin: %f\tMax: %f\tTotalHeatBalance: %g (KJ)}", m_timeStep, m_currentDateTime,
            m_heatSolver->getIterations(), m_heatSolver->maxIterations(), m_minTemp, m_maxTemp, m_totalHeatBalance);
 
     for (size_t j = 0; j < m_solutes.size(); j++)
@@ -131,7 +131,7 @@ void STMModel::printStatus()
   }
 }
 
-void STMModel::saveAs(const QFileInfo &filePath)
+void CSHModel::saveAs(const QFileInfo &filePath)
 {
   QFileInfo fileInfo;
 
@@ -153,7 +153,7 @@ void STMModel::saveAs(const QFileInfo &filePath)
   }
 }
 
-bool STMModel::initializeInputFiles(list<string> &errors)
+bool CSHModel::initializeInputFiles(list<string> &errors)
 {
 
   if (QFile::exists(m_inputFile.absoluteFilePath()))
@@ -255,13 +255,13 @@ bool STMModel::initializeInputFiles(list<string> &errors)
   return true;
 }
 
-bool STMModel::initializeOutputFiles(list<string> &errors)
+bool CSHModel::initializeOutputFiles(list<string> &errors)
 {
   return initializeCSVOutputFile(errors) &&
       initializeNetCDFOutputFile(errors);
 }
 
-bool STMModel::initializeCSVOutputFile(list<string> &errors)
+bool CSHModel::initializeCSVOutputFile(list<string> &errors)
 {
 
   if (m_outputCSVFileInfo.isRelative())
@@ -316,7 +316,7 @@ bool STMModel::initializeCSVOutputFile(list<string> &errors)
   return false;
 }
 
-bool STMModel::initializeNetCDFOutputFile(list<string> &errors)
+bool CSHModel::initializeNetCDFOutputFile(list<string> &errors)
 {
 
 #ifdef USE_NETCDF
@@ -799,7 +799,7 @@ bool STMModel::initializeNetCDFOutputFile(list<string> &errors)
   return returnValue;
 }
 
-bool STMModel::readInputFileOptionTag(const QString &line, QString &errorMessage)
+bool CSHModel::readInputFileOptionTag(const QString &line, QString &errorMessage)
 {
   QStringList options = line.split(m_delimiters, QString::SkipEmptyParts);
   std::string optionsFlag = options[0].toStdString();
@@ -1424,7 +1424,7 @@ bool STMModel::readInputFileOptionTag(const QString &line, QString &errorMessage
   return true;
 }
 
-bool STMModel::readInputFileOutputTag(const QString &line, QString &errorMessage)
+bool CSHModel::readInputFileOutputTag(const QString &line, QString &errorMessage)
 {
   QStringList options = line.split(m_delimiters, QString::SkipEmptyParts);
   QString optionsFlag = options[0];
@@ -1449,7 +1449,7 @@ bool STMModel::readInputFileOutputTag(const QString &line, QString &errorMessage
   return true;
 }
 
-bool STMModel::readInputFileSolutesTag(const QString &line, QString &errorMessage)
+bool CSHModel::readInputFileSolutesTag(const QString &line, QString &errorMessage)
 {
   QStringList columns = line.split(m_delimiters, QString::SkipEmptyParts);
 
@@ -1544,7 +1544,7 @@ bool STMModel::readInputFileSolutesTag(const QString &line, QString &errorMessag
   return true;
 }
 
-bool STMModel::readInputFileElementJunctionsTag(const QString &line, QString &errorMessage)
+bool CSHModel::readInputFileElementJunctionsTag(const QString &line, QString &errorMessage)
 {
   errorMessage = "";
   QStringList columns = line.split(m_delimiters, QString::SkipEmptyParts);
@@ -1582,7 +1582,7 @@ bool STMModel::readInputFileElementJunctionsTag(const QString &line, QString &er
   return true;
 }
 
-bool STMModel::readInputFileElementsTag(const QString &line, QString &errorMessage)
+bool CSHModel::readInputFileElementsTag(const QString &line, QString &errorMessage)
 {
   errorMessage = "";
   QStringList columns = line.split(m_delimiters, QString::SkipEmptyParts);
@@ -1675,7 +1675,7 @@ bool STMModel::readInputFileElementsTag(const QString &line, QString &errorMessa
   return true;
 }
 
-bool STMModel::readInputFileBoundaryConditionsTag(const QString &line, QString &errorMessage)
+bool CSHModel::readInputFileBoundaryConditionsTag(const QString &line, QString &errorMessage)
 {
   errorMessage = "";
   QStringList columns = line.split(m_delimiters, QString::SkipEmptyParts);
@@ -1831,7 +1831,7 @@ bool STMModel::readInputFileBoundaryConditionsTag(const QString &line, QString &
   return true;
 }
 
-bool STMModel::readInputFilePointSourcesTag(const QString &line, QString &errorMessage)
+bool CSHModel::readInputFilePointSourcesTag(const QString &line, QString &errorMessage)
 {
   errorMessage = "";
   QStringList columns = line.split(m_delimiters, QString::SkipEmptyParts);
@@ -1970,7 +1970,7 @@ bool STMModel::readInputFilePointSourcesTag(const QString &line, QString &errorM
   return true;
 }
 
-bool STMModel::readInputFileNonPointSourcesTag(const QString &line, QString &errorMessage)
+bool CSHModel::readInputFileNonPointSourcesTag(const QString &line, QString &errorMessage)
 {
   errorMessage = "";
   QStringList columns = line.split(m_delimiters, QString::SkipEmptyParts);
@@ -2120,7 +2120,7 @@ bool STMModel::readInputFileNonPointSourcesTag(const QString &line, QString &err
   return true;
 }
 
-bool STMModel::readInputFileUniformHydraulicsTag(const QString &line, QString &errorMessage)
+bool CSHModel::readInputFileUniformHydraulicsTag(const QString &line, QString &errorMessage)
 {
   errorMessage = "";
   QStringList columns = line.split(m_delimiters, QString::SkipEmptyParts);
@@ -2239,7 +2239,7 @@ bool STMModel::readInputFileUniformHydraulicsTag(const QString &line, QString &e
   return true;
 }
 
-bool STMModel::readInputFileNonUniformHydraulicsTag(const QString &line, QString &errorMessage)
+bool CSHModel::readInputFileNonUniformHydraulicsTag(const QString &line, QString &errorMessage)
 {
   errorMessage = "";
   QStringList columns = line.split(m_delimiters, QString::SkipEmptyParts);
@@ -2326,7 +2326,7 @@ bool STMModel::readInputFileNonUniformHydraulicsTag(const QString &line, QString
   return true;
 }
 
-bool STMModel::readInputFileUniformRadiativeFluxesTag(const QString &line, QString &errorMessage)
+bool CSHModel::readInputFileUniformRadiativeFluxesTag(const QString &line, QString &errorMessage)
 {
   errorMessage = "";
   QStringList columns = line.split(m_delimiters, QString::SkipEmptyParts);
@@ -2431,7 +2431,7 @@ bool STMModel::readInputFileUniformRadiativeFluxesTag(const QString &line, QStri
   return true;
 }
 
-bool STMModel::readInputFileNonUniformRadiativeFluxesTag(const QString &line, QString &errorMessage)
+bool CSHModel::readInputFileNonUniformRadiativeFluxesTag(const QString &line, QString &errorMessage)
 {
   errorMessage = "";
   QStringList columns = line.split(m_delimiters, QString::SkipEmptyParts);
@@ -2507,7 +2507,7 @@ bool STMModel::readInputFileNonUniformRadiativeFluxesTag(const QString &line, QS
   return true;
 }
 
-bool STMModel::readInputFileUniformMeteorologyTag(const QString &line, QString &errorMessage)
+bool CSHModel::readInputFileUniformMeteorologyTag(const QString &line, QString &errorMessage)
 {
   errorMessage = "";
   QStringList columns = line.split(m_delimiters, QString::SkipEmptyParts);
@@ -2626,7 +2626,7 @@ bool STMModel::readInputFileUniformMeteorologyTag(const QString &line, QString &
   return true;
 }
 
-bool STMModel::readInputFileNonUniformMeteorologyTag(const QString &line, QString &errorMessage)
+bool CSHModel::readInputFileNonUniformMeteorologyTag(const QString &line, QString &errorMessage)
 {
   errorMessage = "";
   QStringList columns = line.split(m_delimiters, QString::SkipEmptyParts);
@@ -2713,7 +2713,7 @@ bool STMModel::readInputFileNonUniformMeteorologyTag(const QString &line, QStrin
   return true;
 }
 
-void STMModel::writeOutput()
+void CSHModel::writeOutput()
 {
   m_currentflushToDiskCount++;
 
@@ -2731,7 +2731,7 @@ void STMModel::writeOutput()
   writeNetCDFOutput();
 }
 
-void STMModel::writeCSVOutput()
+void CSHModel::writeCSVOutput()
 {
   if (m_outputCSVStream.device() && m_outputCSVStream.device()->isOpen())
   {
@@ -2771,7 +2771,7 @@ void STMModel::writeCSVOutput()
   }
 }
 
-void STMModel::writeNetCDFOutput()
+void CSHModel::writeNetCDFOutput()
 {
 #ifdef USE_NETCDF
 
@@ -2963,13 +2963,13 @@ void STMModel::writeNetCDFOutput()
 #endif
 }
 
-void STMModel::closeOutputFiles()
+void CSHModel::closeOutputFiles()
 {
   closeCSVOutputFile();
   closeOutputNetCDFFile();
 }
 
-void STMModel::closeCSVOutputFile()
+void CSHModel::closeCSVOutputFile()
 {
   if (m_outputCSVStream.device() && m_outputCSVStream.device()->isOpen())
   {
@@ -2980,7 +2980,7 @@ void STMModel::closeCSVOutputFile()
   }
 }
 
-void STMModel::closeOutputNetCDFFile()
+void CSHModel::closeOutputNetCDFFile()
 {
 #ifdef USE_NETCDF
 
@@ -2993,7 +2993,7 @@ void STMModel::closeOutputNetCDFFile()
 #endif
 }
 
-QFileInfo STMModel::relativePathToAbsolute(const QFileInfo &fileInfo)
+QFileInfo CSHModel::relativePathToAbsolute(const QFileInfo &fileInfo)
 {
   if (fileInfo.isRelative())
   {
@@ -3014,7 +3014,7 @@ QFileInfo STMModel::relativePathToAbsolute(const QFileInfo &fileInfo)
 }
 
 
-const unordered_map<string, int> STMModel::m_inputFileFlags({
+const unordered_map<string, int> CSHModel::m_inputFileFlags({
                                                               {"[OPTIONS]", 1},
                                                               {"[OUTPUTS]", 2},
                                                               {"[SOLUTES]", 3},
@@ -3031,7 +3031,7 @@ const unordered_map<string, int> STMModel::m_inputFileFlags({
                                                               {"[NON_UNIFORM_METEOROLOGY]", 14}
                                                             });
 
-const unordered_map<string, int> STMModel::m_optionsFlags({
+const unordered_map<string, int> CSHModel::m_optionsFlags({
                                                             {"START_DATETIME", 1},
                                                             {"END_DATETIME", 2},
                                                             {"REPORT_INTERVAL", 3},
@@ -3062,27 +3062,27 @@ const unordered_map<string, int> STMModel::m_optionsFlags({
 
                                                           });
 
-const unordered_map<string, int> STMModel::m_advectionFlags({
+const unordered_map<string, int> CSHModel::m_advectionFlags({
                                                               {"UPWIND", 1},
                                                               {"CENTRAL", 2},
                                                               {"HYBRID", 3},
                                                               {"TVD", 4},
                                                             });
 
-const unordered_map<string, int> STMModel::m_solverTypeFlags({{"RK4", 1},
+const unordered_map<string, int> CSHModel::m_solverTypeFlags({{"RK4", 1},
                                                               {"RKQS", 2},
                                                               {"ADAMS", 3},
                                                               {"BDF", 4},
                                                               {"EULER", 5}
                                                              });
 
-const unordered_map<string, int> STMModel::m_hydraulicVariableFlags({{"DEPTH", 1},
+const unordered_map<string, int> CSHModel::m_hydraulicVariableFlags({{"DEPTH", 1},
                                                                      {"WIDTH", 2},
                                                                      {"XSECTION_AREA", 3},
                                                                      {"FLOW", 4}});
 
-const unordered_map<string, int> STMModel::m_meteorologicalVariableFlags({{"RELATIVE_HUMIDITY", 1},
+const unordered_map<string, int> CSHModel::m_meteorologicalVariableFlags({{"RELATIVE_HUMIDITY", 1},
                                                                           {"AIR_TEMPERATURE", 2},
                                                                           {"WIND_SPEED", 3}});
 
-const QRegExp STMModel::m_dateTimeDelim("(\\,|\\t|\\\n|\\/|\\s+|\\:)");
+const QRegExp CSHModel::m_dateTimeDelim("(\\,|\\t|\\\n|\\/|\\s+|\\:)");

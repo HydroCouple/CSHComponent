@@ -21,19 +21,17 @@
 #include "stdafx.h"
 #include "elementjunction.h"
 #include "element.h"
-#include "stmmodel.h"
+#include "cshmodel.h"
 
 #include <math.h>
 
-ElementJunction::ElementJunction(const std::string &id, double x, double y, double z, STMModel *model)
+ElementJunction::ElementJunction(const std::string &id, double x, double y, double z, CSHModel *model)
   :id(id), x(x), y(y), z(z),
     heatContinuityIndex(-1),
     soluteContinuityIndexes(nullptr),
     numSolutes(0),
     soluteConcs(nullptr),
     prevSoluteConcs(nullptr),
-    longDispersion(0.0),
-    longDispersion_length(0.0),
     model(model)
 {
   initializeSolutes();
@@ -85,31 +83,6 @@ void ElementJunction::initializeSolutes()
   }
 }
 
-void ElementJunction::interpLongDispersion()
-{
-//  IDW interpolation for
-  this->longDispersion = 0;
-  this->longDispersion_length = 0;
-  double sum_x = 0;
-
-  for(Element *element : this->outgoingElements)
-  {
-    longDispersion += element->longDispersion.value / element->length / 2.0;
-    longDispersion_length += element->longDispersion.value / element->length / element->length / 2.0;
-    sum_x += 1.0 / element->length / 2.0;
-  }
-
-  for(Element *element : this->incomingElements)
-  {
-    longDispersion += element->longDispersion.value / element->length / 2.0;
-    longDispersion_length += element->longDispersion.value / element->length / element->length / 2.0;
-    sum_x += 1.0 / element->length / 2.0;
-  }
-
-  this->longDispersion /= sum_x;
-  this->longDispersion_length /= sum_x;
-}
-
 void ElementJunction::interpTemp()
 {
   //IDW interpolation for
@@ -129,27 +102,6 @@ void ElementJunction::interpTemp()
   }
 
   this->temperature.value = tempTemp / sum_x;
-}
-
-void ElementJunction::interpXSectionArea()
-{
-  //IDW interpolation for
-  double sum_Area_x = 0;
-  double sum_x = 0;
-
-  for(Element *element : this->outgoingElements)
-  {
-    sum_Area_x += element->xSectionArea / element->length / 2.0;
-    sum_x += 1.0 / element->length / 2.0;
-  }
-
-  for(Element *element : this->incomingElements)
-  {
-    sum_Area_x += element->xSectionArea / element->length / 2.0;
-    sum_x += 1.0 / element->length / 2.0;
-  }
-
-  xSectionArea = sum_Area_x / sum_x;
 }
 
 void ElementJunction::interpSoluteConcs(int soluteIndex)

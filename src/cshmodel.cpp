@@ -1,5 +1,5 @@
 /*!
-*  \file    stmmodel.cpp
+*  \file    CSHModel.cpp
 *  \author  Caleb Amoa Buahin <caleb.buahin@gmail.com>
 *  \version 1.0.0
 *  \section Description
@@ -17,8 +17,8 @@
 *  \warning
 */
 
-#include "stmmodel.h"
-#include "stmcomponent.h"
+#include "cshmodel.h"
+#include "cshcomponent.h"
 #include "spatial/point.h"
 #include "spatial/network.h"
 #include "element.h"
@@ -28,7 +28,7 @@
 
 using namespace std;
 
-STMModel::STMModel(STMComponent *component)
+CSHModel::CSHModel(CSHComponent *component)
   : QObject(component),
     m_timeStep(0.0001), //seconds
     m_maxTimeStep(0.5), //seconds
@@ -63,7 +63,7 @@ STMModel::STMModel(STMComponent *component)
   m_heatSolver = new ODESolver(1, ODESolver::CVODE_ADAMS);
 }
 
-STMModel::~STMModel()
+CSHModel::~CSHModel()
 {
 
   for(Element *element : m_elements)
@@ -97,103 +97,103 @@ STMModel::~STMModel()
   m_boundaryConditions.clear();
 }
 
-double STMModel::minTimeStep() const
+double CSHModel::minTimeStep() const
 {
   return m_minTimeStep;
 }
 
-void STMModel::setMinTimeStep(double timeStep)
+void CSHModel::setMinTimeStep(double timeStep)
 {
   m_minTimeStep = timeStep;
 }
 
-double STMModel::maxTimeStep() const
+double CSHModel::maxTimeStep() const
 {
   return m_maxTimeStep;
 }
 
-void STMModel::setMaxTimeStep(double timeStep)
+void CSHModel::setMaxTimeStep(double timeStep)
 {
   m_maxTimeStep = timeStep;
 }
 
-bool STMModel::useAdaptiveTimeStep() const
+bool CSHModel::useAdaptiveTimeStep() const
 {
   return m_useAdaptiveTimeStep;
 }
 
-void STMModel::setUseAdaptiveTimeStep(bool use)
+void CSHModel::setUseAdaptiveTimeStep(bool use)
 {
   m_useAdaptiveTimeStep = use;
 }
 
-double STMModel::timeStepRelaxationFactor() const
+double CSHModel::timeStepRelaxationFactor() const
 {
   return m_timeStepRelaxationFactor;
 }
 
-void STMModel::setTimeStepRelaxationFactor(double tStepRelaxFactor)
+void CSHModel::setTimeStepRelaxationFactor(double tStepRelaxFactor)
 {
   if(tStepRelaxFactor > 0)
     m_timeStepRelaxationFactor = tStepRelaxFactor;
 }
 
-double STMModel::currentTimeStep() const
+double CSHModel::currentTimeStep() const
 {
   return m_timeStep;
 }
 
-double STMModel::startDateTime() const
+double CSHModel::startDateTime() const
 {
   return m_startDateTime;
 }
 
-void STMModel::setStartDateTime(double dateTime)
+void CSHModel::setStartDateTime(double dateTime)
 {
   m_startDateTime = dateTime;
 }
 
-double STMModel::endDateTime() const
+double CSHModel::endDateTime() const
 {
   return m_endDateTime;
 }
 
-void STMModel::setEndDateTime(double dateTime)
+void CSHModel::setEndDateTime(double dateTime)
 {
   m_endDateTime = dateTime;
 }
 
-double STMModel::outputInterval() const
+double CSHModel::outputInterval() const
 {
   return m_outputInterval;
 }
 
-void STMModel::setOutputInterval(double interval)
+void CSHModel::setOutputInterval(double interval)
 {
   m_outputInterval = interval;
 }
 
-double STMModel::currentDateTime() const
+double CSHModel::currentDateTime() const
 {
   return m_currentDateTime;
 }
 
-ODESolver *STMModel::heatSolver() const
+ODESolver *CSHModel::heatSolver() const
 {
   return m_heatSolver;
 }
 
-std::vector<ODESolver*> STMModel::soluteSolvers() const
+std::vector<ODESolver*> CSHModel::soluteSolvers() const
 {
   return m_soluteSolvers;
 }
 
-bool STMModel::computeLongDispersion() const
+bool CSHModel::computeLongDispersion() const
 {
   return m_computeDispersion;
 }
 
-void STMModel::setComputeLongDispersion(bool calculate)
+void CSHModel::setComputeLongDispersion(bool calculate)
 {
   m_computeDispersion = calculate;
 
@@ -203,42 +203,42 @@ void STMModel::setComputeLongDispersion(bool calculate)
   }
 }
 
-STMModel::AdvectionDiscretizationMode STMModel::advectionDiscretizationMode() const
+CSHModel::AdvectionDiscretizationMode CSHModel::advectionDiscretizationMode() const
 {
   return m_advectionMode;
 }
 
-void STMModel::setAdvectionDiscretizationMode(AdvectionDiscretizationMode advectionDiscretizationMode)
+void CSHModel::setAdvectionDiscretizationMode(AdvectionDiscretizationMode advectionDiscretizationMode)
 {
   m_advectionMode = advectionDiscretizationMode;
 }
 
-double STMModel::waterDensity() const
+double CSHModel::waterDensity() const
 {
   return m_waterDensity;
 }
 
-void STMModel::setWaterDensity(double value)
+void CSHModel::setWaterDensity(double value)
 {
   m_waterDensity = value;
 }
 
-double STMModel::specificHeatCapacityWater() const
+double CSHModel::specificHeatCapacityWater() const
 {
   return m_cp;
 }
 
-void STMModel::setSpecificHeatCapacityWater(double value)
+void CSHModel::setSpecificHeatCapacityWater(double value)
 {
   m_cp = value;
 }
 
-int STMModel::numSolutes() const
+int CSHModel::numSolutes() const
 {
   return (int)m_solutes.size();
 }
 
-void STMModel::setNumSolutes(int numSolutes)
+void CSHModel::setNumSolutes(int numSolutes)
 {
   if(numSolutes >= 0)
   {
@@ -283,22 +283,22 @@ void STMModel::setNumSolutes(int numSolutes)
   }
 }
 
-void STMModel::setSoluteName(int soluteIndex, const string &soluteName)
+void CSHModel::setSoluteName(int soluteIndex, const string &soluteName)
 {
   m_solutes[soluteIndex] = soluteName;
 }
 
-string STMModel::solute(int soluteIndex) const
+string CSHModel::solute(int soluteIndex) const
 {
   return m_solutes[soluteIndex];
 }
 
-int STMModel::numElementJunctions() const
+int CSHModel::numElementJunctions() const
 {
   return m_elementJunctions.size();
 }
 
-ElementJunction *STMModel::addElementJunction(const string &id, double x, double y, double z)
+ElementJunction *CSHModel::addElementJunction(const string &id, double x, double y, double z)
 {
   if(m_elementJunctionsById.find(id) == m_elementJunctionsById.end())
   {
@@ -312,7 +312,7 @@ ElementJunction *STMModel::addElementJunction(const string &id, double x, double
   return nullptr;
 }
 
-void STMModel::deleteElementJunction(const string &id)
+void CSHModel::deleteElementJunction(const string &id)
 {
   std::unordered_map<string,ElementJunction*>::iterator eJIter =  m_elementJunctionsById.find(id) ;
 
@@ -331,7 +331,7 @@ void STMModel::deleteElementJunction(const string &id)
   }
 }
 
-void STMModel::deleteElementJunction(int index)
+void CSHModel::deleteElementJunction(int index)
 {
   ElementJunction *eJunction = m_elementJunctions[index];
 
@@ -344,22 +344,22 @@ void STMModel::deleteElementJunction(int index)
   delete eJunction;
 }
 
-ElementJunction *STMModel::getElementJunction(const string &id)
+ElementJunction *CSHModel::getElementJunction(const string &id)
 {
   return m_elementJunctionsById[id];
 }
 
-ElementJunction *STMModel::getElementJunction(int index)
+ElementJunction *CSHModel::getElementJunction(int index)
 {
   return m_elementJunctions[index];
 }
 
-int STMModel::numElements() const
+int CSHModel::numElements() const
 {
   return m_elements.size();
 }
 
-Element *STMModel::addElement(const string &id, ElementJunction *upStream, ElementJunction *downStream)
+Element *CSHModel::addElement(const string &id, ElementJunction *upStream, ElementJunction *downStream)
 {
   if(upStream && downStream)
   {
@@ -373,7 +373,7 @@ Element *STMModel::addElement(const string &id, ElementJunction *upStream, Eleme
   return nullptr;
 }
 
-void STMModel::deleteElement(const string &id)
+void CSHModel::deleteElement(const string &id)
 {
   unordered_map<string,Element*>::iterator eIter = m_elementsById.find(id);
 
@@ -390,7 +390,7 @@ void STMModel::deleteElement(const string &id)
   }
 }
 
-void STMModel::deleteElement(int index)
+void CSHModel::deleteElement(int index)
 {
   Element *element = m_elements[index];
   m_elementJunctionsById.erase(element->id);
@@ -403,27 +403,27 @@ void STMModel::deleteElement(int index)
   delete element;
 }
 
-Element *STMModel::getElement(const string &id)
+Element *CSHModel::getElement(const string &id)
 {
   return m_elementsById[id];
 }
 
-Element *STMModel::getElement(int index)
+Element *CSHModel::getElement(int index)
 {
   return m_elements[index];
 }
 
-RetrieveCouplingData STMModel::retrieveCouplingDataFunction() const
+RetrieveCouplingData CSHModel::retrieveCouplingDataFunction() const
 {
   return m_retrieveCouplingDataFunction;
 }
 
-void STMModel::setRetrieveCouplingDataFunction(RetrieveCouplingData retrieveCouplingDataFunction)
+void CSHModel::setRetrieveCouplingDataFunction(RetrieveCouplingData retrieveCouplingDataFunction)
 {
   m_retrieveCouplingDataFunction = retrieveCouplingDataFunction;
 }
 
-bool STMModel::initialize(list<string> &errors)
+bool CSHModel::initialize(list<string> &errors)
 {
   bool initialized = initializeInputFiles(errors) &&
                      initializeTimeVariables(errors) &&
@@ -441,7 +441,7 @@ bool STMModel::initialize(list<string> &errors)
   return initialized;
 }
 
-bool STMModel::finalize(std::list<string> &errors)
+bool CSHModel::finalize(std::list<string> &errors)
 {
   closeOutputFiles();
 
@@ -453,7 +453,7 @@ bool STMModel::finalize(std::list<string> &errors)
   return true;
 }
 
-bool STMModel::initializeTimeVariables(std::list<string> &errors)
+bool CSHModel::initializeTimeVariables(std::list<string> &errors)
 {
   if(m_startDateTime >= m_endDateTime)
   {
@@ -490,7 +490,7 @@ bool STMModel::initializeTimeVariables(std::list<string> &errors)
   return true;
 }
 
-bool STMModel::initializeElements(std::list<string> &errors)
+bool CSHModel::initializeElements(std::list<string> &errors)
 {
 
 #ifdef USE_OPENMP
@@ -593,7 +593,7 @@ bool STMModel::initializeElements(std::list<string> &errors)
   return true;
 }
 
-bool STMModel::initializeSolver(std::list<string> &errors)
+bool CSHModel::initializeSolver(std::list<string> &errors)
 {
   m_heatSolver->setSize(m_elements.size());
   m_heatSolver->initialize();
@@ -608,7 +608,7 @@ bool STMModel::initializeSolver(std::list<string> &errors)
   return true;
 }
 
-bool STMModel::initializeBoundaryConditions(std::list<string> &errors)
+bool CSHModel::initializeBoundaryConditions(std::list<string> &errors)
 {
   for(size_t i = 0; i < m_boundaryConditions.size() ; i++)
   {
@@ -621,7 +621,7 @@ bool STMModel::initializeBoundaryConditions(std::list<string> &errors)
   return true;
 }
 
-bool STMModel::findProfile(Element *from, Element *to, std::list<Element *> &profile)
+bool CSHModel::findProfile(Element *from, Element *to, std::list<Element *> &profile)
 {
   for(Element *outgoing : from->downstreamJunction->outgoingElements)
   {
@@ -641,7 +641,7 @@ bool STMModel::findProfile(Element *from, Element *to, std::list<Element *> &pro
   return false;
 }
 
-void STMModel::calculateDistanceFromUpstreamJunction(Element *element)
+void CSHModel::calculateDistanceFromUpstreamJunction(Element *element)
 {
   if(element->distanceFromUpStreamJunction == 0)
   {

@@ -1,12 +1,12 @@
-# STMComponent
-[![AUR](https://img.shields.io/aur/license/yaourt.svg)](https://github.com/HydroCouple/STMComponent/blob/master/LICENSE)
+# CSHComponent
+[![AUR](https://img.shields.io/aur/license/yaourt.svg)](https://github.com/HydroCouple/CSHComponent/blob/master/LICENSE)
 
 A one-dimensional stream heat and solute transport model.
 
 ## Input File Specification
 ---------------------------------------
 
-The STMComponent can be initialized from an input file described in the documents or initialized programmatically as shown in the following code.
+The CSHComponent can be initialized from an input file described in the documents or initialized programmatically as shown in the following code.
 
 ## Sample Code
 ---------------------------------------
@@ -23,10 +23,10 @@ The STMComponent can be initialized from an input file described in the document
     std::list<std::string> errors;
 
     //Stream temperature model instance
-    STMModel *model = new STMModel(nullptr);
+    CSHModel *model = new CSHModel(nullptr);
 
     //Set advection discretization mode
-    model->setAdvectionDiscretizationMode(STMModel::AdvectionDiscretizationMode::Upwind);
+    model->setAdvectionDiscretizationMode(CSHModel::AdvectionDiscretizationMode::Upwind);
 
     //set time and output variables
     model->setMaxTimeStep(0.5); //seconds

@@ -1,5 +1,5 @@
 /*!
-   *  \file    stmcomponent.cpp
+   *  \file    CSHComponent.cpp
    *  \author  Caleb Amoa Buahin <caleb.buahin@gmail.com>
    *  \version 1.0.0
    *  \section Description
@@ -18,8 +18,8 @@
    */
 
 #include "stdafx.h"
-#include "stmcomponent.h"
-#include "stmmodel.h"
+#include "cshcomponent.h"
+#include "cshmodel.h"
 
 #include "core/dimension.h"
 #include "core/valuedefinition.h"
@@ -39,7 +39,7 @@
 
 using namespace HydroCouple;
 
-STMComponent::STMComponent(const QString &id, STMComponentInfo *modelComponentInfo)
+CSHComponent::CSHComponent(const QString &id, CSHComponentInfo *modelComponentInfo)
   : AbstractTimeModelComponent(id, modelComponentInfo),
     m_inputFilesArgument(nullptr),
     m_flowInput(nullptr),
@@ -81,14 +81,14 @@ STMComponent::STMComponent(const QString &id, STMComponentInfo *modelComponentIn
   createArguments();
 }
 
-STMComponent::~STMComponent()
+CSHComponent::~CSHComponent()
 {
 
   initializeFailureCleanUp();
 
   while (m_clones.size())
   {
-    STMComponent *clone =  dynamic_cast<STMComponent*>(m_clones.first());
+    CSHComponent *clone =  dynamic_cast<CSHComponent*>(m_clones.first());
     removeClone(clone);
     delete clone;
   }
@@ -100,7 +100,7 @@ STMComponent::~STMComponent()
   }
 }
 
-QList<QString> STMComponent::validate()
+QList<QString> CSHComponent::validate()
 {
   if(isInitialized())
   {
@@ -118,7 +118,7 @@ QList<QString> STMComponent::validate()
   return QList<QString>();
 }
 
-void STMComponent::prepare()
+void CSHComponent::prepare()
 {
   if(!isPrepared() && isInitialized() && m_modelInstance)
   {
@@ -142,7 +142,7 @@ void STMComponent::prepare()
   }
 }
 
-void STMComponent::update(const QList<HydroCouple::IOutput*> &requiredOutputs)
+void CSHComponent::update(const QList<HydroCouple::IOutput*> &requiredOutputs)
 {
   if(status() == IModelComponent::Updated)
   {
@@ -183,11 +183,11 @@ void STMComponent::update(const QList<HydroCouple::IOutput*> &requiredOutputs)
   }
 }
 
-void STMComponent::finish()
+void CSHComponent::finish()
 {
   if(isPrepared())
   {
-    setStatus(IModelComponent::Finishing , "STMComponent with id " + id() + " is being disposed" , 100);
+    setStatus(IModelComponent::Finishing , "CSHComponent with id " + id() + " is being disposed" , 100);
 
     std::list<std::string> errors;
     m_modelInstance->finalize(errors);
@@ -196,26 +196,26 @@ void STMComponent::finish()
     setPrepared(false);
     setInitialized(false);
 
-    setStatus(IModelComponent::Finished , "STMComponent with id " + id() + " has been disposed" , 100);
-    setStatus(IModelComponent::Created , "STMComponent with id " + id() + " ran successfully and has been re-created" , 100);
+    setStatus(IModelComponent::Finished , "CSHComponent with id " + id() + " has been disposed" , 100);
+    setStatus(IModelComponent::Created , "CSHComponent with id " + id() + " ran successfully and has been re-created" , 100);
   }
 }
 
-STMModel *STMComponent::modelInstance() const
+CSHModel *CSHComponent::modelInstance() const
 {
   return m_modelInstance;
 }
 
-ICloneableModelComponent *STMComponent::parent() const
+ICloneableModelComponent *CSHComponent::parent() const
 {
   return m_parent;
 }
 
-ICloneableModelComponent *STMComponent::clone()
+ICloneableModelComponent *CSHComponent::clone()
 {
   if(isInitialized())
   {
-    STMComponent *cloneComponent = dynamic_cast<STMComponent*>(componentInfo()->createComponentInstance());
+    CSHComponent *cloneComponent = dynamic_cast<CSHComponent*>(componentInfo()->createComponentInstance());
     cloneComponent->setReferenceDirectory(referenceDirectory());
 
     IdBasedArgumentString *identifierArg = identifierArgument();
@@ -274,17 +274,17 @@ ICloneableModelComponent *STMComponent::clone()
   return nullptr;
 }
 
-QList<ICloneableModelComponent*> STMComponent::clones() const
+QList<ICloneableModelComponent*> CSHComponent::clones() const
 {
   return m_clones;
 }
 
-bool STMComponent::removeClone(STMComponent *component)
+bool CSHComponent::removeClone(CSHComponent *component)
 {
   int removed;
 
 #ifdef USE_OPENMP
-#pragma omp critical (STMComponent)
+#pragma omp critical (CSHComponent)
 #endif
   {
     removed = m_clones.removeAll(component);
@@ -299,7 +299,7 @@ bool STMComponent::removeClone(STMComponent *component)
   return removed;
 }
 
-void STMComponent::initializeFailureCleanUp()
+void CSHComponent::initializeFailureCleanUp()
 {
   if(m_modelInstance)
   {
@@ -309,12 +309,12 @@ void STMComponent::initializeFailureCleanUp()
 
 }
 
-void STMComponent::createArguments()
+void CSHComponent::createArguments()
 {
   createInputFileArguments();
 }
 
-void STMComponent::createInputFileArguments()
+void CSHComponent::createInputFileArguments()
 {
   QStringList fidentifiers;
   fidentifiers.append("Input File");
@@ -335,7 +335,7 @@ void STMComponent::createInputFileArguments()
   addArgument(m_inputFilesArgument);
 }
 
-bool STMComponent::initializeArguments(QString &message)
+bool CSHComponent::initializeArguments(QString &message)
 {
   bool initialized = initializeInputFilesArguments(message);
 
@@ -354,7 +354,7 @@ bool STMComponent::initializeArguments(QString &message)
   return initialized;
 }
 
-bool STMComponent::initializeInputFilesArguments(QString &message)
+bool CSHComponent::initializeInputFilesArguments(QString &message)
 {
   QString inputFilePath = QString((*m_inputFilesArgument)["Input File"]);
   QFileInfo inputFile = getAbsoluteFilePath(inputFilePath);
@@ -363,7 +363,7 @@ bool STMComponent::initializeInputFilesArguments(QString &message)
   {
     initializeFailureCleanUp();
 
-    m_modelInstance = new STMModel(this);
+    m_modelInstance = new CSHModel(this);
     m_modelInstance->setInputFile(inputFile);
 
     QString netCDFOutput = QString((*m_inputFilesArgument)["Output NetCDF File"]);
@@ -402,7 +402,7 @@ bool STMComponent::initializeInputFilesArguments(QString &message)
   return true;
 }
 
-void STMComponent::createGeometries()
+void CSHComponent::createGeometries()
 {
   m_elementGeometries.clear();
   m_elementJunctionGeometries.clear();
@@ -427,7 +427,7 @@ void STMComponent::createGeometries()
   }
 }
 
-void STMComponent::createInputs()
+void CSHComponent::createInputs()
 {
   createFlowInput();
   createXSectionAreaInput();
@@ -437,7 +437,7 @@ void STMComponent::createInputs()
   createExternalHeatFluxInput();
 }
 
-void STMComponent::createFlowInput()
+void CSHComponent::createFlowInput()
 {
   Quantity *flowQuantity = Quantity::flowInCMS(this);
 
@@ -468,7 +468,7 @@ void STMComponent::createFlowInput()
   addInput(m_flowInput);
 }
 
-void STMComponent::createXSectionAreaInput()
+void CSHComponent::createXSectionAreaInput()
 {
   Quantity *xSectionQuantity = Quantity::areaInSquareMeters(this);
 
@@ -499,7 +499,7 @@ void STMComponent::createXSectionAreaInput()
   addInput(m_xSectionAreaInput);
 }
 
-void STMComponent::createDepthInput()
+void CSHComponent::createDepthInput()
 {
   Quantity *depthQuantity = Quantity::lengthInMeters(this);
 
@@ -530,7 +530,7 @@ void STMComponent::createDepthInput()
   addInput(m_depthInput);
 }
 
-void STMComponent::createTopWidthInput()
+void CSHComponent::createTopWidthInput()
 {
   Quantity *widthQuantity = Quantity::lengthInMeters(this);
 
@@ -561,7 +561,7 @@ void STMComponent::createTopWidthInput()
   addInput(m_topWidthInput);
 }
 
-void STMComponent::createExternalRadiationFluxInput()
+void CSHComponent::createExternalRadiationFluxInput()
 {
 
   Quantity *radiationQuantity = new Quantity(QVariant::Double, m_radiationFluxUnit, this);
@@ -593,7 +593,7 @@ void STMComponent::createExternalRadiationFluxInput()
   addInput(m_externalRadiationFluxInput);
 }
 
-void STMComponent::createExternalHeatFluxInput()
+void CSHComponent::createExternalHeatFluxInput()
 {
   Quantity *heatFluxQuantity = new Quantity(QVariant::Double, m_heatFluxUnit, this);
 
@@ -625,12 +625,12 @@ void STMComponent::createExternalHeatFluxInput()
   addInput(m_externalHeatFluxInput);
 }
 
-void STMComponent::createOutputs()
+void CSHComponent::createOutputs()
 {
   createTemperatureOutput();
 }
 
-void STMComponent::createTemperatureOutput()
+void CSHComponent::createTemperatureOutput()
 {
   Quantity *temperatureQuantity = new Quantity(QVariant::Double, m_temperatureUnit, this);
 

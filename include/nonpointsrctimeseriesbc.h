@@ -22,7 +22,7 @@
 
 #include "abstracttimeseriesbc.h"
 
-class STMCOMPONENT_EXPORT NonPointSrcTimeSeriesBC : public AbstractTimeSeriesBC
+class CSHComponent_EXPORT NonPointSrcTimeSeriesBC : public AbstractTimeSeriesBC
 {
   public:
 
@@ -35,7 +35,7 @@ class STMCOMPONENT_EXPORT NonPointSrcTimeSeriesBC : public AbstractTimeSeriesBC
 
     NonPointSrcTimeSeriesBC(Element *startElement, double startElementLFactor,
                             Element *endElement, double endElementLFactor,
-                            VariableType variableType, STMModel *model);
+                            VariableType variableType, CSHModel *model);
 
     virtual ~NonPointSrcTimeSeriesBC();
 

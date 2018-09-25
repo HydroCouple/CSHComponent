@@ -1,5 +1,5 @@
 /*!
-*  \file    stmcomponenttest.h
+*  \file    CSHComponenttest.h
 *  \author  Caleb Amoa Buahin <caleb.buahin@gmail.com>
 *  \version 1.0.0
 *  \section Description
@@ -18,12 +18,12 @@
 */
 
 
-#ifndef STMCOMPONENTTEST_H
-#define STMCOMPONENTTEST_H
+#ifndef CSHCOMPONENTTEST_H
+#define CSHCOMPONENTTEST_H
 
 #include <QtTest/QtTest>
 
-class STMComponentTest : public QObject
+class CSHComponentTest : public QObject
 {
     Q_OBJECT
 
@@ -89,4 +89,4 @@ class STMComponentTest : public QObject
 };
 
 
-#endif // STMCOMPONENTTEST_H
+#endif // CSHCOMPONENTTEST_H

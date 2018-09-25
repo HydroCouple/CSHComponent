@@ -20,8 +20,8 @@
 
 #include "stdafx.h"
 #include "elementoutput.h"
-#include "stmcomponent.h"
-#include "stmmodel.h"
+#include "cshcomponent.h"
+#include "cshmodel.h"
 #include "temporal/timedata.h"
 #include "hydrocouplespatial.h"
 #include "element.h"
@@ -35,7 +35,7 @@ ElementOutput::ElementOutput(const QString &id,
                              Dimension *geometryDimension,
                              ValueDefinition *valueDefinition,
                              VariableType variableType,
-                             STMComponent *modelComponent)
+                             CSHComponent *modelComponent)
   : TimeGeometryOutputDouble(id, IGeometry::LineString,
                              timeDimension, geometryDimension,
                              valueDefinition, modelComponent),

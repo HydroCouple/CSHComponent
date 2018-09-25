@@ -21,16 +21,16 @@
 #ifndef ELEMENTINPUT_H
 #define ELEMENTINPUT_H
 
-#include "stmcomponent_global.h"
+#include "cshcomponent_global.h"
 #include "spatiotemporal/timegeometryinput.h"
 #include "spatiotemporal/timegeometrymultiinput.h"
 
 #include <unordered_map>
 
-class STMComponent;
+class CSHComponent;
 
 
-class STMCOMPONENT_EXPORT ElementInput : public TimeGeometryInputDouble
+class CSHComponent_EXPORT ElementInput : public TimeGeometryInputDouble
 {
     Q_OBJECT
 
@@ -49,7 +49,7 @@ class STMCOMPONENT_EXPORT ElementInput : public TimeGeometryInputDouble
                  Dimension *geometryDimension,
                  ValueDefinition *valueDefinition,
                  VariableType varType,
-                 STMComponent *modelComponent);
+                 CSHComponent *modelComponent);
 
     /*!
      * \brief setProvider
@@ -91,12 +91,12 @@ class STMCOMPONENT_EXPORT ElementInput : public TimeGeometryInputDouble
 
     std::unordered_map<int,int> m_geometryMapping;
     std::unordered_map<int,double> m_geometryMappingOrientation;
-    STMComponent *m_component;
+    CSHComponent *m_component;
     VariableType m_varType;
 
 };
 
-class STMCOMPONENT_EXPORT ElementHeatSourceInput : public  TimeGeometryMultiInputDouble
+class CSHComponent_EXPORT ElementHeatSourceInput : public  TimeGeometryMultiInputDouble
 {
   public:
 
@@ -111,7 +111,7 @@ class STMCOMPONENT_EXPORT ElementHeatSourceInput : public  TimeGeometryMultiInpu
                            Dimension *geometryDimension,
                            ValueDefinition *valueDefinition,
                            SourceType srcType,
-                           STMComponent *modelComponent);
+                           CSHComponent *modelComponent);
 
     bool addProvider(HydroCouple::IOutput *provider) override;
 
@@ -129,7 +129,7 @@ class STMCOMPONENT_EXPORT ElementHeatSourceInput : public  TimeGeometryMultiInpu
 
   private:
 
-    STMComponent *m_component;
+    CSHComponent *m_component;
     SourceType m_srcType;
     std::unordered_map<HydroCouple::IOutput*, std::unordered_map<int,int>> m_geometryMapping;
 };
