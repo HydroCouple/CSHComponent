@@ -218,12 +218,9 @@ double Element::computeDTDtUpwind(double dt, double T[])
   double incomingFlux = 0.0;
   double outgoingFlux = 0.0;
 
-
   //Flow goes from upstream to downstream
   if(flow >= 0)
   {
-    outgoingFlux = flow * T[index];
-
     if(upstreamElement != nullptr && !upstreamJunction->temperature.isBC)
     {
       incomingFlux = upstreamElement->flow * upstreamElementDirection * T[upstreamElement->index];
@@ -233,6 +230,7 @@ double Element::computeDTDtUpwind(double dt, double T[])
       incomingFlux = flow * upstreamJunction->temperature.value;
     }
 
+    outgoingFlux = flow * T[index];
   }
   //Opposite Direction
   else
@@ -249,9 +247,7 @@ double Element::computeDTDtUpwind(double dt, double T[])
     }
   }
 
-
   return (incomingFlux - outgoingFlux) / volume ;
-
 }
 
 double Element::computeDTDtCentral(double dt, double T[])
@@ -445,6 +441,7 @@ double Element::computeDTDtDispersion(double dt, double T[])
   double volume = xSectionArea * length;
   double DTDt = 0.0;
 
+  //  printf("l: %f\tx: %f\tv: %f\n" , length, xSectionArea, volume);
   //If upstream element exists and upstream junction is not a boundary condition
   //use upstream element to compute derivative.
   if(upstreamElement != nullptr && !upstreamJunction->temperature.isBC)
@@ -570,6 +567,11 @@ double Element::computeDSoluteDtUpwind(double dt, double S[], int soluteIndex)
   double incomingFlux = 0.0;
   double outgoingFlux = 0.0;
 
+  if(flow < 0)
+  {
+    printf("Flow: %f\n", flow);
+  }
+
   //Flow goes from upstream to downstream
   if(flow >= 0)
   {
@@ -578,6 +580,11 @@ double Element::computeDSoluteDtUpwind(double dt, double S[], int soluteIndex)
     if(upstreamElement != nullptr && !upstreamJunction->soluteConcs[soluteIndex].isBC)
     {
       incomingFlux = upstreamElement->flow * upstreamElementDirection * S[upstreamElement->index];
+
+      if(upstreamElement->flow < 0)
+      {
+        printf("Flow: %f\n", upstreamElement->flow);
+      }
     }
     else
     {
@@ -592,6 +599,11 @@ double Element::computeDSoluteDtUpwind(double dt, double S[], int soluteIndex)
     if(downstreamElement != nullptr && !downstreamJunction->soluteConcs[soluteIndex].isBC)
     {
       outgoingFlux = downstreamElement->flow * downstreamElementDirection * S[downstreamElement->index];
+
+      if(downstreamElement->flow < 0)
+      {
+        printf("Flow: %f\n", downstreamElement->flow);
+      }
     }
     else
     {
@@ -722,7 +734,7 @@ double Element::computeDSoluteDtHybrid(double dt, double S[], int soluteIndex)
     downstreamFactor = (1 - (1.0 / downstreamPecletNumber / downstreamFactor)) * downstreamFactor;
 
     outgoingFlux =  downstreamFlow * (S[index] * centerFactor +
-                            S[downstreamElement->index] * downstreamFactor) / volume;
+                                      S[downstreamElement->index] * downstreamFactor) / volume;
   }
   else
   {

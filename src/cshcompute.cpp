@@ -435,7 +435,7 @@ void CSHModel::computeDTDt(double t, double y[], double dydt[], void* userData)
 
   SolverUserData *solverUserData = (SolverUserData*) userData;
   CSHModel *modelInstance = solverUserData->model;
-  double dt = t - (modelInstance->m_currentDateTime *  86400.0);
+  double dt = modelInstance->m_currentDateTime * 86400.0  - t;
 
 #ifdef USE_OPENMP
 #pragma omp parallel for
@@ -451,7 +451,7 @@ void CSHModel::computeDSoluteDt(double t, double y[], double dydt[], void *userD
 {
   SolverUserData *solverUserData = (SolverUserData*) userData;
   CSHModel *modelInstance = solverUserData->model;
-  double dt = t - modelInstance->m_currentDateTime *  86400.0;
+  double dt = modelInstance->m_currentDateTime * 86400.0  - t;
 
 #ifdef USE_OPENMP
 #pragma omp parallel for

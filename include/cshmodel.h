@@ -18,8 +18,8 @@
 *  \warning
 */
 
-#ifndef CSHModel_H
-#define CSHModel_H
+#ifndef CSHMODEL_H
+#define CSHMODEL_H
 
 #include "cshcomponent_global.h"
 #include "spatial/network.h"
@@ -863,4 +863,4 @@ class CSHComponent_EXPORT CSHModel : public QObject
     CSHComponent *m_component;
 };
 
-#endif // CSHModel_H
+#endif // CSHMODEL_H

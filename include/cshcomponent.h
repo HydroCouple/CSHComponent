@@ -17,8 +17,8 @@
  *  \warning
  */
 
-#ifndef CSHComponent_H
-#define CSHComponent_H
+#ifndef CSHCOMPONENT_H
+#define CSHCOMPONENT_H
 
 #include "cshcomponent_global.h"
 #include "cshcomponentinfo.h"
@@ -217,4 +217,4 @@ class CSHComponent_EXPORT CSHComponent : public AbstractTimeModelComponent,
     QList<HydroCouple::ICloneableModelComponent*> m_clones;
 };
 
-#endif //CSHComponent_H
+#endif //CSHCOMPONENT_H

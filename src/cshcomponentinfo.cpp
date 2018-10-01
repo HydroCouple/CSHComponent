@@ -29,16 +29,9 @@ CSHComponentInfo::CSHComponentInfo(QObject *parent)
 {
   GeometryFactory::registerGDAL();
 
-  setId("Stream Temperature Model 1.0.0");
+  setId("Channel Solute and Temperature Transport 1.0.0");
   setCaption("CSH Component");
-  setIconFilePath("./../../resources/images/hydrocouplecomposer.png");
-
-#ifdef QT_DEBUG
-  setIconFilePath("./../../resources/images/hydrocouplecomposer.png");
-#else
-  setIconFilePath("./CSHComponent.ico");
-#endif
-
+  setIconFilePath(":/CSHComponent/cshcomponenticon");
   setDescription("A one-dimensional channel heat and solute transport model.");
   setCategory("Hydrodyanmics\\Heat & Solute Transport");
   setCopyright("");

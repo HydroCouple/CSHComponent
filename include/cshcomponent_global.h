@@ -17,8 +17,8 @@
  *  \warning
  */
 
-#ifndef CSHComponent_GLOBAL_H
-#define CSHComponent_GLOBAL_H
+#ifndef CSHCOMPONENT_GLOBAL_H
+#define CSHCOMPONENT_GLOBAL_H
 
 #include <QtCore/qglobal.h>
 
@@ -28,4 +28,4 @@
 # define CSHComponent_EXPORT //Q_DECL_IMPORT
 #endif
 
-#endif // CSHComponent_GLOBAL_H
+#endif // CSHCOMPONENT_GLOBAL_H

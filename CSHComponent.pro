@@ -384,3 +384,6 @@ CONFIG(release, debug|release) {
           }
      }
 }
+
+RESOURCES += \
+           resources/cshcomponent.qrc

@@ -17,8 +17,8 @@
  *  \warning
  */
 
-#ifndef CSHComponentINFO_H
-#define CSHComponentINFO_H
+#ifndef CSHCOMPONENTINFO_H
+#define CSHCOMPONENTINFO_H
 
 #include "cshcomponent_global.h"
 #include "core/abstractmodelcomponentinfo.h"
@@ -41,4 +41,4 @@ class CSHComponent_EXPORT CSHComponentInfo : public AbstractModelComponentInfo
 
 Q_DECLARE_METATYPE(CSHComponentInfo*)
 
-#endif //CSHComponentINFO_H
+#endif //CSHCOMPONENTINFO_H
