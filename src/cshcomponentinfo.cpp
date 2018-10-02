@@ -32,7 +32,7 @@ CSHComponentInfo::CSHComponentInfo(QObject *parent)
   setId("Channel Solute and Temperature Transport 1.0.0");
   setCaption("CSH Component");
   setIconFilePath(":/CSHComponent/cshcomponenticon");
-  setDescription("A one-dimensional channel heat and solute transport model.");
+  setDescription("A one-dimensional channel heat and solute transport model");
   setCategory("Hydrodyanmics\\Heat & Solute Transport");
   setCopyright("");
   setVendor("");
