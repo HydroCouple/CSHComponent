@@ -18,7 +18,7 @@
 */
 
 #include "stdafx.h"
-#include "test/CSHComponenttest.h"
+#include "test/cshcomponenttest.h"
 #include "cshmodel.h"
 #include "elementjunction.h"
 #include "element.h"
