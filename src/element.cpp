@@ -197,8 +197,10 @@ double Element::computeDTDt(double dt, double T[])
       DTDt += externalHeatFluxes / rho_cp_vol;
     }
 
-    //Chain rule subtract previous
-    DTDt -= (rho_cp * T[index] * (volume - prev_volume)) / (model->m_timeStep * rho_cp_vol);
+    //Chain rule subtract volume derivative
+    {
+      DTDt -= (rho_cp * T[index] * (volume - prev_volume)) / (model->m_timeStep * rho_cp_vol);
+    }
 
     if(model->m_useEvaporation)
     {
@@ -368,7 +370,7 @@ double Element::computeDTDtHybrid(double dt, double T[])
     downstreamFactor = (1 - (1.0 / downstreamPecletNumber / downstreamFactor)) * downstreamFactor;
 
     outgoingFlux = rho_cp * downstreamFlow * (T[index] * centerFactor +
-                                      T[downstreamElement->index] * downstreamFactor);
+                                              T[downstreamElement->index] * downstreamFactor);
   }
   else
   {
@@ -543,8 +545,10 @@ double Element::computeDSoluteDt(double dt, double S[], int soluteIndex)
     //Compute dispersion
     DSoluteDt += computeDSoluteDtDispersion(dt, S, soluteIndex);
 
-    //subtract chain rule
-    DSoluteDt -= (S[index] * (volume - prev_volume)) / (model->m_timeStep * volume);
+    //subtract chain rule volume derivative
+    {
+      DSoluteDt -= (S[index] * (volume - prev_volume)) / (model->m_timeStep * volume);
+    }
 
     //Add external sources
     {
