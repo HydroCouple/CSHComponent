@@ -62,8 +62,8 @@ HEADERS += ./include/stdafx.h\
            ./include/elementoutput.h
 
 SOURCES +=./src/stdafx.cpp \
-          ./src/CSHComponent.cpp \
-          ./src/CSHComponentinfo.cpp \ 
+          ./src/cshcomponent.cpp \
+          ./src/cshcomponentinfo.cpp \
           ./src/main.cpp \
           ./src/element.cpp \
           ./src/cshmodel.cpp \

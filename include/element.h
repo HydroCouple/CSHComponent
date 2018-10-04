@@ -461,6 +461,11 @@ struct CSHComponent_EXPORT Element
    double computeDispersionFactor() const;
 
    /*!
+    * \brief computeDerivedHydraulics
+    */
+   void computeDerivedHydraulics();
+
+   /*!
     * \brief computeLongDispersion
     */
    void computeLongDispersion();
@@ -552,6 +557,36 @@ struct CSHComponent_EXPORT Element
     * \brief upstreamVelocity
     */
    double upstreamVelocity;
+
+   /*!
+    * \brief rho_cp
+    */
+   double rho_cp;
+
+   /*!
+    * \brief rho_cp_vol
+    */
+   double rho_cp_vol;
+
+   /*!
+    * \brief rho_vol
+    */
+   double rho_vol;
+
+   /*!
+    * \brief top_area
+    */
+   double top_area;
+
+   /*!
+    * \brief volume
+    */
+   double volume;
+
+   /*!
+    * \brief prev_volume
+    */
+   double prev_volume;
 
    /*!
     * \brief computeTempAdv Pointer to function to compute temperature advection.

@@ -41,10 +41,11 @@ void CSHModel:: update()
     if(m_component)
       m_component->applyInputValues();
 
+    computeDerivedHydraulics();
+
     computeLongDispersion();
 
     m_timeStep = computeTimeStep();
-
 
 #ifdef USE_OPENMP
 #pragma omp parallel for
@@ -70,7 +71,6 @@ void CSHModel:: update()
       }
     }
 
-
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
@@ -94,9 +94,6 @@ void CSHModel:: update()
           break;
       }
     }
-
-
-
 
     m_prevDateTime = m_currentDateTime;
     m_currentDateTime = m_currentDateTime + m_timeStep / 86400.0;
@@ -311,6 +308,19 @@ double CSHModel::computeTimeStep()
   return timeStep;
 }
 
+void CSHModel::computeDerivedHydraulics()
+{
+#ifdef USE_OPENMP
+#pragma omp parallel for
+#endif
+  for(int i = 0 ; i < (int)m_elements.size(); i++)
+  {
+    Element *element = m_elements[i];
+    element->computeDerivedHydraulics();
+  }
+
+}
+
 void CSHModel::computeLongDispersion()
 {
   if(m_computeDispersion)
@@ -366,7 +376,7 @@ void CSHModel::solveHeatTransport(double timeStep)
   SolverUserData solverUserData; solverUserData.model = this; solverUserData.variableIndex = -1;
 
   if(m_heatSolver->solve(currentTemperatures, m_elements.size() , m_currentDateTime * 86400.0, timeStep,
-                      outputTemperatures, &CSHModel::computeDTDt, &solverUserData))
+                         outputTemperatures, &CSHModel::computeDTDt, &solverUserData))
   {
     printf("CSH Temperature Solver failed \n");
   }
@@ -407,7 +417,7 @@ void CSHModel::solveSoluteTransport(int soluteIndex, double timeStep)
   SolverUserData solverUserData; solverUserData.model = this; solverUserData.variableIndex = soluteIndex;
 
   if(m_soluteSolvers[soluteIndex]->solve(outputSoluteConcs, m_elements.size() , m_currentDateTime * 86400.0, timeStep,
-                                      outputSoluteConcs, &CSHModel::computeDSoluteDt, &solverUserData))
+                                         outputSoluteConcs, &CSHModel::computeDSoluteDt, &solverUserData))
   {
     printf("CSH Solute Solver failed \n");
   }

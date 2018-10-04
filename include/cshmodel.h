@@ -212,6 +212,12 @@ class CSHComponent_EXPORT CSHModel : public QObject
     std::vector<ODESolver*> soluteSolvers() const;
 
     /*!
+     * \brief computeDerivedHydraulics
+     */
+    void computeDerivedHydraulics();
+
+
+    /*!
      * \brief computeLongDispersion
      * \return
      */
