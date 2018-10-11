@@ -371,6 +371,14 @@ struct CSHComponent_EXPORT Element
    double computeDTDtTVD(double dt, double T[]);
 
    /*!
+    * \brief computeDTDtULTIMATE
+    * \param dt
+    * \param T
+    * \return
+    */
+   double computeDTDtULTIMATE(double dt, double T[]);
+
+   /*!
     * \brief computeDTDtDispersion
     * \param dt
     * \param T
@@ -587,6 +595,11 @@ struct CSHComponent_EXPORT Element
     * \brief prev_volume
     */
    double prev_volume;
+
+   /*!
+    * \brief starting
+    */
+   bool starting;
 
    /*!
     * \brief computeTempAdv Pointer to function to compute temperature advection.

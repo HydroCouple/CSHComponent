@@ -360,6 +360,7 @@ void CSHModel::solveHeatTransport(double timeStep)
   //Allocate memory to store inputs and outputs
   double *currentTemperatures = new double[m_elements.size()];
   double *outputTemperatures = new double[m_elements.size()];
+  m_dheatPrevTime = m_currentDateTime * 86400.0;
 
   //Set initial input and output values to current values.
 #ifdef USE_OPENMP
@@ -401,6 +402,7 @@ void CSHModel::solveSoluteTransport(int soluteIndex, double timeStep)
 {
   double *currentSoluteConcs = new double[m_elements.size()];
   double *outputSoluteConcs = new double[m_elements.size()];
+  m_dsolutePrevTimes[soluteIndex] = m_currentDateTime *  86400.0;
 
   //Set initial values.
 #ifdef USE_OPENMP
@@ -444,7 +446,7 @@ void CSHModel::computeDTDt(double t, double y[], double dydt[], void* userData)
 {
   SolverUserData *solverUserData = (SolverUserData*) userData;
   CSHModel *modelInstance = solverUserData->model;
-  double dt = t - modelInstance->m_currentDateTime * 86400.0;
+  double dt = t - modelInstance->m_dheatPrevTime;
 
 #ifdef USE_OPENMP
 #pragma omp parallel for
@@ -454,13 +456,15 @@ void CSHModel::computeDTDt(double t, double y[], double dydt[], void* userData)
     Element *element = modelInstance->m_elements[i];
     dydt[element->index] = element->computeDTDt(dt,y);
   }
+
+  modelInstance->m_dheatPrevTime = t;
 }
 
 void CSHModel::computeDSoluteDt(double t, double y[], double dydt[], void *userData)
 {
   SolverUserData *solverUserData = (SolverUserData*) userData;
   CSHModel *modelInstance = solverUserData->model;
-  double dt = t - modelInstance->m_currentDateTime * 86400.0;
+  double dt = t - modelInstance->m_dsolutePrevTimes[solverUserData->variableIndex];
 
 #ifdef USE_OPENMP
 #pragma omp parallel for
@@ -471,6 +475,7 @@ void CSHModel::computeDSoluteDt(double t, double y[], double dydt[], void *userD
     dydt[element->index] = element->computeDSoluteDt(dt,y,solverUserData->variableIndex);
   }
 
+  modelInstance->m_dsolutePrevTimes[solverUserData->variableIndex] = t;
 }
 
 void CSHModel::solveJunctionHeatContinuity(double timeStep)

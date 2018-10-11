@@ -821,6 +821,8 @@ class CSHComponent_EXPORT CSHModel : public QObject
     //Number of junctions where continuity needs to be enforced.
     int m_numHeatElementJunctions;
     std::vector<int> m_numSoluteElementJunctions;
+    double m_dheatPrevTime;
+    std::vector<double> m_dsolutePrevTimes;
 
     //Solver Objects
     ODESolver *m_heatSolver = nullptr; //Heat solver

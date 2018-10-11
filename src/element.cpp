@@ -146,6 +146,7 @@ void Element::initialize()
       evaporationHeatFlux = convectionHeatFlux = upstreamLongDispersion = downstreamLongDispersion =
       volume = prev_volume = 0.0;
 
+  starting = true;
 
   for(int i = 0; i < numSolutes; i++)
   {
@@ -157,6 +158,8 @@ void Element::initialize()
 
 void Element::initializeSolutes()
 {
+  starting = true;
+
   if(soluteConcs)
   {
     delete[] soluteConcs; soluteConcs = nullptr;
@@ -430,6 +433,11 @@ double Element::computeDTDtTVD(double dt, double T[])
   //  }
 
   return incomingFlux - outgoingFlux;
+}
+
+double Element::computeDTDtULTIMATE(double dt, double T[])
+{
+
 }
 
 double Element::computeDTDtDispersion(double dt, double T[])
@@ -785,7 +793,17 @@ double Element::computeDispersionFactor() const
 
 void Element::computeDerivedHydraulics()
 {
-  prev_volume = volume;
+  if(starting)
+  {
+    prev_volume = volume  = xSectionArea * length;
+    starting = false;
+  }
+  else
+  {
+    prev_volume = volume;
+    volume  = xSectionArea * length;
+  }
+
   volume  = xSectionArea * length;
   rho_vol = model->m_waterDensity * volume;
   rho_cp  = model->m_waterDensity * model->m_cp;

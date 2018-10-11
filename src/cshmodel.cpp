@@ -256,6 +256,7 @@ void CSHModel::setNumSolutes(int numSolutes)
     m_totalSoluteMassBalance.resize(numSolutes);
     m_totalAdvDispSoluteMassBalance.resize(numSolutes);
     m_totalExternalSoluteFluxMassBalance.resize(numSolutes);
+    m_dsolutePrevTimes.resize(numSolutes);
 
     for(size_t i = 0 ; i < m_solutes.size(); i++)
     {
