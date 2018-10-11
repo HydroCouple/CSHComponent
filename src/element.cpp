@@ -73,6 +73,7 @@ Element::Element(const std::string &id, ElementJunction *upstream, ElementJuncti
     computeTempAdv(nullptr),
     computeSoluteAdv(nullptr)
 {
+  starting = true;
 
   initializeSolutes();
 
@@ -804,7 +805,6 @@ void Element::computeDerivedHydraulics()
     volume  = xSectionArea * length;
   }
 
-  volume  = xSectionArea * length;
   rho_vol = model->m_waterDensity * volume;
   rho_cp  = model->m_waterDensity * model->m_cp;
   rho_cp_vol = rho_cp * volume;
