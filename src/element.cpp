@@ -439,6 +439,7 @@ double Element::computeDTDtTVD(double dt, double T[])
 double Element::computeDTDtULTIMATE(double dt, double T[])
 {
 
+    return 0;
 }
 
 double Element::computeDTDtDispersion(double dt, double T[])
