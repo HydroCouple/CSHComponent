@@ -768,6 +768,7 @@ class CSHComponent_EXPORT CSHModel : public QObject
 
     //Time variables
     double m_timeStep, //seconds
+    m_prevTimeStep, //previous timesetp
     m_startDateTime, //Modified Julian Day
     m_endDateTime, //Modified Julian Day
     m_currentDateTime, //Modified Julian Day
@@ -806,6 +807,7 @@ class CSHComponent_EXPORT CSHModel : public QObject
      * \brief m_advectionMode
      */
     AdvectionDiscretizationMode m_advectionMode;
+    int m_TVDFluxLimiter;
 
     //Element junctions
     std::vector<ElementJunction*> m_elementJunctions;

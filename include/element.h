@@ -370,6 +370,15 @@ struct CSHComponent_EXPORT Element
     */
    double computeDTDtTVD(double dt, double T[]);
 
+
+   /*!
+    * \brief computeTVDLimiter
+    * \param r
+    * \param limiter
+    * \return
+    */
+   double computeTVDLimiter(double r, int limiter);
+
    /*!
     * \brief computeDTDtULTIMATE
     * \param dt
@@ -595,6 +604,11 @@ struct CSHComponent_EXPORT Element
     * \brief prev_volume
     */
    double prev_volume;
+
+   /*!
+    * \brief dvolume_dt
+    */
+   double dvolume_dt;
 
    /*!
     * \brief starting

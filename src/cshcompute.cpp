@@ -41,11 +41,13 @@ void CSHModel:: update()
     if(m_component)
       m_component->applyInputValues();
 
+    m_prevTimeStep = m_timeStep;
+
+    m_timeStep = computeTimeStep();
+
     computeDerivedHydraulics();
 
     computeLongDispersion();
-
-    m_timeStep = computeTimeStep();
 
 #ifdef USE_OPENMP
 #pragma omp parallel for
@@ -55,7 +57,9 @@ void CSHModel:: update()
       switch (j)
       {
         case 0:
-          solveJunctionHeatContinuity(m_timeStep);
+          {
+            solveJunctionHeatContinuity(m_timeStep);
+          }
           break;
         case 1:
           {
@@ -79,7 +83,9 @@ void CSHModel:: update()
       switch (j)
       {
         case 0:
-          solveHeatTransport(m_timeStep);
+          {
+            solveHeatTransport(m_timeStep);
+          }
           break;
         case 1:
           {
@@ -260,8 +266,7 @@ double CSHModel::computeTimeStep()
       for(int i = 0 ; i < (int)m_elements.size()  ; i++)
       {
         Element *element = m_elements[i];
-        double courantFactor = element->computeCourantFactor();
-        //double dispersionFactor = element->computeDispersionFactor();
+        double courantFactor = element->computeCourantFactor() + element->computeDispersionFactor();
 
         if(!std::isinf(courantFactor) && courantFactor > maxCourantFactor)
         {
@@ -277,8 +282,7 @@ double CSHModel::computeTimeStep()
       for(int i = 0 ; i < (int)m_elements.size()  ; i++)
       {
         Element *element = m_elements[i];
-        double courantFactor = element->computeCourantFactor();
-        //double dispersionFactor = element->computeDispersionFactor();
+        double courantFactor = element->computeCourantFactor() + element->computeDispersionFactor();
 
         if(!(std::isinf(courantFactor) || std::isnan(courantFactor)) && courantFactor > maxCourantFactor)
         {

@@ -47,6 +47,7 @@ CSHModel::CSHModel(CSHComponent *component)
     m_useEvaporation(false),
     m_useConvection(false),
     m_advectionMode(AdvectionDiscretizationMode::Upwind),
+    m_TVDFluxLimiter(0),
     m_numHeatElementJunctions(0),
     m_heatSolver(nullptr),
     m_waterDensity(1000.0), //kg/m^3

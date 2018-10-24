@@ -87,7 +87,7 @@ void NonPointSrcTimeSeriesBC::applyBoundaryConditions(double dateTime)
 
           for(size_t i = 0; i < m_model->m_solutes.size(); i++)
           {
-            element->externalSoluteFluxes[i] += m_model->m_waterDensity * value *
+            element->externalSoluteFluxes[i] += value *
                                                 element->soluteConcs[i].value * factor;
           }
 

@@ -353,7 +353,7 @@ bool CSHModel::initializeNetCDFOutputFile(list<string> &errors)
 
     //time variable
     ThreadSafeNcDim timeDim =  m_outputNetCDF->addDim("time");
-    ThreadSafeNcVar timeVar =  m_outputNetCDF->addVar("time", NcType::nc_DOUBLE, timeDim);
+    ThreadSafeNcVar timeVar =  m_outputNetCDF->addVar("time", NcType::nc_FLOAT, timeDim);
     timeVar.putAtt("long_name", "Time");
     timeVar.putAtt("standard_name", "time");
 //    timeVar.putAtt("units", "days since 1473-01-01 00:00:00 BCE");
@@ -394,17 +394,17 @@ bool CSHModel::initializeNetCDFOutputFile(list<string> &errors)
     junctionIdentifiers.putAtt("long_name", "Element Junction Identifiers");
     m_outNetCDFVariables["element_junction_id"] = junctionIdentifiers;
 
-    ThreadSafeNcVar junctionX =  m_outputNetCDF->addVar("x", NcType::nc_DOUBLE, junctionDim);
+    ThreadSafeNcVar junctionX =  m_outputNetCDF->addVar("x", NcType::nc_FLOAT, junctionDim);
     junctionX.putAtt("long_name", "Junction X Coordinate");
     junctionX.putAtt("units", "m");
     m_outNetCDFVariables["x"] = junctionX;
 
-    ThreadSafeNcVar junctionY =  m_outputNetCDF->addVar("y", NcType::nc_DOUBLE, junctionDim);
+    ThreadSafeNcVar junctionY =  m_outputNetCDF->addVar("y", NcType::nc_FLOAT, junctionDim);
     junctionY.putAtt("long_name", "Junction Y Coordinate");
     junctionY.putAtt("units", "m");
     m_outNetCDFVariables["y"] = junctionY;
 
-    ThreadSafeNcVar junctionZ =  m_outputNetCDF->addVar("z", NcType::nc_DOUBLE, junctionDim);
+    ThreadSafeNcVar junctionZ =  m_outputNetCDF->addVar("z", NcType::nc_FLOAT, junctionDim);
     junctionZ.putAtt("long_name", "Junction Z Coordinate");
     junctionZ.putAtt("units", "m");
     m_outNetCDFVariables["z"] = junctionZ;
@@ -461,19 +461,19 @@ bool CSHModel::initializeNetCDFOutputFile(list<string> &errors)
     elementToJunction.putAtt("long_name", "Downstream Junction");
     m_outNetCDFVariables["to_junction"] = elementToJunction;
 
-    ThreadSafeNcVar element_x =  m_outputNetCDF->addVar("element_x", NcType::nc_DOUBLE, elementsDim);
+    ThreadSafeNcVar element_x =  m_outputNetCDF->addVar("element_x", NcType::nc_FLOAT, elementsDim);
     element_x.putAtt("standard_name", "projection_x_coordinate");
     element_x.putAtt("long_name", "Element X Coordinate");
     element_x.putAtt("units", "m");
     m_outNetCDFVariables["element_x"] = element_x;
 
-    ThreadSafeNcVar element_y =  m_outputNetCDF->addVar("element_y", NcType::nc_DOUBLE, elementsDim);
+    ThreadSafeNcVar element_y =  m_outputNetCDF->addVar("element_y", NcType::nc_FLOAT, elementsDim);
     element_y.putAtt("standard_name", "projection_y_coordinate");
     element_y.putAtt("long_name", "Element Y Coordinate");
     element_y.putAtt("units", "m");
     m_outNetCDFVariables["element_y"] = element_y;
 
-//    ThreadSafeNcVar elementsVar =  m_outputNetCDF->addVar("elements", NcType::nc_DOUBLE, elementsDim);
+//    ThreadSafeNcVar elementsVar =  m_outputNetCDF->addVar("elements", NcType::nc_FLOAT, elementsDim);
 //    elementsVar.putAtt("long_name", "Distance");
 //    elementsVar.putAtt("units", "m");
 //    m_outNetCDFVariables["elements"] = elementsVar;
@@ -1018,6 +1018,9 @@ bool CSHModel::readInputFileOptionTag(const QString &line, QString &errorMessage
               case 3:
                 m_advectionMode = AdvectionDiscretizationMode::Hybrid;
                 break;
+              case 4:
+                m_advectionMode = AdvectionDiscretizationMode::TVD;
+                break;
               default:
                 foundError = true;
                 break;
@@ -1414,6 +1417,30 @@ bool CSHModel::readInputFileOptionTag(const QString &line, QString &errorMessage
           if (foundError)
           {
             errorMessage = "Pressure ratio";
+            return false;
+          }
+        }
+        break;
+      case 26:
+        {
+          bool foundError = false;
+
+          if (options.size() == 2)
+          {
+            bool ok;
+            int fluxLimiter = options[1].toInt(&ok);
+            foundError = fluxLimiter > 7 || !ok;
+
+            m_TVDFluxLimiter = fluxLimiter;
+          }
+          else
+          {
+            foundError = true;
+          }
+
+          if(foundError)
+          {
+            errorMessage = "Bowens coefficient error";
             return false;
           }
         }
@@ -3057,9 +3084,8 @@ const unordered_map<string, int> CSHModel::m_optionsFlags({
                                                             {"WIND_FUNC_COEFF_B", 23},
                                                             {"BOWENS_COEFF", 24},
                                                             {"PRESSURE_RATIO", 25},
-                                                            {"TVD_SCHEME", 26},
+                                                            {"TVD_FLUX_LIMITER", 26},
                                                             {"NETCDF_THREAD_SAFE", 27},
-
                                                           });
 
 const unordered_map<string, int> CSHModel::m_advectionFlags({
