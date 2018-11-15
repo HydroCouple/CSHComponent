@@ -149,6 +149,8 @@ void Element::initialize()
 
   starting = true;
 
+  dvolume_dt = 0.0;
+
   for(int i = 0; i < numSolutes; i++)
   {
     totalSoluteMassBalance[i] = 0.0;
@@ -1034,6 +1036,11 @@ void Element::computeDerivedHydraulics()
   rho_cp  = model->m_waterDensity * model->m_cp;
   rho_cp_vol = rho_cp * volume;
   top_area = length * width;
+}
+
+void Element::computeDVolumeDt()
+{
+
 }
 
 void Element::computeLongDispersion()

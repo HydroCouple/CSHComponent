@@ -51,6 +51,8 @@ class CSHComponent_EXPORT ElementInput : public TimeGeometryInputDouble
                  VariableType varType,
                  CSHComponent *modelComponent);
 
+    virtual ~ElementInput();
+
     /*!
      * \brief setProvider
      * \param provider
@@ -112,6 +114,8 @@ class CSHComponent_EXPORT ElementHeatSourceInput : public  TimeGeometryMultiInpu
                            ValueDefinition *valueDefinition,
                            SourceType srcType,
                            CSHComponent *modelComponent);
+
+    virtual ~ElementHeatSourceInput();
 
     bool addProvider(HydroCouple::IOutput *provider) override;
 

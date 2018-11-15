@@ -241,16 +241,15 @@ int CSHModel::numSolutes() const
 
 void CSHModel::setNumSolutes(int numSolutes)
 {
+  for(size_t i = 0; i < m_soluteSolvers.size(); i++)
+  {
+    delete m_soluteSolvers[i];
+  }
+
+  m_soluteSolvers.clear();
+
   if(numSolutes >= 0)
   {
-
-    for(size_t i = 0; i < m_soluteSolvers.size(); i++)
-    {
-      delete m_soluteSolvers[i];
-    }
-
-    m_soluteSolvers.clear();
-
     m_solutes.resize(numSolutes);
     m_maxSolute.resize(numSolutes);
     m_minSolute.resize(numSolutes);
@@ -263,24 +262,6 @@ void CSHModel::setNumSolutes(int numSolutes)
     {
       m_soluteSolvers.push_back(new ODESolver(m_elements.size(), ODESolver::CVODE_ADAMS));
       m_solutes[i] = "Solute_" + std::to_string(i + 1);
-    }
-
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-    for(int i = 0 ; i < (int)m_elements.size()  ; i++)
-    {
-      Element *element = m_elements[i];
-      element->initializeSolutes();
-    }
-
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-    for(int i = 0 ; i < (int)m_elementJunctions.size()  ; i++)
-    {
-      ElementJunction *elementJunction = m_elementJunctions[i];
-      elementJunction->initializeSolutes();
     }
   }
 }
@@ -435,8 +416,11 @@ bool CSHModel::initialize(list<string> &errors)
                      initializeBoundaryConditions(errors);
 
 
+
   if(initialized)
   {
+
+
     applyInitialConditions();
   }
 
@@ -519,6 +503,7 @@ bool CSHModel::initializeElements(std::list<string> &errors)
         elementJunction->junctionType = ElementJunction::MultiElement;
         break;
     }
+
   }
 
 #ifdef USE_OPENMP
@@ -591,6 +576,12 @@ bool CSHModel::initializeElements(std::list<string> &errors)
       }
     }
   }
+
+  m_currTemps.resize(m_elements.size(), 0.0);
+  m_outTemps.resize(m_elements.size(), 0.0);
+
+  m_currSoluteConcs.resize(m_solutes.size(), std::vector<double>(m_elements.size(), 0.0));
+  m_outSoluteConcs.resize(m_solutes.size(), std::vector<double>(m_elements.size(), 0.0));
 
   return true;
 }

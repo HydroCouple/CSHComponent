@@ -2871,10 +2871,10 @@ void CSHModel::writeNetCDFOutput()
 
       for (size_t j = 0; j < m_solutes.size(); j++)
       {
-        solutes[j * m_elements.size() + i] = element->soluteConcs[j].value;
-        totalElementSoluteMassBalance[j * m_elements.size() + i] = element->totalSoluteMassBalance[j];
-        totalElementAdvDispSoluteMassBalance[j * m_elements.size() + i] = element->totalAdvDispSoluteMassBalance[j];
-        totalElementExternalSoluteFluxMassBalance[j * m_elements.size() + i] = element->totalExternalSoluteFluxesMassBalance[j];
+        solutes[i + j * m_elements.size()] = element->soluteConcs[j].value;
+        totalElementSoluteMassBalance[i + j * m_elements.size()] = element->totalSoluteMassBalance[j];
+        totalElementAdvDispSoluteMassBalance[i + j * m_elements.size()] = element->totalAdvDispSoluteMassBalance[j];
+        totalElementExternalSoluteFluxMassBalance[i + j * m_elements.size()] = element->totalExternalSoluteFluxesMassBalance[j];
       }
     }
 

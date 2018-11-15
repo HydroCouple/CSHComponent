@@ -216,7 +216,6 @@ class CSHComponent_EXPORT CSHModel : public QObject
      */
     void computeDerivedHydraulics();
 
-
     /*!
      * \brief computeLongDispersion
      * \return
@@ -786,7 +785,12 @@ class CSHComponent_EXPORT CSHModel : public QObject
     m_minSolute, //array for tracking minimum solute concentrations
     m_totalSoluteMassBalance, // Tracks total mass balance of solutes (kg)
     m_totalAdvDispSoluteMassBalance, //Tracks total mass balance from advection and dispersion (kg)
-    m_totalExternalSoluteFluxMassBalance; //Tracks total mass balance from external sources (kg)
+    m_totalExternalSoluteFluxMassBalance, //Tracks total mass balance from external sources (kg)
+    m_currTemps,
+    m_outTemps;
+
+    std::vector<std::vector<double>> m_currSoluteConcs,
+                                     m_outSoluteConcs;
 
     int m_numInitFixedTimeSteps, //Number of initial fixed timeSteps of the minimum timestep to use when using the adaptive time step;
     m_numCurrentInitFixedTimeSteps, //Count number of initial minimum timesteps that have been used

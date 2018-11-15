@@ -126,7 +126,6 @@ struct  CSHComponent_EXPORT ElementJunction
      */
     std::set<Element*> outgoingElements;
 
-
     /*!
      * \brief junctionType
      */
@@ -138,16 +137,9 @@ struct  CSHComponent_EXPORT ElementJunction
     CSHModel *model;
 
     /*!
-     * \brief initializeSolutes
-     * \param numSolutes
-     */
-    void initializeSolutes();
-
-    /*!
      * \brief interpTemp
      */
     void interpTemp();
-
 
     /*!
      * \brief interpSoluteConcs
@@ -172,6 +164,14 @@ struct  CSHComponent_EXPORT ElementJunction
      * \brief copyVariablesToPrev
      */
     void copyVariablesToPrev();
+
+  private:
+
+    /*!
+     * \brief initializeSolutes
+     * \param numSolutes
+     */
+    void initializeSolutes();
 
 };
 

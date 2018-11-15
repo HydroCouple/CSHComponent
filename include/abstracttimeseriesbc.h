@@ -26,6 +26,7 @@
 #include <vector>
 #include <unordered_map>
 #include <list>
+#include <QFileInfo>
 
 class CSHModel;
 struct Element;
@@ -52,6 +53,10 @@ class CSHComponent_EXPORT AbstractTimeSeriesBC : public virtual IBoundaryConditi
 
     double value(size_t index) const;
 
+    QFileInfo inputFile() const;
+
+    void setInputFile(const QFileInfo &fileInfo);
+
   protected:
 
     double interpolate(double dateTime, bool &worked);
@@ -69,6 +74,7 @@ class CSHComponent_EXPORT AbstractTimeSeriesBC : public virtual IBoundaryConditi
     int m_cursor;
     std::vector<double> m_dateTimes;
     std::vector<double> m_values;
+    QFileInfo m_inputFile;
 };
 
 #endif // ABSTRACTTIMESERIESBC_H

@@ -66,6 +66,16 @@ bool AbstractTimeSeriesBC::remove(int index)
   return false;
 }
 
+QFileInfo AbstractTimeSeriesBC::inputFile() const
+{
+  return m_inputFile;
+}
+
+void AbstractTimeSeriesBC::setInputFile(const QFileInfo &fileInfo)
+{
+  m_inputFile = fileInfo;
+}
+
 double AbstractTimeSeriesBC::interpolate(double dateTime, bool &worked)
 {
   int index = findDateTimeIndex(dateTime);

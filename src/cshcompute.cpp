@@ -146,6 +146,8 @@ void CSHModel::prepareForNextTimeStep()
   {
     Element *element = m_elements[i];
 
+    element->computeDVolumeDt();
+
     element->computeHeatBalance(m_timeStep);
     m_totalHeatBalance += element->totalHeatBalance;
     m_totalRadiationHeatBalance += element->totalRadiationFluxesHeatBalance;
@@ -362,8 +364,6 @@ void CSHModel::computeLongDispersion()
 void CSHModel::solveHeatTransport(double timeStep)
 {
   //Allocate memory to store inputs and outputs
-  double *currentTemperatures = new double[m_elements.size()];
-  double *outputTemperatures = new double[m_elements.size()];
   m_dheatPrevTime = m_currentDateTime * 86400.0;
 
   //Set initial input and output values to current values.
@@ -373,15 +373,15 @@ void CSHModel::solveHeatTransport(double timeStep)
   for(int i = 0 ; i < (int)m_elements.size(); i++)
   {
     Element *element = m_elements[i];
-    currentTemperatures[element->index] = element->temperature.value;
-    outputTemperatures[element->index] = element->temperature.value;
+    m_currTemps[element->index] = element->temperature.value;
+    m_outTemps[element->index] = element->temperature.value;
   }
 
   //Solve using ODE solver
   SolverUserData solverUserData; solverUserData.model = this; solverUserData.variableIndex = -1;
 
-  if(m_heatSolver->solve(currentTemperatures, m_elements.size() , m_currentDateTime * 86400.0, timeStep,
-                         outputTemperatures, &CSHModel::computeDTDt, &solverUserData))
+  if(m_heatSolver->solve(m_currTemps.data(), m_elements.size() , m_currentDateTime * 86400.0, timeStep,
+                         m_outTemps.data(), &CSHModel::computeDTDt, &solverUserData))
   {
     printf("CSH Temperature Solver failed \n");
   }
@@ -393,19 +393,16 @@ void CSHModel::solveHeatTransport(double timeStep)
   for(int i = 0 ; i < (int)m_elements.size(); i++)
   {
     Element *element = m_elements[i];
-    double outputTemperature = outputTemperatures[element->index];
+    double outputTemperature = m_outTemps[element->index];
     element->temperature.value = outputTemperature;
   }
 
-  //Delete allocated memory
-  delete[] currentTemperatures;
-  delete[] outputTemperatures;
 }
 
 void CSHModel::solveSoluteTransport(int soluteIndex, double timeStep)
 {
-  double *currentSoluteConcs = new double[m_elements.size()];
-  double *outputSoluteConcs = new double[m_elements.size()];
+  std::vector<double> &currentSoluteConcs = m_currSoluteConcs[soluteIndex];
+  std::vector<double> &outputSoluteConcs = m_outSoluteConcs[soluteIndex];
   m_dsolutePrevTimes[soluteIndex] = m_currentDateTime *  86400.0;
 
   //Set initial values.
@@ -422,8 +419,8 @@ void CSHModel::solveSoluteTransport(int soluteIndex, double timeStep)
   //Solve using ODE solver
   SolverUserData solverUserData; solverUserData.model = this; solverUserData.variableIndex = soluteIndex;
 
-  if(m_soluteSolvers[soluteIndex]->solve(outputSoluteConcs, m_elements.size() , m_currentDateTime * 86400.0, timeStep,
-                                         outputSoluteConcs, &CSHModel::computeDSoluteDt, &solverUserData))
+  if(m_soluteSolvers[soluteIndex]->solve(outputSoluteConcs.data(), m_elements.size() , m_currentDateTime * 86400.0, timeStep,
+                                         outputSoluteConcs.data(), &CSHModel::computeDSoluteDt, &solverUserData))
   {
     printf("CSH Solute Solver failed \n");
   }
@@ -438,12 +435,6 @@ void CSHModel::solveSoluteTransport(int soluteIndex, double timeStep)
     Element *element = m_elements[i];
     element->soluteConcs[soluteIndex].value = outputSoluteConcs[element->index];
   }
-
-
-  //Delete allocated memory
-  delete[] currentSoluteConcs;
-  delete[] outputSoluteConcs;
-
 }
 
 void CSHModel::computeDTDt(double t, double y[], double dydt[], void* userData)

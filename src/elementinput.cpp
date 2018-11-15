@@ -28,6 +28,11 @@ ElementInput::ElementInput(const QString &id,
 
 }
 
+ElementInput::~ElementInput()
+{
+
+}
+
 bool ElementInput::setProvider(HydroCouple::IOutput *provider)
 {
   m_geometryMapping.clear();
@@ -284,6 +289,11 @@ ElementHeatSourceInput::ElementHeatSourceInput(const QString &id,
                                  valueDefinition, modelComponent),
     m_component(modelComponent),
     m_srcType(srcType)
+{
+
+}
+
+ElementHeatSourceInput::~ElementHeatSourceInput()
 {
 
 }
