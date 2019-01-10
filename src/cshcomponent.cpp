@@ -78,6 +78,19 @@ CSHComponent::CSHComponent(const QString &id, CSHComponentInfo *modelComponentIn
   m_temperatureUnit->setOffsetToSI(273.15);
   m_temperatureUnit->dimensionsInternal()->setPower(HydroCouple::Temperature, 1.0);
 
+  m_soluteFluxUnit = new Unit(this);
+  m_soluteFluxUnit->setCaption("Mass Flux (kg/s)");
+  m_soluteFluxUnit->dimensionsInternal()->setPower(HydroCouple::Mass, 1.0);
+  m_soluteFluxUnit->dimensionsInternal()->setPower(HydroCouple::Time, -1.0);
+
+  m_soluteUnit = new Unit(this);
+  m_soluteUnit->setCaption("Concentration (kg/m^3)");
+  m_soluteUnit->dimensionsInternal()->setPower(HydroCouple::Mass, 1.0);
+  m_soluteUnit->dimensionsInternal()->setPower(HydroCouple::Length, -3.0);
+
+  m_soluteConcQuantity = new Quantity(QVariant::Double, m_soluteUnit, this);
+  m_soluteConcFluxQuantity = new Quantity(QVariant::Double, m_soluteFluxUnit, this);
+
   createArguments();
 }
 
@@ -435,6 +448,12 @@ void CSHComponent::createInputs()
   createTopWidthInput();
   createExternalRadiationFluxInput();
   createExternalHeatFluxInput();
+  createDVDtInput();
+
+  for(int i = 0; i < m_modelInstance->numSolutes() ; i++)
+  {
+    createExternalSoluteFluxInput(i);
+  }
 }
 
 void CSHComponent::createFlowInput()
@@ -566,12 +585,12 @@ void CSHComponent::createExternalRadiationFluxInput()
 
   Quantity *radiationQuantity = new Quantity(QVariant::Double, m_radiationFluxUnit, this);
 
-  m_externalRadiationFluxInput = new ElementHeatSourceInput("RadiationFluxInput",
-                                                            m_timeDimension,
-                                                            m_geometryDimension,
-                                                            radiationQuantity,
-                                                            ElementHeatSourceInput::RadiativeFlux,
-                                                            this);
+  m_externalRadiationFluxInput = new ElementSourceInput("RadiationFluxInput",
+                                                        m_timeDimension,
+                                                        m_geometryDimension,
+                                                        radiationQuantity,
+                                                        ElementSourceInput::RadiativeFlux,
+                                                        this);
   m_externalRadiationFluxInput->setCaption("External Radiation Flux (W/m^2)");
 
 
@@ -593,16 +612,48 @@ void CSHComponent::createExternalRadiationFluxInput()
   addInput(m_externalRadiationFluxInput);
 }
 
+void CSHComponent::createDVDtInput()
+{
+  Quantity *flowQuantity = Quantity::lengthInMeters(this);
+
+  m_DVDtInput = new ElementInput("ElementVolumeTimeDerivativeInput",
+                                 m_timeDimension,
+                                 m_geometryDimension,
+                                 flowQuantity,
+                                 ElementInput::DVolumeDTime,
+                                 this);
+
+  m_DVDtInput->setCaption("Element Volume Time Derivative (m^3/s)");
+  m_DVDtInput->setDescription("Element Volume Time Derivative (m^3/s)");
+
+  QList<QSharedPointer<HCGeometry>> geometries;
+
+  for(const QSharedPointer<HCGeometry> &lineString : m_elementGeometries)
+  {
+    geometries.append(lineString);
+  }
+
+  m_DVDtInput->addGeometries(geometries);
+
+  SDKTemporal::DateTime *dt1 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime()- 1.0/1000000.0, m_DVDtInput);
+  SDKTemporal::DateTime *dt2 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime(), m_DVDtInput);
+
+  m_DVDtInput->addTime(dt1);
+  m_DVDtInput->addTime(dt2);
+
+  addInput(m_DVDtInput);
+}
+
 void CSHComponent::createExternalHeatFluxInput()
 {
   Quantity *heatFluxQuantity = new Quantity(QVariant::Double, m_heatFluxUnit, this);
 
-  m_externalHeatFluxInput = new ElementHeatSourceInput("HeatFluxInput",
-                                                       m_timeDimension,
-                                                       m_geometryDimension,
-                                                       heatFluxQuantity,
-                                                       ElementHeatSourceInput::HeatFlux,
-                                                       this);
+  m_externalHeatFluxInput = new ElementSourceInput("HeatFluxInput",
+                                                   m_timeDimension,
+                                                   m_geometryDimension,
+                                                   heatFluxQuantity,
+                                                   ElementSourceInput::HeatFlux,
+                                                   this);
 
   m_externalHeatFluxInput->setCaption("External Heat Flux (J/s)");
 
@@ -625,9 +676,45 @@ void CSHComponent::createExternalHeatFluxInput()
   addInput(m_externalHeatFluxInput);
 }
 
+void CSHComponent::createExternalSoluteFluxInput(int soluteIndex)
+{
+  QString soluteName = QString::fromStdString(m_modelInstance->solute(soluteIndex));
+
+  ElementSourceInput *soluteFluxInput  = new ElementSourceInput(soluteName + "Input",
+                                                                m_timeDimension,
+                                                                m_geometryDimension,
+                                                                m_soluteConcFluxQuantity,
+                                                                ElementSourceInput::SoluteFlux,
+                                                                this);
+  soluteFluxInput->setCaption("Element " + soluteName + " Flux (kg/s)");
+  soluteFluxInput->setSoluteIndex(soluteIndex);
+
+  QList<QSharedPointer<HCGeometry>> geometries;
+
+  for(const QSharedPointer<HCGeometry> &lineString : m_elementGeometries)
+  {
+    geometries.append(lineString);
+  }
+
+  soluteFluxInput->addGeometries(geometries);
+
+  SDKTemporal::DateTime *dt1 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime() - 1.0/1000000.0, soluteFluxInput);
+  SDKTemporal::DateTime *dt2 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime(), soluteFluxInput);
+
+  soluteFluxInput->addTime(dt1);
+  soluteFluxInput->addTime(dt2);
+
+  addInput(soluteFluxInput);
+}
+
 void CSHComponent::createOutputs()
 {
   createTemperatureOutput();
+
+  for(int i = 0; i < m_modelInstance->numSolutes() ; i++)
+  {
+    createSoluteConcOutput(i);
+  }
 }
 
 void CSHComponent::createTemperatureOutput()
@@ -660,4 +747,36 @@ void CSHComponent::createTemperatureOutput()
 
   addOutput(m_temperatureOutput);
 
+}
+
+void CSHComponent::createSoluteConcOutput(int index)
+{
+
+  QString soluteName = QString::fromStdString(m_modelInstance->solute(index));
+
+  ElementOutput *soluteOutput  = new ElementOutput(soluteName + "_Output",
+                                                   m_timeDimension,
+                                                   m_geometryDimension,
+                                                   m_soluteConcQuantity,
+                                                   ElementOutput::SoluteConc,
+                                                   this);
+  soluteOutput->setCaption("Element " + soluteName + " Concentration (kg/m^3)");
+  soluteOutput->setSoluteIndex(index);
+
+  QList<QSharedPointer<HCGeometry>> geometries;
+
+  for(const QSharedPointer<HCGeometry> &lineString : m_elementGeometries)
+  {
+    geometries.append(lineString);
+  }
+
+  soluteOutput->addGeometries(geometries);
+
+  SDKTemporal::DateTime *dt1 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime() - 1.0/1000000.0, soluteOutput);
+  SDKTemporal::DateTime *dt2 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime(), soluteOutput);
+
+  soluteOutput->addTime(dt1);
+  soluteOutput->addTime(dt2);
+
+  addOutput(soluteOutput);
 }

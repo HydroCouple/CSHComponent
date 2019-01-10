@@ -1,5 +1,5 @@
 /*!
-*  \file    nonpointsrctimeseriesbc.h
+*  \file    radiativefluxtimeseriesbc.h
 *  \author  Caleb Amoa Buahin <caleb.buahin@gmail.com>
 *  \version 1.0.0
 *  \section Description
@@ -17,27 +17,32 @@
 *  \warning
 */
 
-#ifndef NONPOINTSRCTIMESERIESBC_H
-#define NONPOINTSRCTIMESERIESBC_H
+#ifndef RADIATIVEFLUXTIMESERIESBC_H
+#define RADIATIVEFLUXTIMESERIESBC_H
 
-#include "abstracttimeseriesbc.h"
+#include "iboundarycondition.h"
+#include "cshcomponent_global.h"
 
-class CSHComponent_EXPORT NonPointSrcTimeSeriesBC : public AbstractTimeSeriesBC
+#include <QObject>
+#include <QSharedPointer>
+
+struct Element;
+class DataCursor;
+class CSHModel;
+class TimeSeries;
+
+
+class CSHCOMPONENT_EXPORT RadiativeFluxBC: public QObject,
+    public virtual IBoundaryCondition
 {
+
+    Q_OBJECT
+
   public:
 
-    enum VariableType
-    {
-      HeatSource,
-      FlowSource,
-      SoluteSource,
-    };
+    RadiativeFluxBC(Element *startElement, Element *endElement, CSHModel *model);
 
-    NonPointSrcTimeSeriesBC(Element *startElement, double startElementLFactor,
-                            Element *endElement, double endElementLFactor,
-                            VariableType variableType, CSHModel *model);
-
-    virtual ~NonPointSrcTimeSeriesBC();
+    virtual ~RadiativeFluxBC();
 
     void  findAssociatedGeometries() override final;
 
@@ -45,34 +50,29 @@ class CSHComponent_EXPORT NonPointSrcTimeSeriesBC : public AbstractTimeSeriesBC
 
     void applyBoundaryConditions(double dateTime) override final;
 
+    void clear() override final;
+
     Element *startElement() const;
 
     void setStartElement(Element *element);
-
-    double startElementLFactor() const;
-
-    void setStartElementLFactor(double factor);
 
     Element *endElement() const;
 
     void setEndElement(Element *element);
 
-    double endElementLFactor() const;
+    QSharedPointer<TimeSeries> timeSeries() const;
 
-    void setEndElementLFactor(double factor);
-
-    int soluteIndex() const;
-
-    void setSoluteIndex(int soluteIndex);
+    void setTimeSeries(const QSharedPointer<TimeSeries> &timeseries);
 
   private:
-    std::list<Element*> m_profile;
+
+    std::vector<Element*> m_profile;
     Element *m_startElement, *m_endElement;
-    double m_startElementLFactor, m_endElementLFactor;
-    std::unordered_map<Element*, double> m_factors;
-    VariableType m_variableType;
-    int m_soluteIndex;
+    DataCursor *m_dataCursor;
+    QSharedPointer<TimeSeries> m_timeSeries;
+    CSHModel *m_model;
 };
 
 
-#endif // NONPOINTSRCTIMESERIESBC_H
+
+#endif // RADIATIVEFLUXTIMESERIESBC_H

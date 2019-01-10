@@ -22,7 +22,7 @@
 
 #include "cshcomponent_global.h"
 
-class CSHComponent_EXPORT IBoundaryCondition
+class CSHCOMPONENT_EXPORT IBoundaryCondition
 {
   public:
 

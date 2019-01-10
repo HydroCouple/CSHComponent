@@ -23,9 +23,9 @@
 #include <QtCore/qglobal.h>
 
 #ifdef CSHCOMPONENT_LIBRARY
-# define CSHComponent_EXPORT Q_DECL_EXPORT
+# define CSHCOMPONENT_EXPORT Q_DECL_EXPORT
 #else
-# define CSHComponent_EXPORT //Q_DECL_IMPORT
+# define CSHCOMPONENT_EXPORT //Q_DECL_IMPORT
 #endif
 
 #endif // CSHCOMPONENT_GLOBAL_H

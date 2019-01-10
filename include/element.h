@@ -44,7 +44,7 @@ typedef double (Element::*ComputeSoluteAdv)(double dt, double S[], int soluteInd
 /*!
  * \brief This struct represents the channel control volume
  */
-struct CSHComponent_EXPORT Element
+struct CSHCOMPONENT_EXPORT Element
 {
     /*!
     * \brief Element - Creates an instance of the control volume element used to represent a computational
@@ -316,6 +316,11 @@ struct CSHComponent_EXPORT Element
    double distanceFromUpStreamJunction;
 
    /*!
+    * \brief dvolume_dt
+    */
+   Variable dvolume_dt;
+
+   /*!
     * \brief model
     */
    CSHModel *model;
@@ -418,6 +423,15 @@ struct CSHComponent_EXPORT Element
    double computeDSoluteDt(double dt, double S[], int soluteIndex);
 
    /*!
+    * \brief computeDSoluteDtDispersion
+    * \param dt
+    * \param S
+    * \param soluteIndex
+    * \return
+    */
+   double computeDSoluteDtDispersion(double dt, double S[], int soluteIndex);
+
+   /*!
     * \brief computeDSoluteDtUpwind
     * \param dt
     * \param S
@@ -452,15 +466,6 @@ struct CSHComponent_EXPORT Element
     * \return
     */
    double computeDSoluteDtTVD(double dt, double S[], int soluteIndex);
-
-   /*!
-    * \brief computeDSoluteDtDispersion
-    * \param dt
-    * \param S
-    * \param soluteIndex
-    * \return
-    */
-   double computeDSoluteDtDispersion(double dt, double S[], int soluteIndex);
 
    /*!
     * \brief computeCourantNumber
@@ -612,11 +617,6 @@ struct CSHComponent_EXPORT Element
     * \brief prev_volume
     */
    double prev_volume;
-
-   /*!
-    * \brief dvolume_dt
-    */
-   double dvolume_dt;
 
    /*!
     * \brief starting

@@ -149,7 +149,8 @@ void Element::initialize()
 
   starting = true;
 
-  dvolume_dt = 0.0;
+  dvolume_dt.isBC = false;
+  dvolume_dt.value = 0.0;
 
   for(int i = 0; i < numSolutes; i++)
   {
@@ -189,7 +190,7 @@ double Element::computeDTDt(double dt, double T[])
 {
   double DTDt = 0.0;
 
-  if(volume > 1e-10)
+  if(volume > 1e-18)
   {
     //Compute advection
     DTDt += (this->*computeTempAdv)(dt, T);
@@ -205,7 +206,7 @@ double Element::computeDTDt(double dt, double T[])
 
     //Product rule subtract volume derivative
     {
-      DTDt -= (rho_cp * T[index] * dvolume_dt) / rho_cp_vol;
+      DTDt -= temperature.value * dvolume_dt.value / volume;
     }
 
     if(model->m_useEvaporation)
@@ -440,7 +441,7 @@ double Element::computeDTDtTVD(double dt, double T[])
     }
     else
     {
-      incomingFlux = flow * upstreamJunction->temperature.value;
+      incomingFlux = rho_cp * flow * upstreamJunction->temperature.value;
     }
 
     if(downstreamElement && !downstreamJunction->temperature.isBC)
@@ -609,7 +610,7 @@ double Element::computeDSoluteDt(double dt, double S[], int soluteIndex)
 {
   double DSoluteDt = 0;
 
-  if(volume > 1e-10)
+  if(volume > 1e-18)
   {
     //Compute advection
     DSoluteDt += (this->*computeSoluteAdv)(dt, S, soluteIndex);
@@ -617,9 +618,12 @@ double Element::computeDSoluteDt(double dt, double S[], int soluteIndex)
     //Compute dispersion
     DSoluteDt += computeDSoluteDtDispersion(dt, S, soluteIndex);
 
+    //First order reaction reaction
+    DSoluteDt += model->m_solute_first_order_k[soluteIndex] * soluteConcs[soluteIndex].value;
+
     //subtract chain rule volume derivative
     {
-      DSoluteDt -= (soluteConcs[soluteIndex].value * dvolume_dt) / volume;
+      DSoluteDt -= (soluteConcs[soluteIndex].value * dvolume_dt.value) / volume;
     }
 
     //Add external sources
@@ -1022,14 +1026,13 @@ void Element::computeDerivedHydraulics()
   if(starting)
   {
     prev_volume = volume  = xSectionArea * length;
-    dvolume_dt = 0.0;
     starting = false;
   }
-  else
+  else if(dvolume_dt.isBC == false)
   {
     prev_volume = volume;
     volume  = xSectionArea * length;
-    dvolume_dt = (volume - prev_volume)/model->m_prevTimeStep;
+    dvolume_dt.value = (volume - prev_volume) / model->m_prevTimeStep;
   }
 
   rho_vol = model->m_waterDensity * volume;

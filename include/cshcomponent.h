@@ -32,10 +32,11 @@ struct Element;
 class ElementInput;
 class ElementOutput;
 class Dimension;
-class ElementHeatSourceInput;
+class ElementSourceInput;
 class Unit;
+class Quantity;
 
-class CSHComponent_EXPORT CSHComponent : public AbstractTimeModelComponent,
+class CSHCOMPONENT_EXPORT CSHComponent : public AbstractTimeModelComponent,
     public virtual HydroCouple::ICloneableModelComponent
 {
     Q_OBJECT
@@ -173,9 +174,20 @@ class CSHComponent_EXPORT CSHComponent : public AbstractTimeModelComponent,
     void createExternalRadiationFluxInput();
 
     /*!
+     * \brief createDVDtInput
+     */
+    void createDVDtInput();
+
+    /*!
      * \brief createExternalHeatFluxInput
      */
     void createExternalHeatFluxInput();
+
+    /*!
+     * \brief createExternalSoluteFluxInput
+     * \param soluteIndex
+     */
+    void createExternalSoluteFluxInput(int soluteIndex);
 
     /*!
      * \brief createOutputs
@@ -187,27 +199,39 @@ class CSHComponent_EXPORT CSHComponent : public AbstractTimeModelComponent,
      */
     void createTemperatureOutput();
 
+    /*!
+     * \brief createSoluteConcOutput
+     * \param index
+     */
+    void createSoluteConcOutput(int index);
+
   private:
 
     IdBasedArgumentString *m_inputFilesArgument;
 
     ElementInput *m_flowInput,
-                 *m_xSectionAreaInput,
-                 *m_depthInput,
-                 *m_topWidthInput;
+    *m_xSectionAreaInput,
+    *m_depthInput,
+    *m_topWidthInput,
+    *m_DVDtInput;
 
 
     Unit *m_radiationFluxUnit,
-         *m_heatFluxUnit,
-         *m_temperatureUnit;
+    *m_heatFluxUnit,
+    *m_temperatureUnit,
+    *m_soluteUnit,
+    *m_soluteFluxUnit;
 
-    ElementHeatSourceInput *m_externalRadiationFluxInput,
-                           *m_externalHeatFluxInput;
+    Quantity *m_soluteConcQuantity,
+             *m_soluteConcFluxQuantity;
+
+    ElementSourceInput *m_externalRadiationFluxInput,
+    *m_externalHeatFluxInput;
 
     ElementOutput *m_temperatureOutput;
 
     Dimension *m_timeDimension,
-              *m_geometryDimension;
+    *m_geometryDimension;
 
     std::vector<QSharedPointer<HCGeometry>> m_elementGeometries;
     std::vector<QSharedPointer<HCGeometry>> m_elementJunctionGeometries;

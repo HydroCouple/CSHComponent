@@ -25,7 +25,7 @@
 /*!
  * \brief The Variable struct represents a variable value
  */
-struct CSHComponent_EXPORT Variable
+struct CSHCOMPONENT_EXPORT Variable
 {
 
     /*!

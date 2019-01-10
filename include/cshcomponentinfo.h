@@ -24,7 +24,7 @@
 #include "core/abstractmodelcomponentinfo.h"
 
 
-class CSHComponent_EXPORT CSHComponentInfo : public AbstractModelComponentInfo
+class CSHCOMPONENT_EXPORT CSHComponentInfo : public AbstractModelComponentInfo
 {
     Q_OBJECT
     Q_PLUGIN_METADATA(IID "CSHComponentInfo")

@@ -30,7 +30,7 @@
 class CSHComponent;
 
 
-class CSHComponent_EXPORT ElementInput : public TimeGeometryInputDouble
+class CSHCOMPONENT_EXPORT ElementInput : public TimeGeometryInputDouble
 {
     Q_OBJECT
 
@@ -41,7 +41,8 @@ class CSHComponent_EXPORT ElementInput : public TimeGeometryInputDouble
       Flow,
       XSectionArea,
       Depth,
-      TopWidth
+      TopWidth,
+      DVolumeDTime
     };
 
     ElementInput(const QString &id,
@@ -98,7 +99,7 @@ class CSHComponent_EXPORT ElementInput : public TimeGeometryInputDouble
 
 };
 
-class CSHComponent_EXPORT ElementHeatSourceInput : public  TimeGeometryMultiInputDouble
+class CSHCOMPONENT_EXPORT ElementSourceInput : public  TimeGeometryMultiInputDouble
 {
   public:
 
@@ -106,16 +107,17 @@ class CSHComponent_EXPORT ElementHeatSourceInput : public  TimeGeometryMultiInpu
     {
       RadiativeFlux,
       HeatFlux,
+      SoluteFlux
     };
 
-    ElementHeatSourceInput(const QString &id,
+    ElementSourceInput(const QString &id,
                            Dimension *timeDimension,
                            Dimension *geometryDimension,
                            ValueDefinition *valueDefinition,
                            SourceType srcType,
                            CSHComponent *modelComponent);
 
-    virtual ~ElementHeatSourceInput();
+    virtual ~ElementSourceInput();
 
     bool addProvider(HydroCouple::IOutput *provider) override;
 
@@ -131,11 +133,16 @@ class CSHComponent_EXPORT ElementHeatSourceInput : public  TimeGeometryMultiInpu
 
     void setSourceType(SourceType srcType);
 
+    int soluteIndex() const;
+
+    void setSoluteIndex(int soluteIndex);
+
   private:
 
     CSHComponent *m_component;
     SourceType m_srcType;
     std::unordered_map<HydroCouple::IOutput*, std::unordered_map<int,int>> m_geometryMapping;
+    int m_soluteIndex;
 };
 
 #endif // ELEMENTINPUT_H

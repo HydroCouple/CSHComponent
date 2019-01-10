@@ -1,5 +1,5 @@
 /*!
-*  \file    junctiontimeseriesbc.cpp
+*  \file    JunctionBC.cpp
 *  \author  Caleb Amoa Buahin <caleb.buahin@gmail.com>
 *  \version 1.0.0
 *  \section Description
@@ -16,29 +16,33 @@
 *  \todo Test transport on branching networks
 *  \warning
 */
-
-#include "junctiontimeseriesbc.h"
+#include "stdafx.h"
+#include "junctionbc.h"
 #include "elementjunction.h"
+#include "temporal/timeseries.h"
+#include "core/datacursor.h"
+#include "cshmodel.h"
 
-JunctionTimeSeriesBC::JunctionTimeSeriesBC(ElementJunction *elementJunction, int variableIndex, CSHModel *model)
-  : AbstractTimeSeriesBC(model),
+JunctionBC::JunctionBC(ElementJunction *elementJunction, int variableIndex, CSHModel *model)
+  : QObject(model),
     m_elementJunction(elementJunction),
-    m_variableIndex(variableIndex)
+    m_variableIndex(variableIndex),
+    m_model(model)
+{
+  m_dataCursor = new DataCursor();
+}
+
+JunctionBC::~JunctionBC()
+{
+  delete  m_dataCursor;
+}
+
+void JunctionBC::findAssociatedGeometries()
 {
 
 }
 
-JunctionTimeSeriesBC::~JunctionTimeSeriesBC()
-{
-
-}
-
-void JunctionTimeSeriesBC::findAssociatedGeometries()
-{
-
-}
-
-void JunctionTimeSeriesBC::prepare()
+void JunctionBC::prepare()
 {
   switch (m_variableIndex)
   {
@@ -55,12 +59,11 @@ void JunctionTimeSeriesBC::prepare()
   }
 }
 
-void JunctionTimeSeriesBC::applyBoundaryConditions(double dateTime)
+void JunctionBC::applyBoundaryConditions(double dateTime)
 {
-  bool found ;
-  double value = interpolate(dateTime, found);
+  double value = 0;
 
-  if(found)
+  if(m_timeSeries->interpolate(dateTime, 0, m_dataCursor, value))
   {
     switch (m_variableIndex)
     {
@@ -78,12 +81,29 @@ void JunctionTimeSeriesBC::applyBoundaryConditions(double dateTime)
   }
 }
 
-ElementJunction *JunctionTimeSeriesBC::elementJunction() const
+void JunctionBC::clear()
+{
+
+}
+
+ElementJunction *JunctionBC::elementJunction() const
 {
   return m_elementJunction;
 }
 
-void JunctionTimeSeriesBC::setElementJunction(ElementJunction *elementJunction)
+void JunctionBC::setElementJunction(ElementJunction *elementJunction)
 {
   m_elementJunction = elementJunction;
+}
+
+QSharedPointer<TimeSeries> JunctionBC::timeSeries() const
+{
+  return m_timeSeries;
+}
+
+void JunctionBC::setTimeSeries(const QSharedPointer<TimeSeries> &timeseries)
+{
+  m_timeSeries = timeseries;
+  m_dataCursor->setMin(0);
+  m_dataCursor->setMax(timeseries->numRows() - 1);
 }

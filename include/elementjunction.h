@@ -33,7 +33,7 @@ struct Element;
 /*!
  * \brief The ElementJunction struct represents the
  */
-struct  CSHComponent_EXPORT ElementJunction
+struct CSHCOMPONENT_EXPORT ElementJunction
 {
 
     enum JunctionType

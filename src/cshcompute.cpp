@@ -17,7 +17,7 @@
 *  \warning
 */
 
-
+#include "stdafx.h"
 #include "cshmodel.h"
 #include "element.h"
 #include "elementjunction.h"

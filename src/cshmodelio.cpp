@@ -16,21 +16,20 @@
 *  \todo
 *  \warning
 */
-
+#include "stdafx.h"
 #include "cshmodel.h"
 #include "element.h"
 #include "elementjunction.h"
-#include "junctiontimeseriesbc.h"
-#include "radiativefluxtimeseriesbc.h"
-#include "hydraulicstimeseriesbc.h"
-#include "pointsrctimeseriesbc.h"
-#include "nonpointsrctimeseriesbc.h"
-#include "meteorologytimeseriesbc.h"
+#include "junctionbc.h"
+#include "radiativefluxbc.h"
+#include "hydraulicsbc.h"
+#include "sourcebc.h"
+#include "meteorologybc.h"
 #include "temporal/timedata.h"
 #include "threadsafenetcdf/threadsafencfile.h"
 #include "threadsafenetcdf/threadsafencdim.h"
 #include "threadsafenetcdf/threadsafencatt.h"
-#include "timeseries.h"
+#include "temporal/timeseries.h"
 
 #include <QDir>
 #include <QDate>
@@ -162,6 +161,9 @@ bool CSHModel::initializeInputFiles(list<string> &errors)
 
     if (file.open(QIODevice::ReadOnly))
     {
+
+      m_timeSeries.clear();
+
       m_delimiters = QRegExp("(\\,|\\t|\\;|\\s+)");
       int currentFlag = -1;
       m_addedSoluteCount = 0;
@@ -212,28 +214,19 @@ bool CSHModel::initializeInputFiles(list<string> &errors)
                 readSuccess = readInputFileBoundaryConditionsTag(line, error);
                 break;
               case 7:
-                readSuccess = readInputFilePointSourcesTag(line, error);
+                readSuccess = readInputFileSourcesTag(line, error);
                 break;
               case 8:
-                readSuccess = readInputFileNonPointSourcesTag(line, error);
+                readSuccess = readInputFileHydraulicsTag(line, error);
                 break;
               case 9:
-                readSuccess = readInputFileUniformHydraulicsTag(line, error);
+                readSuccess = readInputFileRadiativeFluxesTag(line, error);
                 break;
               case 10:
-                readSuccess = readInputFileNonUniformHydraulicsTag(line, error);
+                readSuccess = readInputFileMeteorologyTag(line, error);
                 break;
               case 11:
-                readSuccess = readInputFileUniformRadiativeFluxesTag(line, error);
-                break;
-              case 12:
-                readSuccess = readInputFileNonUniformRadiativeFluxesTag(line, error);
-                break;
-              case 13:
-                readSuccess = readInputFileUniformMeteorologyTag(line, error);
-                break;
-              case 14:
-                readSuccess = readInputFileNonUniformMeteorologyTag(line, error);
+                readSuccess = readInputFileTimeSeriesTag(line, error);
                 break;
             }
           }
@@ -355,7 +348,7 @@ bool CSHModel::initializeNetCDFOutputFile(list<string> &errors)
     ThreadSafeNcVar timeVar =  m_outputNetCDF->addVar("time", NcType::nc_DOUBLE, timeDim);
     timeVar.putAtt("long_name", "Time");
     timeVar.putAtt("standard_name", "time");
-//    timeVar.putAtt("units", "days since 1473-01-01 00:00:00 BCE");
+    //    timeVar.putAtt("units", "days since 1473-01-01 00:00:00 BCE");
     timeVar.putAtt("calendar", "julian");
     m_outNetCDFVariables["time"] = timeVar;
 
@@ -472,10 +465,10 @@ bool CSHModel::initializeNetCDFOutputFile(list<string> &errors)
     element_y.putAtt("units", "m");
     m_outNetCDFVariables["element_y"] = element_y;
 
-//    ThreadSafeNcVar elementsVar =  m_outputNetCDF->addVar("elements", NcType::nc_FLOAT, elementsDim);
-//    elementsVar.putAtt("long_name", "Distance");
-//    elementsVar.putAtt("units", "m");
-//    m_outNetCDFVariables["elements"] = elementsVar;
+    //    ThreadSafeNcVar elementsVar =  m_outputNetCDF->addVar("elements", NcType::nc_FLOAT, elementsDim);
+    //    elementsVar.putAtt("long_name", "Distance");
+    //    elementsVar.putAtt("units", "m");
+    //    m_outNetCDFVariables["elements"] = elementsVar;
 
 
     int *fromJunctions = new int[m_elements.size()];
@@ -483,7 +476,7 @@ bool CSHModel::initializeNetCDFOutputFile(list<string> &errors)
     char **elementIds = new char *[m_elements.size()];
     float *elX = new float[m_elements.size()];
     float *elY = new float[m_elements.size()];
-//    double *els = new double[m_elements.size()];
+    //    double *els = new double[m_elements.size()];
 
 #ifdef USE_OPENMP
 #pragma omp parallel for
@@ -500,7 +493,7 @@ bool CSHModel::initializeNetCDFOutputFile(list<string> &errors)
 
       elX[i] = element->x;
       elY[i] = element->y;
-//      els[i] = element->distanceFromUpStreamJunction;
+      //      els[i] = element->distanceFromUpStreamJunction;
     }
 
     elementIdentifiers.putVar(elementIds);
@@ -508,13 +501,13 @@ bool CSHModel::initializeNetCDFOutputFile(list<string> &errors)
     elementToJunction.putVar(toJunctions);
     element_x.putVar(elX);
     element_y.putVar(elY);
-//    elementsVar.putVar(els);
+    //    elementsVar.putVar(els);
 
     delete[] fromJunctions;
     delete[] toJunctions;
     delete[] elX;
     delete[] elY;
-//    delete[] els;
+    //    delete[] els;
 
     for (size_t i = 0; i < m_elements.size(); i++)
     {
@@ -526,7 +519,7 @@ bool CSHModel::initializeNetCDFOutputFile(list<string> &errors)
 
     //hydraulics variables
     ThreadSafeNcVar lengthVar =  m_outputNetCDF->addVar("length", "float",
-                                                      std::vector<std::string>({"elements"}));
+                                                        std::vector<std::string>({"elements"}));
     lengthVar.putAtt("long_name", "Element Length");
     lengthVar.putAtt("units", "m");
     m_outNetCDFVariables["length"] = lengthVar;
@@ -1080,10 +1073,17 @@ bool CSHModel::readInputFileOptionTag(const QString &line, QString &errorMessage
                 m_heatSolver->setSolverType(ODESolver::RKQS);
                 break;
               case 3:
-                m_heatSolver->setSolverType(ODESolver::CVODE_ADAMS);
+                {
+                  m_heatSolver->setSolverType(ODESolver::CVODE_ADAMS);
+                  m_heatSolver->setSolverIterationMethod(ODESolver::IterationMethod::FUNCTIONAL);
+                }
                 break;
               case 4:
-                m_heatSolver->setSolverType(ODESolver::CVODE_BDF);
+                {
+                  m_heatSolver->setSolverType(ODESolver::CVODE_BDF);
+                  m_heatSolver->setSolverIterationMethod(ODESolver::IterationMethod::NEWTON);
+                  m_heatSolver->setLinearSolverType(ODESolver::LinearSolverType::GMRES);
+                }
                 break;
               case 5:
                 m_heatSolver->setSolverType(ODESolver::EULER);
@@ -1439,7 +1439,7 @@ bool CSHModel::readInputFileOptionTag(const QString &line, QString &errorMessage
 
           if(foundError)
           {
-            errorMessage = "Bowens coefficient error";
+            errorMessage = "TVD flux limiter error";
             return false;
           }
         }
@@ -1479,7 +1479,7 @@ bool CSHModel::readInputFileSolutesTag(const QString &line, QString &errorMessag
 {
   QStringList columns = line.split(m_delimiters, QString::SkipEmptyParts);
 
-  if (columns.size() == 4)
+  if (columns.size() == 5)
   {
     bool foundError = false;
 
@@ -1487,7 +1487,7 @@ bool CSHModel::readInputFileSolutesTag(const QString &line, QString &errorMessag
     {
       m_solutes[m_addedSoluteCount] = columns[0].toStdString();
 
-      std::string solverType = columns[1].toStdString();
+      std::string solverType = columns[2].toStdString();
       auto it = m_solverTypeFlags.find(solverType);
 
       if (it != m_solverTypeFlags.end())
@@ -1503,10 +1503,17 @@ bool CSHModel::readInputFileSolutesTag(const QString &line, QString &errorMessag
             m_soluteSolvers[m_addedSoluteCount]->setSolverType(ODESolver::RKQS);
             break;
           case 3:
-            m_soluteSolvers[m_addedSoluteCount]->setSolverType(ODESolver::CVODE_ADAMS);
+            {
+              m_soluteSolvers[m_addedSoluteCount]->setSolverType(ODESolver::CVODE_ADAMS);
+              m_soluteSolvers[m_addedSoluteCount]->setSolverIterationMethod(ODESolver::IterationMethod::FUNCTIONAL);
+            }
             break;
           case 4:
-            m_soluteSolvers[m_addedSoluteCount]->setSolverType(ODESolver::CVODE_BDF);
+            {
+              m_soluteSolvers[m_addedSoluteCount]->setSolverType(ODESolver::CVODE_BDF);
+              m_soluteSolvers[m_addedSoluteCount]->setSolverIterationMethod(ODESolver::IterationMethod::NEWTON);
+              m_soluteSolvers[m_addedSoluteCount]->setLinearSolverType(ODESolver::LinearSolverType::GMRES);
+            }
             break;
           case 5:
             m_soluteSolvers[m_addedSoluteCount]->setSolverType(ODESolver::EULER);
@@ -1522,8 +1529,22 @@ bool CSHModel::readInputFileSolutesTag(const QString &line, QString &errorMessag
           return false;
         }
 
+
         bool parsed;
-        double abs_tol = columns[2].toDouble(&parsed);
+        double first_order_k = columns[1].toDouble(&parsed);
+
+        if(parsed)
+        {
+          m_solute_first_order_k[m_addedSoluteCount] = first_order_k;
+        }
+        else
+        {
+          errorMessage = "Invalid solute first order reaction rate";
+          return false;
+        }
+
+
+        double abs_tol = columns[3].toDouble(&parsed);
 
         if (parsed)
         {
@@ -1535,7 +1556,7 @@ bool CSHModel::readInputFileSolutesTag(const QString &line, QString &errorMessag
           return false;
         }
 
-        double rel_tol = columns[3].toDouble(&parsed);
+        double rel_tol = columns[4].toDouble(&parsed);
 
         if (parsed)
         {
@@ -1666,7 +1687,7 @@ bool CSHModel::readInputFileElementsTag(const QString &line, QString &errorMessa
         element->temperature.value = temp;
         element->flow = flow;
 
-        if (columns.size() > 10)
+        if(m_solutes.size() && columns.size() > 10)
         {
           for (int i = 11; i < columns.size(); i++)
           {
@@ -1764,7 +1785,7 @@ bool CSHModel::readInputFileBoundaryConditionsTag(const QString &line, QString &
           return false;
         }
       }
-      else if (!QString::compare(type, "FILE", Qt::CaseInsensitive))
+      else if (!QString::compare(type, "TIMESERIES", Qt::CaseInsensitive))
       {
         int variableIndex = -2;
 
@@ -1788,51 +1809,19 @@ bool CSHModel::readInputFileBoundaryConditionsTag(const QString &line, QString &
 
         if (variableIndex > -2)
         {
-          QString filePath = columns[3];
+          std::string tsId = columns[3].toStdString();
+          auto tsIt = m_timeSeries.find(tsId);
 
-          if (!filePath.isEmpty() && !filePath.isNull())
+          if (tsIt != m_timeSeries.end())
           {
-            QFileInfo fileInfo(filePath);
+            JunctionBC *junctionBC = new JunctionBC(junction, variableIndex, this);
 
-            if (fileInfo.isRelative())
-              fileInfo = relativePathToAbsolute(fileInfo);
-
-            if (QFile::exists(fileInfo.absoluteFilePath()))
-            {
-              std::map<double, std::vector<double>> timeSeries;
-              std::vector<std::string> headers;
-
-              if(TimeSeries::readTimeSeries(fileInfo, timeSeries, headers))
-              {
-                JunctionTimeSeriesBC *junctionBC = new JunctionTimeSeriesBC(junction, variableIndex, this);
-
-                for (auto it = timeSeries.begin(); it != timeSeries.end(); it++)
-                {
-                  double dateTime = it->first;
-                  double value = it->second[0];
-                  junctionBC->addValue(dateTime, value);
-                }
-
-                m_boundaryConditions.push_back(junctionBC);
-
-                timeSeries.clear();
-                headers.clear();
-              }
-              else
-              {
-                errorMessage = "Specified BC filepath does not exist";
-                return false;
-              }
-            }
-            else
-            {
-              errorMessage = "Specified BC filepath does not exist";
-              return false;
-            }
+            junctionBC->setTimeSeries(tsIt->second);
+            m_boundaryConditions.push_back(junctionBC);
           }
           else
           {
-            errorMessage = "Specified BC filepath does not exist";
+            errorMessage = "Specified timeseries does not exist";
             return false;
           }
         }
@@ -1857,146 +1846,7 @@ bool CSHModel::readInputFileBoundaryConditionsTag(const QString &line, QString &
   return true;
 }
 
-bool CSHModel::readInputFilePointSourcesTag(const QString &line, QString &errorMessage)
-{
-  errorMessage = "";
-  QStringList columns = line.split(m_delimiters, QString::SkipEmptyParts);
-
-  if (columns.size() == 4)
-  {
-    QString id = columns[0];
-    auto it = m_elementsById.find(id.toStdString());
-
-    if (it != m_elementsById.end())
-    {
-      Element *element = it->second;
-      QString variable = columns[1].trimmed();
-      QString type = columns[2];
-      PointSrcTimeSeriesBC::VariableType varType;
-
-      int soluteIndex = -2;
-
-      if (!QString::compare(variable, "HEAT", Qt::CaseInsensitive))
-      {
-        varType = PointSrcTimeSeriesBC::HeatSource;
-        soluteIndex = -1;
-      }
-      else if (!QString::compare(variable, "FLOW", Qt::CaseInsensitive))
-      {
-        varType = PointSrcTimeSeriesBC::FlowSource;
-        soluteIndex = -1;
-      }
-      else
-      {
-        varType = PointSrcTimeSeriesBC::SoluteSource;
-
-        for (size_t i = 0; i < m_solutes.size(); i++)
-        {
-          std::string solute = m_solutes[i];
-
-          if (!solute.compare(variable.toStdString()))
-          {
-            soluteIndex = i;
-            break;
-          }
-        }
-      }
-
-      if (soluteIndex > -2)
-      {
-        if (!QString::compare(type, "VALUE", Qt::CaseInsensitive))
-        {
-          bool valueOk;
-          double value = columns[3].toDouble(&valueOk);
-
-          if (valueOk)
-          {
-            PointSrcTimeSeriesBC *pointSrcTSBC = new PointSrcTimeSeriesBC(element, varType, this);
-            pointSrcTSBC->setSoluteIndex(soluteIndex);
-            pointSrcTSBC->addValue(m_startDateTime, value);
-            pointSrcTSBC->addValue(m_endDateTime, value);
-            m_boundaryConditions.push_back(pointSrcTSBC);
-          }
-          else
-          {
-            errorMessage = "Point source is invalid";
-            return false;
-          }
-        }
-        else if (!QString::compare(type, "FILE", Qt::CaseInsensitive))
-        {
-
-          QString filePath = columns[3];
-
-          if (!filePath.isEmpty() && !filePath.isNull())
-          {
-            QFileInfo fileInfo(filePath);
-
-            if (fileInfo.isRelative())
-              fileInfo = relativePathToAbsolute(fileInfo);
-
-            if (QFile::exists(fileInfo.absoluteFilePath()))
-            {
-              std::map<double, std::vector<double>> timeSeries;
-              std::vector<std::string> headers;
-
-              if (TimeSeries::readTimeSeries(fileInfo, timeSeries, headers))
-              {
-                PointSrcTimeSeriesBC *pointSrcTSBC = new PointSrcTimeSeriesBC(element, varType  , this);
-                pointSrcTSBC->setSoluteIndex(soluteIndex);
-
-                for (auto it = timeSeries.begin(); it != timeSeries.end(); it++)
-                {
-                  double dateTime = it->first;
-                  double value = it->second[0];
-                  pointSrcTSBC->addValue(dateTime, value);
-                }
-
-                m_boundaryConditions.push_back(pointSrcTSBC);
-
-                timeSeries.clear();
-                headers.clear();
-              }
-              else
-              {
-                errorMessage = "Point source is invalid";
-                return false;
-              }
-            }
-            else
-            {
-              errorMessage = "Point source is invalid";
-              return false;
-            }
-          }
-          else
-          {
-            errorMessage = "Point source is invalid";
-            return false;
-          }
-        }
-      }
-      else
-      {
-        errorMessage = "Point source is invalid";
-        return false;
-      }
-    }
-    else
-    {
-      errorMessage = "Point source is invalid";
-      return false;
-    }
-  }
-  else
-  {
-    return false;
-  }
-
-  return true;
-}
-
-bool CSHModel::readInputFileNonPointSourcesTag(const QString &line, QString &errorMessage)
+bool CSHModel::readInputFileSourcesTag(const QString &line, QString &errorMessage)
 {
   errorMessage = "";
   QStringList columns = line.split(m_delimiters, QString::SkipEmptyParts);
@@ -2022,23 +1872,22 @@ bool CSHModel::readInputFileNonPointSourcesTag(const QString &line, QString &err
 
       QString variable = columns[4].trimmed();
       QString type = columns[5];
-      NonPointSrcTimeSeriesBC::VariableType variableType;
+      SourceBC::VariableType variableType;
 
-      int soluteIndex = -2;
+      int soluteIndex = -1;
 
       if (!QString::compare(variable, "HEAT", Qt::CaseInsensitive))
       {
-        soluteIndex = -1;
-        variableType = NonPointSrcTimeSeriesBC::HeatSource;
+        variableType = SourceBC::HeatSource;
+        soluteIndex = 0;
       }
       else if (!QString::compare(variable, "FlOW", Qt::CaseInsensitive))
       {
-        soluteIndex = -1;
-        variableType = NonPointSrcTimeSeriesBC::FlowSource;
+        variableType = SourceBC::FlowSource;
+        soluteIndex = 0;
       }
       else
       {
-        variableType = NonPointSrcTimeSeriesBC::SoluteSource;
 
         for (size_t i = 0; i < m_solutes.size(); i++)
         {
@@ -2047,12 +1896,13 @@ bool CSHModel::readInputFileNonPointSourcesTag(const QString &line, QString &err
           if (!solute.compare(variable.toStdString()))
           {
             soluteIndex = i;
+            variableType = SourceBC::SoluteSource;
             break;
           }
         }
       }
 
-      if (soluteIndex > -2)
+      if(soluteIndex > -1)
       {
         if (!QString::compare(type, "VALUE", Qt::CaseInsensitive))
         {
@@ -2061,80 +1911,55 @@ bool CSHModel::readInputFileNonPointSourcesTag(const QString &line, QString &err
 
           if (valueOk)
           {
-            NonPointSrcTimeSeriesBC *nonPointSrcTSBC = new NonPointSrcTimeSeriesBC(elementFrom, startFactor, elementTo, endFactor, variableType, this);
+            SourceBC *nonPointSrcTSBC = new SourceBC(elementFrom, startFactor, elementTo, endFactor, variableType, this);
             nonPointSrcTSBC->setSoluteIndex(soluteIndex);
-            nonPointSrcTSBC->addValue(m_startDateTime, value);
-            nonPointSrcTSBC->addValue(m_endDateTime, value);
+
+            QUuid uid = QUuid::createUuid();
+            QSharedPointer<TimeSeries>ts(new TimeSeries(uid.toString(), 1, this));
+
+            ts->addRow(m_startDateTime, value);
+            ts->addRow(m_endDateTime, value);
+
+            m_timeSeries[ts->id().toStdString()] = ts;
+
+            nonPointSrcTSBC->setTimeSeries(ts);
+
             m_boundaryConditions.push_back(nonPointSrcTSBC);
           }
           else
           {
-            errorMessage = "Point source is invalid";
+            errorMessage = "Source is is invalid";
             return false;
           }
         }
-        else if (!QString::compare(type, "FILE", Qt::CaseInsensitive))
+        else if (!QString::compare(type, "TIMESERIES", Qt::CaseInsensitive))
         {
+          std::string tsId = columns[6].toStdString();
+          auto tsIt = m_timeSeries.find(tsId);
 
-          QString filePath = columns[6];
-
-          if (!filePath.isEmpty() && !filePath.isNull())
+          if (tsIt != m_timeSeries.end())
           {
-            QFileInfo fileInfo(filePath);
-
-            if (fileInfo.isRelative())
-              fileInfo = relativePathToAbsolute(fileInfo);
-
-            if (QFile::exists(fileInfo.absoluteFilePath()))
-            {
-              std::map<double, std::vector<double>> timeSeries;
-              std::vector<std::string> headers;
-
-              if (TimeSeries::readTimeSeries(fileInfo, timeSeries, headers))
-              {
-                NonPointSrcTimeSeriesBC *nonPointSrcTSBC = new NonPointSrcTimeSeriesBC(elementFrom, startFactor, elementTo, endFactor, variableType, this);
-                nonPointSrcTSBC->setSoluteIndex(soluteIndex);
-
-                for (auto it = timeSeries.begin(); it != timeSeries.end(); it++)
-                {
-                  double dateTime = it->first;
-                  double value = it->second[0];
-                  nonPointSrcTSBC->addValue(dateTime, value);
-                }
-
-                m_boundaryConditions.push_back(nonPointSrcTSBC);
-
-                timeSeries.clear();
-                headers.clear();
-              }
-              else
-              {
-                errorMessage = "Point source is invalid";
-                return false;
-              }
-            }
-            else
-            {
-              errorMessage = "Point source is invalid";
-              return false;
-            }
+            SourceBC *nonPointSrcTSBC = new SourceBC(elementFrom, startFactor, elementTo, endFactor, variableType, this);
+            nonPointSrcTSBC->setSoluteIndex(soluteIndex);
+            nonPointSrcTSBC->setTimeSeries(tsIt->second);
+            m_boundaryConditions.push_back(nonPointSrcTSBC);
           }
           else
           {
-            errorMessage = "Point source is invalid";
+            errorMessage = "Source is is invalid";
             return false;
           }
         }
       }
       else
       {
-        errorMessage = "Point source is invalid";
+        errorMessage = "Source is is invalid";
         return false;
       }
     }
     else
     {
-      errorMessage = "Point source is invalid";
+      errorMessage = "Source is is invalid";
       return false;
     }
   }
@@ -2146,12 +1971,12 @@ bool CSHModel::readInputFileNonPointSourcesTag(const QString &line, QString &err
   return true;
 }
 
-bool CSHModel::readInputFileUniformHydraulicsTag(const QString &line, QString &errorMessage)
+bool CSHModel::readInputFileHydraulicsTag(const QString &line, QString &errorMessage)
 {
   errorMessage = "";
   QStringList columns = line.split(m_delimiters, QString::SkipEmptyParts);
 
-  if (columns.size() == 4)
+  if (columns.size() == 5)
   {
     QString fromId = columns[0];
     QString toId = columns[1];
@@ -2182,11 +2007,19 @@ bool CSHModel::readInputFileUniformHydraulicsTag(const QString &line, QString &e
 
           if (valueOk)
           {
-            UniformHydraulicsTimeSeriesBC *uniformHydraulicsBC = new UniformHydraulicsTimeSeriesBC(fromElement, toElement,
-                                                                                                   variableIndex, this);
-            uniformHydraulicsBC->addValue(m_startDateTime, value);
-            uniformHydraulicsBC->addValue(m_endDateTime, value);
-            m_boundaryConditions.push_back(uniformHydraulicsBC);
+            HydraulicsBC *hydraulicsBC = new HydraulicsBC(fromElement, toElement,
+                                                          variableIndex, this);
+            QUuid uid = QUuid::createUuid();
+            QSharedPointer<TimeSeries>ts(new TimeSeries(uid.toString(), 1, this));
+
+            ts->addRow(m_startDateTime, value);
+            ts->addRow(m_endDateTime, value);
+
+            m_timeSeries[ts->id().toStdString()] = ts;
+
+            hydraulicsBC->setTimeSeries(ts);
+
+            m_boundaryConditions.push_back(hydraulicsBC);
           }
           else
           {
@@ -2194,49 +2027,19 @@ bool CSHModel::readInputFileUniformHydraulicsTag(const QString &line, QString &e
             return false;
           }
         }
-        else if (!QString::compare(valueType, "FILE", Qt::CaseInsensitive))
+        else if (!QString::compare(valueType, "TIMESERIES", Qt::CaseInsensitive))
         {
-          QString filePath = varValue;
+          std::string tsId = varValue.toStdString();
+          auto tsIt = m_timeSeries.find(tsId);
 
-          if (!filePath.isEmpty() && !filePath.isNull())
+          if (tsIt != m_timeSeries.end())
           {
-            QFileInfo fileInfo(filePath);
+            HydraulicsBC *hydraulicsBC = new HydraulicsBC(fromElement, toElement,
+                                                          variableIndex, this);
 
-            if (fileInfo.isRelative())
-              fileInfo = relativePathToAbsolute(fileInfo);
 
-            if (QFile::exists(fileInfo.absoluteFilePath()))
-            {
-              std::map<double, std::vector<double>> timeSeries;
-              std::vector<std::string> headers;
-
-              if (TimeSeries::readTimeSeries(fileInfo, timeSeries, headers))
-              {
-                UniformHydraulicsTimeSeriesBC *uniformHydraulicsBC = new UniformHydraulicsTimeSeriesBC(fromElement, toElement,
-                                                                                                       variableIndex, this);
-                for (auto it = timeSeries.begin(); it != timeSeries.end(); it++)
-                {
-                  double dateTime = it->first;
-                  double value = it->second[0];
-                  uniformHydraulicsBC->addValue(dateTime, value);
-                }
-
-                m_boundaryConditions.push_back(uniformHydraulicsBC);
-
-                timeSeries.clear();
-                headers.clear();
-              }
-              else
-              {
-                errorMessage = "Specified uniform hydraulics filepath does not exist";
-                return false;
-              }
-            }
-            else
-            {
-              errorMessage = "Specified uniform hydraulics filepath does not exist";
-              return false;
-            }
+            hydraulicsBC->setTimeSeries(tsIt->second);
+            m_boundaryConditions.push_back(hydraulicsBC);
           }
           else
           {
@@ -2263,96 +2066,10 @@ bool CSHModel::readInputFileUniformHydraulicsTag(const QString &line, QString &e
   }
 
   return true;
+
 }
 
-bool CSHModel::readInputFileNonUniformHydraulicsTag(const QString &line, QString &errorMessage)
-{
-  errorMessage = "";
-  QStringList columns = line.split(m_delimiters, QString::SkipEmptyParts);
-
-  if (columns.size() == 2)
-  {
-    auto it = m_hydraulicVariableFlags.find(columns[0].toStdString());
-
-    if (it != m_hydraulicVariableFlags.end())
-    {
-      int variableIndex = it->second;
-
-      QString filePath = columns[1];
-
-      if (!filePath.isEmpty() && !filePath.isNull())
-      {
-        QFileInfo fileInfo(filePath);
-
-        if (fileInfo.isRelative())
-          fileInfo = relativePathToAbsolute(fileInfo);
-
-        if (QFile::exists(fileInfo.absoluteFilePath()))
-        {
-          std::map<double, std::vector<double>> timeSeries;
-          std::vector<std::string> headers;
-
-          if (TimeSeries::readTimeSeries(fileInfo, timeSeries, headers))
-          {
-            for (size_t i = 0; i < headers.size(); i++)
-            {
-              auto eit = m_elementsById.find(headers[i]);
-
-              if (eit != m_elementsById.end())
-              {
-                Element *element = eit->second;
-                HydraulicsTimeSeriesBC *hydraulicsTimeSeries = new HydraulicsTimeSeriesBC(element, variableIndex, this);
-
-                for (auto it = timeSeries.begin(); it != timeSeries.end(); it++)
-                {
-                  double dateTime = it->first;
-                  double value = it->second[i];
-                  hydraulicsTimeSeries->addValue(dateTime, value);
-                }
-
-                m_boundaryConditions.push_back(hydraulicsTimeSeries);
-              }
-              else
-              {
-                errorMessage = "Specified time varying hydraulic file is invalid";
-                return false;
-              }
-            }
-          }
-          else
-          {
-            errorMessage = "Specified time varying hydraulic file is invalid";
-            return false;
-          }
-        }
-        else
-        {
-          errorMessage = "Specified time varying hydraulic file is invalid";
-          return false;
-        }
-      }
-      else
-      {
-        errorMessage = "Specified time varying hydraulic file is invalid";
-        return false;
-      }
-    }
-    else
-    {
-      errorMessage = "Specified time varying hydraulic file is invalid";
-      return false;
-    }
-  }
-  else
-  {
-    errorMessage = "Specified time varying hydraulic file is invalid";
-    return false;
-  }
-
-  return true;
-}
-
-bool CSHModel::readInputFileUniformRadiativeFluxesTag(const QString &line, QString &errorMessage)
+bool CSHModel::readInputFileRadiativeFluxesTag(const QString &line, QString &errorMessage)
 {
   errorMessage = "";
   QStringList columns = line.split(m_delimiters, QString::SkipEmptyParts);
@@ -2381,10 +2098,19 @@ bool CSHModel::readInputFileUniformRadiativeFluxesTag(const QString &line, QStri
 
         if (valueOk)
         {
-          UniformRadiativeFluxTimeSeriesBC *uniformRadiationFluxBC = new UniformRadiativeFluxTimeSeriesBC(fromElement, toElement, this);
-          uniformRadiationFluxBC->addValue(m_startDateTime, value);
-          uniformRadiationFluxBC->addValue(m_endDateTime, value);
-          m_boundaryConditions.push_back(uniformRadiationFluxBC);
+          RadiativeFluxBC *radiationFluxBC = new RadiativeFluxBC(fromElement, toElement, this);
+
+          QUuid uid = QUuid::createUuid();
+          QSharedPointer<TimeSeries>ts(new TimeSeries(uid.toString(), 1, this));
+
+          ts->addRow(m_startDateTime, value);
+          ts->addRow(m_endDateTime, value);
+
+          m_timeSeries[ts->id().toStdString()] = ts;
+
+          radiationFluxBC->setTimeSeries(ts);
+
+          m_boundaryConditions.push_back(radiationFluxBC);
         }
         else
         {
@@ -2392,49 +2118,16 @@ bool CSHModel::readInputFileUniformRadiativeFluxesTag(const QString &line, QStri
           return false;
         }
       }
-      else if (!QString::compare(type, "FILE", Qt::CaseInsensitive))
+      else if (!QString::compare(type, "TIMESERIES", Qt::CaseInsensitive))
       {
-        QString filePath = varValue;
+        std::string tsId = varValue.toStdString();
+        auto tsIt = m_timeSeries.find(tsId);
 
-        if (!filePath.isEmpty() && !filePath.isNull())
+        if(tsIt != m_timeSeries.end())
         {
-          QFileInfo fileInfo(filePath);
-
-          if (fileInfo.isRelative())
-            fileInfo = relativePathToAbsolute(fileInfo);
-
-          if (QFile::exists(fileInfo.absoluteFilePath()))
-          {
-            std::map<double, std::vector<double>> timeSeries;
-            std::vector<std::string> headers;
-
-            if (TimeSeries::readTimeSeries(fileInfo, timeSeries, headers))
-            {
-              UniformRadiativeFluxTimeSeriesBC *uniformRadiationFluxBC = new UniformRadiativeFluxTimeSeriesBC(fromElement, toElement, this);
-
-              for (auto it = timeSeries.begin(); it != timeSeries.end(); it++)
-              {
-                double dateTime = it->first;
-                double value = it->second[0];
-                uniformRadiationFluxBC->addValue(dateTime, value);
-              }
-
-              m_boundaryConditions.push_back(uniformRadiationFluxBC);
-
-              timeSeries.clear();
-              headers.clear();
-            }
-            else
-            {
-              errorMessage = "Specified BC filepath does not exist";
-              return false;
-            }
-          }
-          else
-          {
-            errorMessage = "Specified BC filepath does not exist";
-            return false;
-          }
+          RadiativeFluxBC *radiationFluxBC = new RadiativeFluxBC(fromElement, toElement, this);
+          radiationFluxBC->setTimeSeries(tsIt->second);
+          m_boundaryConditions.push_back(radiationFluxBC);
         }
         else
         {
@@ -2457,84 +2150,9 @@ bool CSHModel::readInputFileUniformRadiativeFluxesTag(const QString &line, QStri
   return true;
 }
 
-bool CSHModel::readInputFileNonUniformRadiativeFluxesTag(const QString &line, QString &errorMessage)
+bool CSHModel::readInputFileMeteorologyTag(const QString &line, QString &errorMessage)
 {
-  errorMessage = "";
-  QStringList columns = line.split(m_delimiters, QString::SkipEmptyParts);
 
-  if (columns.size() == 1)
-  {
-    QString filePath = columns[0];
-
-    if (!filePath.isEmpty() && !filePath.isNull())
-    {
-      QFileInfo fileInfo(filePath);
-
-      if (fileInfo.isRelative())
-        fileInfo = relativePathToAbsolute(fileInfo);
-
-      if (QFile::exists(fileInfo.absoluteFilePath()))
-      {
-        std::map<double, std::vector<double>> timeSeries;
-        std::vector<std::string> headers;
-
-        if (TimeSeries::readTimeSeries(fileInfo, timeSeries, headers))
-        {
-          for (size_t i = 0; i < headers.size(); i++)
-          {
-            auto eit = m_elementsById.find(headers[i]);
-
-            if (eit != m_elementsById.end())
-            {
-              Element *element = eit->second;
-              RadiativeFluxTimeSeriesBC *radiativeFluxTimeSeries = new RadiativeFluxTimeSeriesBC(element, this);
-
-              for (auto it = timeSeries.begin(); it != timeSeries.end(); it++)
-              {
-                double dateTime = it->first;
-                double value = it->second[i];
-                radiativeFluxTimeSeries->addValue(dateTime, value);
-              }
-
-              m_boundaryConditions.push_back(radiativeFluxTimeSeries);
-            }
-            else
-            {
-              errorMessage = "Specified time varying radiative flux file is invalid";
-              return false;
-            }
-          }
-        }
-        else
-        {
-          errorMessage = "Specified time varying radiative flux file is invalid";
-          return false;
-        }
-      }
-      else
-      {
-        errorMessage = "Specified time varying radiative flux file is invalid";
-        return false;
-      }
-    }
-    else
-    {
-      errorMessage = "Specified time varying radiative flux file is invalid";
-      return false;
-    }
-
-  }
-  else
-  {
-    errorMessage = "Specified time varying radiative flux file is invalid";
-    return false;
-  }
-
-  return true;
-}
-
-bool CSHModel::readInputFileUniformMeteorologyTag(const QString &line, QString &errorMessage)
-{
   errorMessage = "";
   QStringList columns = line.split(m_delimiters, QString::SkipEmptyParts);
 
@@ -2569,11 +2187,16 @@ bool CSHModel::readInputFileUniformMeteorologyTag(const QString &line, QString &
 
           if (valueOk)
           {
-            UniformMeteorologyTimeSeriesBC *uniformMeteorologyBC = new UniformMeteorologyTimeSeriesBC(fromElement, toElement,
-                                                                                                      variableIndex, this);
-            uniformMeteorologyBC->addValue(m_startDateTime, value);
-            uniformMeteorologyBC->addValue(m_endDateTime, value);
-            m_boundaryConditions.push_back(uniformMeteorologyBC);
+            MeteorologyBC *meteorologyBC = new MeteorologyBC(fromElement, toElement,
+                                                             variableIndex, this);
+            QUuid uid = QUuid::createUuid();
+            QSharedPointer<TimeSeries>ts(new TimeSeries(uid.toString(), 1, this));
+            ts->addRow(m_startDateTime, value);
+            ts->addRow(m_endDateTime, value);
+            m_timeSeries[ts->id().toStdString()] = ts;
+
+            meteorologyBC->setTimeSeries(ts);
+            m_boundaryConditions.push_back(meteorologyBC);
           }
           else
           {
@@ -2581,49 +2204,18 @@ bool CSHModel::readInputFileUniformMeteorologyTag(const QString &line, QString &
             return false;
           }
         }
-        else if (!QString::compare(valueType, "FILE", Qt::CaseInsensitive))
+        else if (!QString::compare(valueType, "TIMESERIES", Qt::CaseInsensitive))
         {
-          QString filePath = varValue;
+          std::string tsId = varValue.toStdString();
+          auto tsIt = m_timeSeries.find(tsId);
 
-          if (!filePath.isEmpty() && !filePath.isNull())
+          if(tsIt != m_timeSeries.end())
           {
-            QFileInfo fileInfo(filePath);
+            MeteorologyBC *meteorologyBC = new MeteorologyBC(fromElement, toElement,
+                                                             variableIndex, this);
 
-            if (fileInfo.isRelative())
-              fileInfo = relativePathToAbsolute(fileInfo);
-
-            if (QFile::exists(fileInfo.absoluteFilePath()))
-            {
-              std::map<double, std::vector<double>> timeSeries;
-              std::vector<std::string> headers;
-
-              if(TimeSeries::readTimeSeries(fileInfo, timeSeries, headers))
-              {
-                UniformMeteorologyTimeSeriesBC *uniformMeteorologyBC = new UniformMeteorologyTimeSeriesBC(fromElement, toElement,
-                                                                                                          variableIndex, this);
-                for (auto it = timeSeries.begin(); it != timeSeries.end(); it++)
-                {
-                  double dateTime = it->first;
-                  double value = it->second[0];
-                  uniformMeteorologyBC->addValue(dateTime, value);
-                }
-
-                m_boundaryConditions.push_back(uniformMeteorologyBC);
-
-                timeSeries.clear();
-                headers.clear();
-              }
-              else
-              {
-                errorMessage = "Specified uniform meteorology filepath does not exist";
-                return false;
-              }
-            }
-            else
-            {
-              errorMessage = "Specified uniform meteorology filepath does not exist";
-              return false;
-            }
+            meteorologyBC->setTimeSeries(tsIt->second);
+            m_boundaryConditions.push_back(meteorologyBC);
           }
           else
           {
@@ -2650,89 +2242,43 @@ bool CSHModel::readInputFileUniformMeteorologyTag(const QString &line, QString &
   }
 
   return true;
+
 }
 
-bool CSHModel::readInputFileNonUniformMeteorologyTag(const QString &line, QString &errorMessage)
+bool CSHModel::readInputFileTimeSeriesTag(const QString &line, QString &errorMessage)
 {
-  errorMessage = "";
-  QStringList columns = line.split(m_delimiters, QString::SkipEmptyParts);
+  QStringList options = line.split(m_delimiters, QString::SkipEmptyParts);
 
-  if (columns.size() == 2)
+  if(options.size() ==  2)
   {
-    auto it = m_meteorologicalVariableFlags.find(columns[0].toStdString());
+    QFileInfo fileInfo(options[1].trimmed());
 
-    if (it != m_meteorologicalVariableFlags.end())
+    if (fileInfo.isRelative())
+      fileInfo = relativePathToAbsolute(fileInfo);
+
+    if(QFile::exists(fileInfo.absoluteFilePath()))
     {
-      int variableIndex = it->second;
+      QSharedPointer<TimeSeries> timeSeries(TimeSeries::createTimeSeries(options[0], fileInfo, this));
 
-      QString filePath = columns[1];
-
-      if (!filePath.isEmpty() && !filePath.isNull())
+      if(!timeSeries.isNull())
       {
-        QFileInfo fileInfo(filePath);
-
-        if (fileInfo.isRelative())
-          fileInfo = relativePathToAbsolute(fileInfo);
-
-        if (QFile::exists(fileInfo.absoluteFilePath()))
-        {
-          std::map<double, std::vector<double>> timeSeries;
-          std::vector<std::string> headers;
-
-          if (TimeSeries::readTimeSeries(fileInfo, timeSeries, headers))
-          {
-            for (size_t i = 0; i < headers.size(); i++)
-            {
-              auto eit = m_elementsById.find(headers[i]);
-
-              if (eit != m_elementsById.end())
-              {
-                Element *element = eit->second;
-                MeteorologyTimeSeriesBC *meteorologyTimeSeries = new MeteorologyTimeSeriesBC(element, variableIndex, this);
-
-                for (auto it = timeSeries.begin(); it != timeSeries.end(); it++)
-                {
-                  double dateTime = it->first;
-                  double value = it->second[i];
-                  meteorologyTimeSeries->addValue(dateTime, value);
-                }
-
-                m_boundaryConditions.push_back(meteorologyTimeSeries);
-              }
-              else
-              {
-                errorMessage = "Specified time varying hydraulic file is invalid";
-                return false;
-              }
-            }
-          }
-          else
-          {
-            errorMessage = "Specified time varying hydraulic file is invalid";
-            return false;
-          }
-        }
-        else
-        {
-          errorMessage = "Specified time varying hydraulic file is invalid";
-          return false;
-        }
+        m_timeSeries[timeSeries->id().toStdString()] = timeSeries;
       }
       else
       {
-        errorMessage = "Specified time varying hydraulic file is invalid";
+        errorMessage = "Timeseries specified is invalid";
         return false;
       }
     }
     else
     {
-      errorMessage = "Specified time varying hydraulic file is invalid";
+      errorMessage = "Specified filepath does not exist";
       return false;
     }
   }
   else
   {
-    errorMessage = "Specified time varying hydraulic file is invalid";
+    errorMessage = "TimeSeries must have two columns";
     return false;
   }
 
@@ -3012,6 +2558,7 @@ void CSHModel::closeOutputNetCDFFile()
 
   if(m_outputNetCDF)
   {
+    m_outputNetCDF->sync();
     delete m_outputNetCDF;
     m_outputNetCDF = nullptr;
   }
@@ -3047,14 +2594,11 @@ const unordered_map<string, int> CSHModel::m_inputFileFlags({
                                                               {"[ELEMENTJUNCTIONS]", 4},
                                                               {"[ELEMENTS]", 5},
                                                               {"[BOUNDARY_CONDITIONS]", 6},
-                                                              {"[POINT_SOURCES]", 7},
-                                                              {"[NON_POINT_SOURCES]", 8},
-                                                              {"[UNIFORM_HYDRAULICS]", 9},
-                                                              {"[NON_UNIFORM_HYDRAULICS]", 10},
-                                                              {"[UNIFORM_RADIATIVE_FLUXES]", 11},
-                                                              {"[NON_UNIFORM_RADIATIVE_FLUXES]", 12},
-                                                              {"[UNIFORM_METEOROLOGY]", 13},
-                                                              {"[NON_UNIFORM_METEOROLOGY]", 14}
+                                                              {"[SOURCES]", 7},
+                                                              {"[HYDRAULICS]", 8},
+                                                              {"[RADIATIVE_FLUXES]", 9},
+                                                              {"[METEOROLOGY]", 10},
+                                                              {"[TIMESERIES]", 11}
                                                             });
 
 const unordered_map<string, int> CSHModel::m_optionsFlags({

@@ -1,5 +1,5 @@
 /*!
-*  \file    pointsrctimeseriesbc.h
+*  \file    JunctionBC.h
 *  \author  Caleb Amoa Buahin <caleb.buahin@gmail.com>
 *  \version 1.0.0
 *  \section Description
@@ -17,25 +17,31 @@
 *  \warning
 */
 
-#ifndef POINTSRCTIMESERIESBC_H
-#define POINTSRCTIMESERIESBC_H
 
-#include "abstracttimeseriesbc.h"
+#ifndef JUNCTIONBC_H
+#define JUNCTIONBC_H
 
-class CSHComponent_EXPORT PointSrcTimeSeriesBC : public AbstractTimeSeriesBC
+#include "iboundarycondition.h"
+#include "cshcomponent_global.h"
+
+#include <QObject>
+#include <QSharedPointer>
+
+struct ElementJunction;
+class DataCursor;
+class CSHModel;
+class TimeSeries;
+
+class CSHCOMPONENT_EXPORT JunctionBC: public QObject,
+    public virtual IBoundaryCondition
 {
+    Q_OBJECT
+
   public:
 
-    enum VariableType
-    {
-      HeatSource,
-      FlowSource,
-      SoluteSource,
-    };
+    JunctionBC(ElementJunction *elementJunction, int variableIndex, CSHModel *model);
 
-    PointSrcTimeSeriesBC(Element *element, VariableType variableType, CSHModel *model);
-
-    virtual ~PointSrcTimeSeriesBC();
+    virtual ~JunctionBC();
 
     void  findAssociatedGeometries() override final;
 
@@ -43,19 +49,24 @@ class CSHComponent_EXPORT PointSrcTimeSeriesBC : public AbstractTimeSeriesBC
 
     void applyBoundaryConditions(double dateTime) override final;
 
-    Element *element() const;
+    void clear() override;
 
-    void setElement(Element *element);
+    ElementJunction *elementJunction() const;
 
-    int soluteIndex() const;
+    void setElementJunction(ElementJunction *elementJunction);
 
-    void setSoluteIndex(int soluteIndex);
+    QSharedPointer<TimeSeries> timeSeries() const;
+
+    void setTimeSeries(const QSharedPointer<TimeSeries> &timeseries);
 
   private:
-    Element *m_element;
-    VariableType m_variableType;
-    int m_soluteIndex;
+
+    ElementJunction *m_elementJunction;
+    int m_variableIndex;
+    DataCursor *m_dataCursor;
+    QSharedPointer<TimeSeries> m_timeSeries;
+    CSHModel *m_model;
 };
 
 
-#endif // POINTSRCTIMESERIESBC_H
+#endif // JUNCTIONBC_H

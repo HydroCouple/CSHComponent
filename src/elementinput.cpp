@@ -49,6 +49,7 @@ bool ElementInput::setProvider(HydroCouple::IOutput *provider)
       for(int i = 0; i < geometryCount() ; i++)
       {
         HCLineString *lineString = dynamic_cast<HCLineString*>(getGeometry(i));
+        Element *element = m_component->modelInstance()->getElement(i);
 
         if(lineString->pointCount())
         {
@@ -75,6 +76,12 @@ bool ElementInput::setProvider(HydroCouple::IOutput *provider)
                 m_geometryMapping[i] = j;
                 m_geometryMappingOrientation[i] = 1.0;
                 mapped[j] = true;
+
+                if(m_varType == VariableType::DVolumeDTime)
+                {
+                  element->dvolume_dt.isBC = true;
+                }
+
                 break;
               }
               else if(deltap1p2 < 1e-3 &&  deltap2p1 < 1e-3)
@@ -82,6 +89,12 @@ bool ElementInput::setProvider(HydroCouple::IOutput *provider)
                 m_geometryMapping[i] = j;
                 m_geometryMappingOrientation[i] = -1.0;
                 mapped[j] = true;
+
+                if(m_varType == VariableType::DVolumeDTime)
+                {
+                  element->dvolume_dt.isBC = true;
+                }
+
                 break;
               }
             }
@@ -213,6 +226,21 @@ void ElementInput::applyData()
           }
         }
         break;
+      case DVolumeDTime:
+        {
+          for(auto it : m_geometryMapping)
+          {
+            double value1 = 0;
+            double value2 = 0;
+
+            timeGeometryDataItem->getValue(currentTimeIndex,it.second, &value1);
+            timeGeometryDataItem->getValue(previousTimeIndex,it.second, &value2);
+
+            Element *element =  m_component->modelInstance()->getElement(it.first);
+            element->dvolume_dt.value = value2 + factor *(value1 - value2);
+          }
+        }
+        break;
     }
   }
   else
@@ -264,6 +292,17 @@ void ElementInput::applyData()
           }
         }
         break;
+      case DVolumeDTime:
+        {
+          for(auto it : m_geometryMapping)
+          {
+            double value = 0;
+            timeGeometryDataItem->getValue(currentTimeIndex,it.second, & value);
+            Element *element =  m_component->modelInstance()->getElement(it.first);
+            element->dvolume_dt.value = value;
+          }
+        }
+        break;
     }
   }
 }
@@ -279,26 +318,27 @@ void ElementInput::setVariableType(VariableType variableType)
 }
 
 
-ElementHeatSourceInput::ElementHeatSourceInput(const QString &id,
-                                               Dimension *timeDimension,
-                                               Dimension *geometryDimension,
-                                               ValueDefinition *valueDefinition,
-                                               SourceType srcType,
-                                               CSHComponent *modelComponent)
+ElementSourceInput::ElementSourceInput(const QString &id,
+                                       Dimension *timeDimension,
+                                       Dimension *geometryDimension,
+                                       ValueDefinition *valueDefinition,
+                                       SourceType srcType,
+                                       CSHComponent *modelComponent)
   : TimeGeometryMultiInputDouble(id, IGeometry::LineString, timeDimension, geometryDimension,
                                  valueDefinition, modelComponent),
     m_component(modelComponent),
-    m_srcType(srcType)
+    m_srcType(srcType),
+    m_soluteIndex(0)
 {
 
 }
 
-ElementHeatSourceInput::~ElementHeatSourceInput()
+ElementSourceInput::~ElementSourceInput()
 {
 
 }
 
-bool ElementHeatSourceInput::addProvider(HydroCouple::IOutput *provider)
+bool ElementSourceInput::addProvider(HydroCouple::IOutput *provider)
 {
   if(AbstractMultiInput::addProvider(provider))
   {
@@ -355,7 +395,7 @@ bool ElementHeatSourceInput::addProvider(HydroCouple::IOutput *provider)
   return false;
 }
 
-bool ElementHeatSourceInput::removeProvider(HydroCouple::IOutput *provider)
+bool ElementSourceInput::removeProvider(HydroCouple::IOutput *provider)
 {
   if(AbstractMultiInput::removeProvider(provider))
   {
@@ -366,7 +406,7 @@ bool ElementHeatSourceInput::removeProvider(HydroCouple::IOutput *provider)
   return false;
 }
 
-bool ElementHeatSourceInput::canConsume(IOutput *provider, QString &message) const
+bool ElementSourceInput::canConsume(IOutput *provider, QString &message) const
 {
   ITimeGeometryComponentDataItem *timeGeometryDataItem = nullptr;
   IGeometryComponentDataItem *geometryDataItem = nullptr;
@@ -395,7 +435,7 @@ bool ElementHeatSourceInput::canConsume(IOutput *provider, QString &message) con
   return false;
 }
 
-void ElementHeatSourceInput::retrieveValuesFromProvider()
+void ElementSourceInput::retrieveValuesFromProvider()
 {
   moveDataToPrevTime();
   int currentTimeIndex = m_times.size() - 1;
@@ -407,7 +447,7 @@ void ElementHeatSourceInput::retrieveValuesFromProvider()
   }
 }
 
-void ElementHeatSourceInput::applyData()
+void ElementSourceInput::applyData()
 {
   double currentTime = m_component->modelInstance()->currentDateTime();
 
@@ -471,6 +511,22 @@ void ElementHeatSourceInput::applyData()
               }
             }
             break;
+          case SoluteFlux:
+            {
+              for(auto it : geometryMapping)
+              {
+                double value1 = 0;
+                double value2 = 0;
+
+                timeGeometryDataItem->getValue(currentTimeIndex,it.second, &value1);
+                timeGeometryDataItem->getValue(previousTimeIndex,it.second, &value2);
+
+                Element *element =  m_component->modelInstance()->getElement(it.first);
+                double interpValue = value2 + factor *(value1 - value2);
+                element->externalSoluteFluxes[m_soluteIndex] += interpValue;
+              }
+            }
+            break;
         }
       }
       else
@@ -499,6 +555,18 @@ void ElementHeatSourceInput::applyData()
 
                 Element *element =  m_component->modelInstance()->getElement(it.first);
                 element->externalHeatFluxes += value;
+              }
+            }
+            break;
+          case SoluteFlux:
+            {
+              for(auto it : geometryMapping)
+              {
+                double value = 0;
+                timeGeometryDataItem->getValue(currentTimeIndex,it.second, &value);
+
+                Element *element =  m_component->modelInstance()->getElement(it.first);
+                element->externalSoluteFluxes[m_soluteIndex] += value;
               }
             }
             break;
@@ -534,17 +602,39 @@ void ElementHeatSourceInput::applyData()
             }
           }
           break;
+        case SoluteFlux:
+          {
+            for(auto it : geometryMapping)
+            {
+              double value = 0;
+              geometryDataItem->getValue(it.second, &value);
+
+              Element *element =  m_component->modelInstance()->getElement(it.first);
+              element->externalSoluteFluxes[m_soluteIndex] += value;
+            }
+          }
+          break;
       }
     }
   }
 }
 
-ElementHeatSourceInput::SourceType ElementHeatSourceInput::sourceType() const
+ElementSourceInput::SourceType ElementSourceInput::sourceType() const
 {
   return m_srcType;
 }
 
-void ElementHeatSourceInput::setSourceType(SourceType srcType)
+void ElementSourceInput::setSourceType(SourceType srcType)
 {
   m_srcType = srcType;
+}
+
+int ElementSourceInput::soluteIndex() const
+{
+  return m_soluteIndex;
+}
+
+void ElementSourceInput::setSoluteIndex(int soluteIndex)
+{
+  m_soluteIndex = soluteIndex;
 }

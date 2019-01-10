@@ -51,13 +51,11 @@ HEADERS += ./include/stdafx.h\
            ./include/variable.h \
            ./include/element.h \
            ./include/iboundarycondition.h \
-           ./include/abstracttimeseriesbc.h \
-           ./include/junctiontimeseriesbc.h \
-           ./include/radiativefluxtimeseriesbc.h \
-           ./include/hydraulicstimeseriesbc.h \
-           ./include/pointsrctimeseriesbc.h \
-           ./include/nonpointsrctimeseriesbc.h \
-           ./include/meteorologytimeseriesbc.h \
+           ./include/junctionbc.h \
+           ./include/radiativefluxbc.h \
+           ./include/hydraulicsbc.h \
+           ./include/sourcebc.h \
+           ./include/meteorologybc.h \
            ./include/elementinput.h \
            ./include/elementoutput.h
 
@@ -71,15 +69,14 @@ SOURCES +=./src/stdafx.cpp \
           ./src/test/cshcomponenttest.cpp \
           ./src/cshmodelio.cpp \
           ./src/cshcompute.cpp \
-          ./src/abstracttimeseriesbc.cpp \
-          ./src/junctiontimeseriesbc.cpp \
-          ./src/radiativefluxtimeseriesbc.cpp \
-          ./src/hydraulicstimeseriesbc.cpp \
-          ./src/pointsrctimeseriesbc.cpp \
-          ./src/nonpointsrctimeseriesbc.cpp \
-          ./src/meteorologytimeseriesbc.cpp \
+          ./src/junctionbc.cpp \
+          ./src/radiativefluxbc.cpp \
+          ./src/hydraulicsbc.cpp \
+          ./src/sourcebc.cpp \
+          ./src/meteorologybc.cpp \
           ./src/elementinput.cpp \
-          ./src/elementoutput.cpp
+          ./src/elementoutput.cpp \
+          ./src/elementadvschemes.cpp
 
 
 macx{
@@ -271,7 +268,7 @@ CONFIG(debug, debug|release) {
     }
 
     macx {
-       QMAKE_CXXFLAGS += -O1
+       QMAKE_CXXFLAGS += -O3
     }
 
     linux {

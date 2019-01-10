@@ -1,5 +1,5 @@
 /*!
-*  \file    meteorologytimeseriesbc.h
+*  \file    HydraulicsBC.h
 *  \author  Caleb Amoa Buahin <caleb.buahin@gmail.com>
 *  \version 1.0.0
 *  \section Description
@@ -13,22 +13,39 @@
 *  \date 2018
 *  \pre
 *  \bug
-*  \todo
+*  \todo Test transport on branching networks
 *  \warning
 */
 
-#ifndef METEOROLOGYTIMESERIES_H
-#define METEOROLOGYTIMESERIES_H
 
-#include "abstracttimeseriesbc.h"
+#ifndef HydraulicsBC_H
+#define HydraulicsBC_H
 
-class CSHComponent_EXPORT MeteorologyTimeSeriesBC : public AbstractTimeSeriesBC
+#include "iboundarycondition.h"
+#include "cshcomponent_global.h"
+
+#include <QObject>
+#include <QSharedPointer>
+
+struct Element;
+class CSHModel;
+class DataCursor;
+class TimeSeries;
+
+
+class CSHCOMPONENT_EXPORT HydraulicsBC: public QObject,
+    public virtual IBoundaryCondition
 {
+
+    Q_OBJECT
+
   public:
 
-    MeteorologyTimeSeriesBC(Element *element, int variableIndex, CSHModel *model);
+    HydraulicsBC(Element *startElement,
+                           Element *endElement,
+                           int variableIndex, CSHModel *model);
 
-    virtual ~MeteorologyTimeSeriesBC();
+    virtual ~HydraulicsBC();
 
     void  findAssociatedGeometries() override final;
 
@@ -36,30 +53,7 @@ class CSHComponent_EXPORT MeteorologyTimeSeriesBC : public AbstractTimeSeriesBC
 
     void applyBoundaryConditions(double dateTime) override final;
 
-    Element *element() const;
-
-    void setElement(Element *element);
-
-  private:
-
-    Element *m_element;
-    int m_variableIndex;
-};
-
-
-class CSHComponent_EXPORT UniformMeteorologyTimeSeriesBC : public AbstractTimeSeriesBC
-{
-  public:
-
-    UniformMeteorologyTimeSeriesBC(Element *startElement, Element *endElement, int variableIndex, CSHModel *model);
-
-    virtual ~UniformMeteorologyTimeSeriesBC();
-
-    void  findAssociatedGeometries() override final;
-
-    void prepare() override final;
-
-    void applyBoundaryConditions(double dateTime) override final;
+    void clear() override final;
 
     Element *startElement() const;
 
@@ -69,10 +63,21 @@ class CSHComponent_EXPORT UniformMeteorologyTimeSeriesBC : public AbstractTimeSe
 
     void setEndElement(Element *element);
 
+    QSharedPointer<TimeSeries> timeSeries() const;
+
+    void setTimeSeries(const QSharedPointer<TimeSeries> &timeseries);
+
   private:
-    std::list<Element*> m_profile;
+    std::vector<Element*> m_profile;
     Element *m_startElement, *m_endElement;
+    DataCursor *m_dataCursor;
     int m_variableIndex;
+    QSharedPointer<TimeSeries> m_timeSeries;
+    CSHModel *m_model;
+
 };
 
-#endif // METEOROLOGYTIMESERIES_H
+
+
+
+#endif // HydraulicsBC_H

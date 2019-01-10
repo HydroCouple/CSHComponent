@@ -44,8 +44,10 @@ class Edge;
 class CSHModel;
 class IBoundaryCondition;
 class ThreadSafeNcFile;
+class TimeSeries;
 
-struct CSHComponent_EXPORT SolverUserData
+
+struct CSHCOMPONENT_EXPORT SolverUserData
 {
     CSHModel *model = nullptr;
     int variableIndex = -1;
@@ -53,17 +55,17 @@ struct CSHComponent_EXPORT SolverUserData
 
 typedef void (*RetrieveCouplingData)(CSHModel *model, double dateTime);
 
-class CSHComponent_EXPORT CSHModel : public QObject
+class CSHCOMPONENT_EXPORT CSHModel : public QObject
 {
     Q_OBJECT
 
     friend struct ElementJunction;
     friend struct Element;
-    friend class UniformRadiativeFluxTimeSeriesBC;
+    friend class RadiativeFluxBC;
     friend class PointSrcTimeSeriesBC;
-    friend class NonPointSrcTimeSeriesBC;
-    friend class UniformHydraulicsTimeSeriesBC;
-    friend class UniformMeteorologyTimeSeriesBC;
+    friend class SourceBC;
+    friend class HydraulicsBC;
+    friend class MeteorologyBC;
 
   public:
 
@@ -652,38 +654,16 @@ class CSHComponent_EXPORT CSHModel : public QObject
     bool readInputFileBoundaryConditionsTag(const QString &line, QString &errorMessage);
 
     /*!
-     * \brief readInputFilePointSourcesTag
-     * \param line
-     */
-    bool readInputFilePointSourcesTag(const QString &line, QString &errorMessage);
-
-    /*!
      * \brief readInputFileNonPointSourcesTag
      * \param line
      */
-    bool readInputFileNonPointSourcesTag(const QString &line, QString &errorMessage);
-
-    /*!
-     * \brief readInputFileUniformHydraulicsTag
-     * \param line
-     * \param errorMessage
-     * \return
-     */
-    bool readInputFileUniformHydraulicsTag(const QString &line, QString &errorMessage);
+    bool readInputFileSourcesTag(const QString &line, QString &errorMessage);
 
     /*!
      * \brief readInputFileNonUniformHydraulicsTag
      * \param line
      */
-    bool readInputFileNonUniformHydraulicsTag(const QString &line, QString &errorMessage);
-
-    /*!
-     * \brief readInputFileRadiativeFluxesTag
-     * \param line
-     * \param errorMessage
-     * \return
-     */
-    bool readInputFileUniformRadiativeFluxesTag(const QString &line, QString &errorMessage);
+    bool readInputFileHydraulicsTag(const QString &line, QString &errorMessage);
 
     /*!
      * \brief readInputFileNonUniformRadiativeFluxesTag
@@ -691,15 +671,7 @@ class CSHComponent_EXPORT CSHModel : public QObject
      * \param errorMessage
      * \return
      */
-    bool readInputFileNonUniformRadiativeFluxesTag(const QString &line, QString &errorMessage);
-
-    /*!
-     * \brief readInputFileUniformMeteorologyTag
-     * \param line
-     * \param errorMessage
-     * \return
-     */
-    bool readInputFileUniformMeteorologyTag(const QString &line, QString &errorMessage);
+    bool readInputFileRadiativeFluxesTag(const QString &line, QString &errorMessage);
 
     /*!
      * \brief readInputFileNonUniformMeteorologyTag
@@ -707,7 +679,15 @@ class CSHComponent_EXPORT CSHModel : public QObject
      * \param errorMessage
      * \return
      */
-    bool readInputFileNonUniformMeteorologyTag(const QString &line, QString &errorMessage);
+    bool readInputFileMeteorologyTag(const QString &line, QString &errorMessage);
+
+    /*!
+     * \brief readInputFileTimeSeries
+     * \param line
+     * \param errorMessage
+     * \return
+     */
+    bool readInputFileTimeSeriesTag(const QString &line, QString &errorMessage);
 
     /*!
      * \brief writeOutput
@@ -753,7 +733,7 @@ class CSHComponent_EXPORT CSHModel : public QObject
      * \param m_profile
      * \return
      */
-    bool findProfile(Element *from, Element *to, std::list<Element*> &profile);
+    bool findProfile(Element *from, Element *to, std::vector<Element*> &profile);
 
     /*!
      * \brief calculateDistanceFromUpstreamJunction
@@ -787,7 +767,8 @@ class CSHComponent_EXPORT CSHModel : public QObject
     m_totalAdvDispSoluteMassBalance, //Tracks total mass balance from advection and dispersion (kg)
     m_totalExternalSoluteFluxMassBalance, //Tracks total mass balance from external sources (kg)
     m_currTemps,
-    m_outTemps;
+    m_outTemps,
+    m_solute_first_order_k;
 
     std::vector<std::vector<double>> m_currSoluteConcs,
                                      m_outSoluteConcs;
@@ -806,6 +787,9 @@ class CSHComponent_EXPORT CSHModel : public QObject
     m_flushToDisk, //Write output saved in memory to disk
     m_useEvaporation,
     m_useConvection;
+
+    std::unordered_map<std::string, QSharedPointer<TimeSeries>> m_timeSeries;
+
 
     /*!
      * \brief m_advectionMode

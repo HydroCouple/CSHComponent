@@ -27,7 +27,7 @@
 
 class CSHComponent;
 
-class CSHComponent_EXPORT ElementOutput: public TimeGeometryOutputDouble
+class CSHCOMPONENT_EXPORT ElementOutput: public TimeGeometryOutputDouble
 {
 
     Q_OBJECT

@@ -16,7 +16,7 @@
 *  \todo
 *  \warning
 */
-
+#include "stdafx.h"
 #include "cshmodel.h"
 #include "cshcomponent.h"
 #include "spatial/point.h"
@@ -91,6 +91,8 @@ CSHModel::~CSHModel()
   m_soluteSolvers.clear();
 
   closeOutputFiles();
+
+  m_timeSeries.clear();
 
   for(IBoundaryCondition *boundaryCondition : m_boundaryConditions)
     delete boundaryCondition;
@@ -257,6 +259,7 @@ void CSHModel::setNumSolutes(int numSolutes)
     m_totalAdvDispSoluteMassBalance.resize(numSolutes);
     m_totalExternalSoluteFluxMassBalance.resize(numSolutes);
     m_dsolutePrevTimes.resize(numSolutes);
+    m_solute_first_order_k.resize(numSolutes, 0.0);
 
     for(size_t i = 0 ; i < m_solutes.size(); i++)
     {
@@ -614,20 +617,28 @@ bool CSHModel::initializeBoundaryConditions(std::list<string> &errors)
   return true;
 }
 
-bool CSHModel::findProfile(Element *from, Element *to, std::list<Element *> &profile)
+bool CSHModel::findProfile(Element *from, Element *to, std::vector<Element *> &profile)
 {
-  for(Element *outgoing : from->downstreamJunction->outgoingElements)
+  if(from == to)
   {
-    if(outgoing == to)
+    profile.push_back(from);
+    return true;
+  }
+  else
+  {
+    for(Element *outgoing : from->downstreamJunction->outgoingElements)
     {
-      profile.push_back(from);
-      profile.push_back(outgoing);
-      return true;
-    }
-    else if(findProfile(outgoing, to, profile))
-    {
-      profile.push_front(from);
-      return true;
+      if(outgoing == to)
+      {
+        profile.push_back(from);
+        profile.push_back(outgoing);
+        return true;
+      }
+      else if(findProfile(outgoing, to, profile))
+      {
+        profile.insert(profile.begin(), from);
+        return true;
+      }
     }
   }
 

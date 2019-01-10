@@ -1,5 +1,5 @@
 /*!
-*  \file    radiativefluxtimeseriesbc.h
+*  \file    meteorologytimeseriesbc.h
 *  \author  Caleb Amoa Buahin <caleb.buahin@gmail.com>
 *  \version 1.0.0
 *  \section Description
@@ -13,22 +13,38 @@
 *  \date 2018
 *  \pre
 *  \bug
-*  \todo Test transport on branching networks
+*  \todo
 *  \warning
 */
 
-#ifndef RADIATIVEFLUXTIMESERIESBC_H
-#define RADIATIVEFLUXTIMESERIESBC_H
+#ifndef METEOROLOGYTIMESERIES_H
+#define METEOROLOGYTIMESERIES_H
 
-#include "abstracttimeseriesbc.h"
+#include "iboundarycondition.h"
+#include "cshcomponent_global.h"
 
-class CSHComponent_EXPORT RadiativeFluxTimeSeriesBC : public AbstractTimeSeriesBC
+#include <QObject>
+#include <QSharedPointer>
+
+struct Element;
+class CSHModel;
+class DataCursor;
+class TimeSeries;
+
+
+class CSHCOMPONENT_EXPORT MeteorologyBC: public QObject,
+    public virtual IBoundaryCondition
 {
+    Q_OBJECT
+
   public:
 
-    RadiativeFluxTimeSeriesBC(Element *element, CSHModel *model);
+    MeteorologyBC(Element *startElement,
+                            Element *endElement,
+                            int variableIndex,
+                            CSHModel *model);
 
-    virtual ~RadiativeFluxTimeSeriesBC();
+    virtual ~MeteorologyBC();
 
     void  findAssociatedGeometries() override final;
 
@@ -36,30 +52,7 @@ class CSHComponent_EXPORT RadiativeFluxTimeSeriesBC : public AbstractTimeSeriesB
 
     void applyBoundaryConditions(double dateTime) override final;
 
-    Element *element() const;
-
-    void setElement(Element *element);
-
-  private:
-
-    Element *m_element;
-
-};
-
-
-class CSHComponent_EXPORT UniformRadiativeFluxTimeSeriesBC : public AbstractTimeSeriesBC
-{
-  public:
-
-    UniformRadiativeFluxTimeSeriesBC(Element *startElement, Element *endElement, CSHModel *model);
-
-    virtual ~UniformRadiativeFluxTimeSeriesBC();
-
-    void  findAssociatedGeometries() override final;
-
-    void prepare() override final;
-
-    void applyBoundaryConditions(double dateTime) override final;
+    void clear() override final;
 
     Element *startElement() const;
 
@@ -69,13 +62,18 @@ class CSHComponent_EXPORT UniformRadiativeFluxTimeSeriesBC : public AbstractTime
 
     void setEndElement(Element *element);
 
+    QSharedPointer<TimeSeries> timeSeries() const;
+
+    void setTimeSeries(const QSharedPointer<TimeSeries> &timeseries);
+
   private:
 
-    std::list<Element*> m_profile;
+    std::vector<Element*> m_profile;
     Element *m_startElement, *m_endElement;
-
+    int m_variableIndex;
+    DataCursor *m_dataCursor;
+    QSharedPointer<TimeSeries> m_timeSeries;
+    CSHModel *m_model;
 };
 
-
-
-#endif // RADIATIVEFLUXTIMESERIESBC_H
+#endif // METEOROLOGYTIMESERIES_H
