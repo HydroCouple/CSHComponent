@@ -66,12 +66,13 @@ class CSHCOMPONENT_EXPORT CSHModel : public QObject
     friend class SourceBC;
     friend class HydraulicsBC;
     friend class MeteorologyBC;
+    friend class ElementAdvTVD;
+    friend class ElementAdvQUICK;
 
   public:
 
     enum AdvectionDiscretizationMode
     {
-
       /*!
        * \brief Upwind discretization scheme.
        */
@@ -88,6 +89,17 @@ class CSHCOMPONENT_EXPORT CSHModel : public QObject
        * International Journal for Numerical Methods in Engineering 4:551–559.
        */
       Hybrid,
+
+      /*!
+       * \brief Quadratic upwind differencing scheme.
+       */
+      QUICK,
+
+      /*!
+       * \brief Universal Limiter for Transient Interpolation Modeling of the
+       * Advective Transport Equations
+       */
+      ULTIMATE,
 
       /*!
        * \brief TVD schemes
@@ -217,6 +229,12 @@ class CSHCOMPONENT_EXPORT CSHModel : public QObject
      * \brief computeDerivedHydraulics
      */
     void computeDerivedHydraulics();
+
+    /*!
+     * \brief computeEvapAndConv
+     */
+    void computeEvapAndConv();
+
 
     /*!
      * \brief computeLongDispersion
@@ -586,23 +604,14 @@ class CSHCOMPONENT_EXPORT CSHModel : public QObject
     void solveSoluteTransport(int soluteIndex, double timeStep);
 
     /*!
-     * \brief computeDTDt
+     * \brief computeDYDt
      * \param model
      * \param variableIndex
      * \param t
      * \param y
      * \param dydt
      */
-    static void computeDTDt(double t, double y[], double dydt[], void *userData);
-
-    /*!
-     * \brief computeSoluteDYDt
-     * \param t
-     * \param y
-     * \param dydt
-     * \param userData
-     */
-    static void computeDSoluteDt(double t, double y[], double dydt[], void *userData);
+    static void computeDYDt(double t, double y[], double dydt[], void *userData);
 
     /*!
      * \brief solveJunctionHeatContinuity Solve

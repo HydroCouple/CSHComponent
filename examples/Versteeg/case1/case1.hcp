@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<HydroCoupleProject name="case1.hcp">
+    <ModelComponents>
+        <ModelComponent Name="Channel Solute and Temperature Transport 1.0.0" Caption="Versteeg Case 1" Description="" IsTrigger="True" ModelComponentLibrary="../../../build/debug/libCSHComponent.1.0.0.dylib" XPos="684" YPos="271.5">
+            <ComputeResourceAllocations>
+                <ComputeResourceAllocation MPI_Process="0" GPU_Platform="-1" GPU_Device="-1" Maximum_Number_GPU_Blocks_Or_Workgroups="0"/>
+            </ComputeResourceAllocations>
+            <Arguments>
+                <Argument Id="Identifiers" ArgumentIOType="String">
+                    <IdBasedArgument Id="Identifiers" Caption="Model Identifiers" IsOptional="False">
+    <ValueDefinition Type="Quantity" ValueType="QString" MissingValue="-99999999" DefaultValue="0">
+        <Unit ConversionFactorToSI="1" OffsetToSI="0"/>
+    </ValueDefinition>
+    <Dimensions>
+        <Dimension Id="IdentifierDimension" Caption="Dimension for identifiers" Length="3"/>
+    </Dimensions>
+    <Values>
+        <Value Id="Id">Versteeg_Case_1</Value>
+        <Value Id="Caption">Versteeg Case 1</Value>
+        <Value Id="Description"/>
+    </Values>
+</IdBasedArgument>
+                </Argument>
+                <Argument Id="InputFiles" ArgumentIOType="String">
+                    <IdBasedArgument Id="InputFiles" Caption="Model Input Files" IsOptional="False">
+    <ValueDefinition Type="Quantity" ValueType="QString" MissingValue="" DefaultValue="">
+        <Unit ConversionFactorToSI="1" OffsetToSI="0"/>
+    </ValueDefinition>
+    <Dimensions>
+        <Dimension Id="IdDimension" Caption="Dimension for identifiers" Length="3"/>
+    </Dimensions>
+    <Values>
+        <Value Id="Input File">case1_upwind.inp</Value>
+        <Value Id="Output NetCDF File">case1_upwind.nc</Value>
+        <Value Id="Output CSV File"/>
+    </Values>
+</IdBasedArgument>
+                </Argument>
+            </Arguments>
+            <ExchangeItemPositions>
+                <Outputs>
+                    <Output Id="Tracer_Output" XPos="234" YPos="179.5" Caption="Element Tracer Concentration (kg/m^3)"/>
+                    <Output Id="TemperatureOutput" XPos="234" YPos="359.5" Caption="Element Temperature (°C)"/>
+                </Outputs>
+                <Inputs>
+                    <Input Id="ElementXSectionAreaInput" XPos="1464" YPos="179.5" Caption="Element Cross-Section Area (m^2)"/>
+                    <Input Id="ElementDepthInput" XPos="1464" YPos="539.5" Caption="Element Depth (m)"/>
+                    <Input Id="TracerInput" XPos="1464" YPos="-360.5" Caption="Element Tracer Flux (kg/s)"/>
+                    <Input Id="RadiationFluxInput" XPos="1464" YPos="719.5" Caption="External Radiation Flux (W/m^2)"/>
+                    <Input Id="HeatFluxInput" XPos="1464" YPos="-180.5" Caption="External Heat Flux (J/s)"/>
+                    <Input Id="ElementVolumeTimeDerivativeInput" XPos="1464" YPos="899.5" Caption="Element Volume Time Derivative (m^3/s)"/>
+                    <Input Id="ElementFlowInput" XPos="1464" YPos="359.5" Caption="Element Flow Input (m^3/s)"/>
+                    <Input Id="ElementTopWidthInput" XPos="1464" YPos="-0.5" Caption="Element Top Width (m)"/>
+                </Inputs>
+            </ExchangeItemPositions>
+        </ModelComponent>
+    </ModelComponents>
+    <ModelComponentConnections/>
+</HydroCoupleProject>

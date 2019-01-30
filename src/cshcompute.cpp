@@ -146,8 +146,6 @@ void CSHModel::prepareForNextTimeStep()
   {
     Element *element = m_elements[i];
 
-    element->computeDVolumeDt();
-
     element->computeHeatBalance(m_timeStep);
     m_totalHeatBalance += element->totalHeatBalance;
     m_totalRadiationHeatBalance += element->totalRadiationFluxesHeatBalance;
@@ -327,6 +325,19 @@ void CSHModel::computeDerivedHydraulics()
 
 }
 
+void CSHModel::computeEvapAndConv()
+{
+#ifdef USE_OPENMP
+#pragma omp parallel for
+#endif
+  for(int i = 0 ; i < (int)m_elements.size(); i++)
+  {
+    Element *element = m_elements[i];
+    element->computeEvaporation();
+    element->computeConvection();
+  }
+}
+
 void CSHModel::computeLongDispersion()
 {
   if(m_computeDispersion)
@@ -381,7 +392,7 @@ void CSHModel::solveHeatTransport(double timeStep)
   SolverUserData solverUserData; solverUserData.model = this; solverUserData.variableIndex = -1;
 
   if(m_heatSolver->solve(m_currTemps.data(), m_elements.size() , m_currentDateTime * 86400.0, timeStep,
-                         m_outTemps.data(), &CSHModel::computeDTDt, &solverUserData))
+                         m_outTemps.data(), &CSHModel::computeDYDt, &solverUserData))
   {
     printf("CSH Temperature Solver failed \n");
   }
@@ -419,8 +430,8 @@ void CSHModel::solveSoluteTransport(int soluteIndex, double timeStep)
   //Solve using ODE solver
   SolverUserData solverUserData; solverUserData.model = this; solverUserData.variableIndex = soluteIndex;
 
-  if(m_soluteSolvers[soluteIndex]->solve(outputSoluteConcs.data(), m_elements.size() , m_currentDateTime * 86400.0, timeStep,
-                                         outputSoluteConcs.data(), &CSHModel::computeDSoluteDt, &solverUserData))
+  if(m_soluteSolvers[soluteIndex]->solve(currentSoluteConcs.data(), m_elements.size() , m_currentDateTime * 86400.0, timeStep,
+                                         outputSoluteConcs.data(), &CSHModel::computeDYDt, &solverUserData))
   {
     printf("CSH Solute Solver failed \n");
   }
@@ -437,40 +448,43 @@ void CSHModel::solveSoluteTransport(int soluteIndex, double timeStep)
   }
 }
 
-void CSHModel::computeDTDt(double t, double y[], double dydt[], void* userData)
+void CSHModel::computeDYDt(double t, double y[], double dydt[], void* userData)
 {
   SolverUserData *solverUserData = (SolverUserData*) userData;
   CSHModel *modelInstance = solverUserData->model;
   double dt = t - modelInstance->m_dheatPrevTime;
 
+  switch (solverUserData->variableIndex)
+  {
+    case -1:
+      {
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-  for(int i = 0 ; i < (int)modelInstance->m_elements.size(); i++)
-  {
-    Element *element = modelInstance->m_elements[i];
-    dydt[element->index] = element->computeDTDt(dt,y);
-  }
+        for(int i = 0 ; i < (int)modelInstance->m_elements.size(); i++)
+        {
+          Element *element = modelInstance->m_elements[i];
+          dydt[element->index] = element->computeDTDt(dt,y);
+        }
 
-  modelInstance->m_dheatPrevTime = t;
-}
-
-void CSHModel::computeDSoluteDt(double t, double y[], double dydt[], void *userData)
-{
-  SolverUserData *solverUserData = (SolverUserData*) userData;
-  CSHModel *modelInstance = solverUserData->model;
-  double dt = t - modelInstance->m_dsolutePrevTimes[solverUserData->variableIndex];
-
+        modelInstance->m_dheatPrevTime = t;
+      }
+      break;
+    default:
+      {
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-  for(int i = 0 ; i < (int)modelInstance->m_elements.size(); i++)
-  {
-    Element *element = modelInstance->m_elements[i];
-    dydt[element->index] = element->computeDSoluteDt(dt,y,solverUserData->variableIndex);
-  }
+        for(int i = 0 ; i < (int)modelInstance->m_elements.size(); i++)
+        {
+          Element *element = modelInstance->m_elements[i];
+          dydt[element->index] = element->computeDSoluteDt(dt,y,solverUserData->variableIndex);
+        }
 
-  modelInstance->m_dsolutePrevTimes[solverUserData->variableIndex] = t;
+        modelInstance->m_dsolutePrevTimes[solverUserData->variableIndex] = t;
+      }
+      break;
+  }
 }
 
 void CSHModel::solveJunctionHeatContinuity(double timeStep)

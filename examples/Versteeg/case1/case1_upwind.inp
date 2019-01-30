@@ -7,13 +7,13 @@ MIN_TIME_STEP  0.01
 NUM_INITIAL_FIXED_STEPS 10
 USE_ADAPTIVE_TIME_STEP YES
 TIME_STEP_RELAXATION_FACTOR 0.9
-ADVECTION_MODE UPWIND
+ADVECTION_MODE TVD
 COMPUTE_DISPERSION NO
 TEMP_SOLVER ADAMS
 TEMP_SOLVER_ABS_TOL 1e-10
 TEMP_SOLVER_REL_TOL 1e-8
-WATER_DENSITY 1.0
-WATER_SPECIFIC_HEAT_CAPACITY 4.184
+WATER_DENSITY 1000.0
+WATER_SPECIFIC_HEAT_CAPACITY 4184
 NUM_SOLUTES 1
 VERBOSE YES
 FLUSH_TO_DISK_FREQ 5
@@ -25,9 +25,9 @@ EVAP_WIND_FUNC_COEFF_B 1.600e-8
 BOWENS_COEFF 0.061
 
 [SOLUTES]
-;;SOLUTE_NAME  SOLVER_TYPE  SOLVER_ABS_TOL  SOLVER_REL_TOL
-;;=========================================================
-Tracer         ADAMS        1e-10            1e-8
+;;SOLUTE_NAME  FIRST_ORDER_K SOLVER_TYPE  SOLVER_ABS_TOL  SOLVER_REL_TOL
+;;======================================================================
+Tracer         0.0           ADAMS        1e-10           1e-8
 
 [OUTPUTS]
 ;;OUTPUT_TYPE    FILEPATH
@@ -47,14 +47,14 @@ J_5         0      1.0      0
 [ELEMENTS]										
 ;;ELEMENT	FROMJUNCTION	TOJUNCTION	LENGTH	DEPTH	XSECTION_AREA	WIDTH	SLOPE	FLOW	     DISPERSION_COEFF	TEMPERATURE      TRACER_CONC
 ;;=======================================================================================================================================================
-L_0       J_0            J_1            0.2000    1.00      1.00           1.00      0.01      0.1       0.1                 10               0.0
-L_1       J_1            J_2            0.2000    1.00      1.00           1.00      0.01      0.1       0.1                 10               0.0
-L_2       J_2            J_3            0.2000    1.00      1.00           1.00      0.01      0.1       0.1                 10               0.0
-L_3       J_3            J_4            0.2000    1.00      1.00           1.00      0.01      0.1       0.1                 10               0.0
-L_4       J_4            J_5            0.2000    1.00      1.00           1.00      0.01      0.1       0.1                 10               0.0
+L_0       J_0            J_1            0.2000    1.00      1.00           1.00      0.01      -2.5       0.1                 10               0.0
+L_1       J_1            J_2            0.2000    1.00      1.00           1.00      0.01      -2.5       0.1                 10               0.0
+L_2       J_2            J_3            0.2000    1.00      1.00           1.00      0.01      -2.5       0.1                 10               0.0
+L_3       J_3            J_4            0.2000    1.00      1.00           1.00      0.01      -2.5       0.1                 10               0.0
+L_4       J_4            J_5            0.2000    1.00      1.00           1.00      0.01      -2.5       0.1                 10               0.0
 
 [BOUNDARY_CONDITIONS]
 ;;JUNCTION  VARIABLE     TYPE   VALUE/FILEPATH
 ;;============================================
-J_0         Tracer       VALUE  1.0
-J_5         Tracer       VALUE  0.0
+J_0         Tracer       VALUE  0.0
+J_5         Tracer       VALUE  1.0

@@ -541,7 +541,7 @@ bool CSHModel::initializeElements(std::list<string> &errors)
     if(!elementJunction->temperature.isBC)
     {
       //If more than one junction solve continuity
-      if(numJunctions > 2)
+      if(numJunctions > 1)
       {
         elementJunction->heatContinuityIndex = m_numHeatElementJunctions;
         m_numHeatElementJunctions++;

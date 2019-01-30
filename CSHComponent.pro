@@ -57,7 +57,12 @@ HEADERS += ./include/stdafx.h\
            ./include/sourcebc.h \
            ./include/meteorologybc.h \
            ./include/elementinput.h \
-           ./include/elementoutput.h
+           ./include/elementoutput.h \
+           ./include/elementadvupwind.h \
+           ./include/elementadvcentral.h \
+           ./include/elementadvhybrid.h \
+           ./include/elementadvtvd.h \
+           ./include/elementadvquick.h
 
 SOURCES +=./src/stdafx.cpp \
           ./src/cshcomponent.cpp \
@@ -76,7 +81,11 @@ SOURCES +=./src/stdafx.cpp \
           ./src/meteorologybc.cpp \
           ./src/elementinput.cpp \
           ./src/elementoutput.cpp \
-          ./src/elementadvschemes.cpp
+          ./src/elementadvupwind.cpp \
+          ./src/elementadvcentral.cpp \
+          ./src/elementadvhybrid.cpp \
+          ./src/elementadvtvd.cpp \
+          ./src/elementadvquick.cpp
 
 
 macx{

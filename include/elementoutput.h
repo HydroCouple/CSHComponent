@@ -41,6 +41,7 @@ class CSHCOMPONENT_EXPORT ElementOutput: public TimeGeometryOutputDouble
       Depth,
       TopWidth,
       Temperature,
+      EvaporationRate,
       SoluteConc
     };
 

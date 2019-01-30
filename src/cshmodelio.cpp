@@ -1013,6 +1013,12 @@ bool CSHModel::readInputFileOptionTag(const QString &line, QString &errorMessage
               case 4:
                 m_advectionMode = AdvectionDiscretizationMode::TVD;
                 break;
+              case 5:
+                m_advectionMode = AdvectionDiscretizationMode::QUICK;
+                break;
+              case 6:
+                m_advectionMode = AdvectionDiscretizationMode::ULTIMATE;
+                break;
               default:
                 foundError = true;
                 break;
@@ -2636,6 +2642,8 @@ const unordered_map<string, int> CSHModel::m_advectionFlags({
                                                               {"CENTRAL", 2},
                                                               {"HYBRID", 3},
                                                               {"TVD", 4},
+                                                              {"QUICK", 5},
+                                                              {"ULTIMATE", 6},
                                                             });
 
 const unordered_map<string, int> CSHModel::m_solverTypeFlags({{"RK4", 1},
