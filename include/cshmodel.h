@@ -32,6 +32,7 @@
 #include <QTextStream>
 #include <unordered_map>
 #include "threadsafenetcdf/threadsafencvar.h"
+#include "elementadvtvd.h"
 
 #ifdef USE_NETCDF
 #include <netcdf>
@@ -89,17 +90,6 @@ class CSHCOMPONENT_EXPORT CSHModel : public QObject
        * International Journal for Numerical Methods in Engineering 4:551–559.
        */
       Hybrid,
-
-      /*!
-       * \brief Quadratic upwind differencing scheme.
-       */
-      QUICK,
-
-      /*!
-       * \brief Universal Limiter for Transient Interpolation Modeling of the
-       * Advective Transport Equations
-       */
-      ULTIMATE,
 
       /*!
        * \brief TVD schemes
@@ -217,13 +207,8 @@ class CSHCOMPONENT_EXPORT CSHModel : public QObject
      * \brief solver
      * \return
      */
-    ODESolver *heatSolver() const;
+    ODESolver *odeSolver() const;
 
-    /*!
-     * \brief soluteSolvers
-     * \return
-     */
-    std::vector<ODESolver*> soluteSolvers() const;
 
     /*!
      * \brief computeDerivedHydraulics
@@ -234,7 +219,6 @@ class CSHCOMPONENT_EXPORT CSHModel : public QObject
      * \brief computeEvapAndConv
      */
     void computeEvapAndConv();
-
 
     /*!
      * \brief computeLongDispersion
@@ -309,6 +293,18 @@ class CSHCOMPONENT_EXPORT CSHModel : public QObject
      * \return
      */
     std::string solute(int soluteIndex) const;
+
+    /*!
+     * \brief simulateWaterAge
+     * \return
+     */
+    bool simulateWaterAge() const;
+
+    /*!
+     * \brief setSimulateWaterAge
+     * \param simulate
+     */
+    void setSimulateWaterAge(bool simulate);
 
     /*!
      * \brief verbose
@@ -594,14 +590,7 @@ class CSHCOMPONENT_EXPORT CSHModel : public QObject
      * \brief solveHeat
      * \param timeStep
      */
-    void solveHeatTransport(double timeStep);
-
-    /*!
-     * \brief solveSoluteContinuity
-     * \param soluteIndex
-     * \param timeStep
-     */
-    void solveSoluteTransport(int soluteIndex, double timeStep);
+    void solve(double timeStep);
 
     /*!
      * \brief computeDYDt
@@ -617,14 +606,7 @@ class CSHCOMPONENT_EXPORT CSHModel : public QObject
      * \brief solveJunctionHeatContinuity Solve
      * \param timeStep
      */
-    void solveJunctionHeatContinuity(double timeStep);
-
-    /*!
-     * \brief solveJunctionSoluteContinuity Solve the junction continuity for solute.
-     * \param soluteIndex The index for the solute which is being solved.
-     * \param timeStep The time step over which to compute the junction solute concentration.
-     */
-    void solveJunctionSoluteContinuity(int soluteIndex, double timeStep);
+    void solveJunctionContinuity(double timeStep);
 
     /*!
      * \brief readInputFileOptionTag
@@ -775,12 +757,9 @@ class CSHCOMPONENT_EXPORT CSHModel : public QObject
     m_totalSoluteMassBalance, // Tracks total mass balance of solutes (kg)
     m_totalAdvDispSoluteMassBalance, //Tracks total mass balance from advection and dispersion (kg)
     m_totalExternalSoluteFluxMassBalance, //Tracks total mass balance from external sources (kg)
-    m_currTemps,
-    m_outTemps,
+    m_solverCurrentValues,
+    m_solverOutputValues,
     m_solute_first_order_k;
-
-    std::vector<std::vector<double>> m_currSoluteConcs,
-                                     m_outSoluteConcs;
 
     int m_numInitFixedTimeSteps, //Number of initial fixed timeSteps of the minimum timestep to use when using the adaptive time step;
     m_numCurrentInitFixedTimeSteps, //Count number of initial minimum timesteps that have been used
@@ -788,23 +767,21 @@ class CSHCOMPONENT_EXPORT CSHModel : public QObject
     m_currentPrintCount, // Number of timesteps
     m_flushToDiskFrequency, // Number of times to write output stored in memory to disk
     m_currentflushToDiskCount, //Number of timesteps that have been stored in memory so far since the last flush to disk
-    m_addedSoluteCount;
+    m_addedSoluteCount,
+    m_numSolutes = 0;
 
-    bool m_computeDispersion, //Override user provided dispersion and compute dispersion based on Fisher
-    m_useAdaptiveTimeStep, //Use the adaptive time step option
+    double m_computeDispersion; //Override user provided dispersion and compute dispersion based on Fisher
+    bool m_useAdaptiveTimeStep, //Use the adaptive time step option
     m_verbose, //Print simulation information to console
     m_flushToDisk, //Write output saved in memory to disk
     m_useEvaporation,
-    m_useConvection;
+    m_useConvection,
+    m_simulateWaterAge = false;
 
     std::unordered_map<std::string, QSharedPointer<TimeSeries>> m_timeSeries;
 
-
-    /*!
-     * \brief m_advectionMode
-     */
     AdvectionDiscretizationMode m_advectionMode;
-    int m_TVDFluxLimiter;
+    ElementAdvTVD::TVDFluxLimiter m_TVDFluxLimiter;
 
     //Element junctions
     std::vector<ElementJunction*> m_elementJunctions;
@@ -819,27 +796,25 @@ class CSHCOMPONENT_EXPORT CSHModel : public QObject
 
     //Number of junctions where continuity needs to be enforced.
     int m_numHeatElementJunctions;
-    std::vector<int> m_numSoluteElementJunctions;
-    double m_dheatPrevTime;
-    std::vector<double> m_dsolutePrevTimes;
+    std::vector<int> m_numSoluteElementJunctions,
+                     m_soluteIndexes;
 
-    //Solver Objects
-    ODESolver *m_heatSolver = nullptr; //Heat solver
-    std::vector<ODESolver*> m_soluteSolvers; //Solute solvers
+
+    ODESolver *m_odeSolver = nullptr;
 
     //Global water properties
     double m_waterDensity, //kg/m^3
     m_cp,// 4187.0; // J/kg/C
-    m_totalHeatBalance, //Tracks total heat accumulation (KJ)
-    m_totalRadiationHeatBalance, //Track total heat accumulation from radiation (KJ)
-    m_totalEvaporationHeatBalance, //Track total heat accumulation from evaporation (KJ)
-    m_totalConvectiveHeatBalance, //Track total heat accumulation from evaporation (KJ)
-    m_totalExternalHeatFluxBalance, //Track total heat accumulation from external heat sources (KJ)
-    m_totalAdvDispHeatBalance, //Tracks total heat accumulation from advection and dispersion (KJ)
     m_evapWindFuncCoeffA, //Evaporation wind function coefficient
     m_evapWindFuncCoeffB, //Evaporation wind function coefficient
     m_bowensCoeff;
 
+    float m_totalHeatBalance, //Tracks total heat accumulation (KJ)
+    m_totalRadiationHeatBalance, //Track total heat accumulation from radiation (KJ)
+    m_totalEvaporationHeatBalance, //Track total heat accumulation from evaporation (KJ)
+    m_totalConvectiveHeatBalance, //Track total heat accumulation from evaporation (KJ)
+    m_totalExternalHeatFluxBalance, //Track total heat accumulation from external heat sources (KJ)
+    m_totalAdvDispHeatBalance; //Tracks total heat accumulation from advection and dispersion (KJ)
 
     //File input and output
     QFileInfo m_inputFile, //Input filepath
@@ -847,8 +822,8 @@ class CSHCOMPONENT_EXPORT CSHModel : public QObject
     m_outputNetCDFFileInfo; //Output NetCDF filepath
 
 #ifdef USE_NETCDF
-     ThreadSafeNcFile *m_outputNetCDF = nullptr; //NetCDF output file object
-     std::unordered_map<std::string, ThreadSafeNcVar> m_outNetCDFVariables;
+    ThreadSafeNcFile *m_outputNetCDF = nullptr; //NetCDF output file object
+    std::unordered_map<std::string, ThreadSafeNcVar> m_outNetCDFVariables;
 #endif
 
     QTextStream m_outputCSVStream; //Output CSV filestream
@@ -856,6 +831,7 @@ class CSHCOMPONENT_EXPORT CSHModel : public QObject
     static const std::unordered_map<std::string, int> m_optionsFlags; //Input file flags
     static const std::unordered_map<std::string, int> m_advectionFlags; //Advection type flags
     static const std::unordered_map<std::string, int> m_solverTypeFlags; //Solver type flags
+    static const std::unordered_map<std::string, int> m_linearSolverTypeFlags; //Solver type flags
     static const std::unordered_map<std::string, int> m_hydraulicVariableFlags; //Hydraulic variable flags
     static const std::unordered_map<std::string, int> m_meteorologicalVariableFlags; //Meteorology variables
 

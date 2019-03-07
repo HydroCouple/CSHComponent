@@ -7,6 +7,23 @@ class ElementAdvTVD
 {
   public:
 
+    enum TVDFluxLimiter
+    {
+      MIN_MOD = 0,
+      SUPERBEE = 1,
+      VAN_LEER = 2,
+      MUSCL = 3,
+      SWEBY = 4,
+      VAN_ALBADA = 5,
+      QUICK = 6,
+      UMIST = 7,
+      SOU = 8,
+      FROMM = 9,
+      ULTIMATE_QUICKEST = 10,
+      SUPER_C = 11,
+      HYPER_C = 12
+    };
+
     static void setAdvectionFunction(Element *element);
 
 
@@ -46,7 +63,7 @@ class ElementAdvTVD
     static double fluxUpNeighbourDownstreamJunction(Element *element,  double dt, double S[], int soluteIndex);
 
 
-    static double computeTVDLimiter(double r, int limiter);
+    static double computeTVDLimiter(double r, TVDFluxLimiter limiter, Element *element, int upstream = 0);
 
 };
 

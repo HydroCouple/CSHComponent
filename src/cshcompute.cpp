@@ -49,57 +49,9 @@ void CSHModel:: update()
 
     computeLongDispersion();
 
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-    for(int j = 0; j < 2; j++)
-    {
-      switch (j)
-      {
-        case 0:
-          {
-            solveJunctionHeatContinuity(m_timeStep);
-          }
-          break;
-        case 1:
-          {
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-            for(int i = 0 ; i < (int)m_solutes.size(); i++)
-            {
-              solveJunctionSoluteContinuity(i, m_timeStep);
-            }
-          }
-          break;
-      }
-    }
+    solveJunctionContinuity(m_timeStep);
 
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-    for(int j = 0; j < 2; j++)
-    {
-      switch (j)
-      {
-        case 0:
-          {
-            solveHeatTransport(m_timeStep);
-          }
-          break;
-        case 1:
-          {
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-            for(int i = 0 ; i < (int)m_solutes.size(); i++)
-            {
-              solveSoluteTransport(i, m_timeStep);
-            }
-          }
-          break;
-      }
-    }
+    solve(m_timeStep);
 
     m_prevDateTime = m_currentDateTime;
     m_currentDateTime = m_currentDateTime + m_timeStep / 86400.0;
@@ -189,27 +141,27 @@ void CSHModel::applyInitialConditions()
   std::fill(m_totalAdvDispSoluteMassBalance.begin(), m_totalAdvDispSoluteMassBalance.end(), 0.0);
   std::fill(m_totalExternalSoluteFluxMassBalance.begin(), m_totalExternalSoluteFluxMassBalance.end(), 0.0);
 
-  //Interpolate nodal temperatures and solute concentrations
+  // Interpolate nodal temperatures and solute concentrations
   //#ifdef USE_OPENMP
   //#pragma omp parallel for
   //#endif
-  for(int i = 0 ; i < (int)m_elementJunctions.size(); i++)
-  {
-    ElementJunction *elementJunction = m_elementJunctions[i];
+  //  for(int i = 0 ; i < (int)m_elementJunctions.size(); i++)
+  //  {
+  //    ElementJunction *elementJunction = m_elementJunctions[i];
 
-    if(!elementJunction->temperature.isBC)
-    {
-      elementJunction->interpTemp();
-    }
+  //    if(!elementJunction->temperature.isBC && elementJunction->outgoingElements.size() + elementJunction->incomingElements.size() > 1)
+  //    {
+  //      elementJunction->interpTemp();
+  //    }
 
-    for(size_t j = 0; j < m_solutes.size(); j++)
-    {
-      if(!elementJunction->soluteConcs[j].isBC)
-      {
-        elementJunction->interpSoluteConcs(j);
-      }
-    }
-  }
+  //    for(size_t j = 0; j < m_solutes.size(); j++)
+  //    {
+  //      if(!elementJunction->soluteConcs[j].isBC  && elementJunction->outgoingElements.size() + elementJunction->incomingElements.size() > 1)
+  //      {
+  //        elementJunction->interpSoluteConcs(j);
+  //      }
+  //    }
+  //  }
 
   applyBoundaryConditions(m_currentDateTime);
 
@@ -222,19 +174,42 @@ void CSHModel::applyInitialConditions()
 
 void CSHModel::applyBoundaryConditions(double dateTime)
 {
-  //reset external fluxes
+
+  if(m_simulateWaterAge)
+  {
+    //reset external fluxes
 #ifdef USE_OPENMMP
 #pragma omp parallel for
 #endif
-  for(size_t i = 0 ; i < m_elements.size(); i++)
-  {
-    Element *element = m_elements[i];
-    element->externalHeatFluxes = 0.0;
-    element->radiationFluxes = 0.0;
-
-    for(size_t j = 0; j < m_solutes.size(); j++)
+    for(size_t i = 0 ; i < m_elements.size(); i++)
     {
-      element->externalSoluteFluxes[j] = 0.0;
+      Element *element = m_elements[i];
+      element->externalHeatFluxes = 0.0;
+      element->radiationFluxes = 0.0;
+      element->externalSoluteFluxes[m_numSolutes] = element->volume / 86400.0;
+
+      for(int j = 0; j < m_numSolutes; j++)
+      {
+        element->externalSoluteFluxes[j] = 0.0;
+      }
+    }
+  }
+  else
+  {
+    //reset external fluxes
+#ifdef USE_OPENMMP
+#pragma omp parallel for
+#endif
+    for(size_t i = 0 ; i < m_elements.size(); i++)
+    {
+      Element *element = m_elements[i];
+      element->externalHeatFluxes = 0.0;
+      element->radiationFluxes = 0.0;
+
+      for(size_t j = 0; j < m_solutes.size(); j++)
+      {
+        element->externalSoluteFluxes[j] = 0.0;
+      }
     }
   }
 
@@ -340,16 +315,13 @@ void CSHModel::computeEvapAndConv()
 
 void CSHModel::computeLongDispersion()
 {
-  if(m_computeDispersion)
-  {
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-    for(int i = 0 ; i < (int)m_elements.size(); i++)
-    {
-      Element *element = m_elements[i];
-      element->computeLongDispersion();
-    }
+  for(int i = 0 ; i < (int)m_elements.size(); i++)
+  {
+    Element *element = m_elements[i];
+    element->computeLongDispersion();
   }
 
 #ifdef USE_OPENMP
@@ -372,11 +344,8 @@ void CSHModel::computeLongDispersion()
   }
 }
 
-void CSHModel::solveHeatTransport(double timeStep)
+void CSHModel::solve(double timeStep)
 {
-  //Allocate memory to store inputs and outputs
-  m_dheatPrevTime = m_currentDateTime * 86400.0;
-
   //Set initial input and output values to current values.
 #ifdef USE_OPENMP
 #pragma omp parallel for
@@ -384,67 +353,42 @@ void CSHModel::solveHeatTransport(double timeStep)
   for(int i = 0 ; i < (int)m_elements.size(); i++)
   {
     Element *element = m_elements[i];
-    m_currTemps[element->index] = element->temperature.value;
-    m_outTemps[element->index] = element->temperature.value;
+    m_solverCurrentValues[element->index] = element->temperature.value;
+    m_solverOutputValues[element->index] = element->temperature.value;
+
+    for(size_t j = 0; j < m_solutes.size(); j++)
+    {
+      int soluteIndex = element->index + m_soluteIndexes[j];
+      m_solverCurrentValues[soluteIndex] = element->soluteConcs[j].value;
+      m_solverOutputValues[soluteIndex] = element->soluteConcs[j].value;
+    }
   }
 
   //Solve using ODE solver
-  SolverUserData solverUserData; solverUserData.model = this; solverUserData.variableIndex = -1;
+  SolverUserData solverUserData; solverUserData.model = this;
 
-  if(m_heatSolver->solve(m_currTemps.data(), m_elements.size() , m_currentDateTime * 86400.0, timeStep,
-                         m_outTemps.data(), &CSHModel::computeDYDt, &solverUserData))
+  if(m_odeSolver->solve(m_solverCurrentValues.data(), m_solverCurrentValues.size(), 0, timeStep,
+                        m_solverOutputValues.data(), &CSHModel::computeDYDt, &solverUserData))
   {
-    printf("CSH Temperature Solver failed \n");
+    m_currentDateTime = m_endDateTime;
+    printf("CSH Solver failed \n");
   }
+  else
+  {
 
-  //Apply computed values;
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-  for(int i = 0 ; i < (int)m_elements.size(); i++)
-  {
-    Element *element = m_elements[i];
-    double outputTemperature = m_outTemps[element->index];
-    element->temperature.value = outputTemperature;
-  }
+    for(int i = 0 ; i < (int)m_elements.size(); i++)
+    {
+      Element *element = m_elements[i];
+      element->temperature.value = m_solverOutputValues[element->index];
 
-}
-
-void CSHModel::solveSoluteTransport(int soluteIndex, double timeStep)
-{
-  std::vector<double> &currentSoluteConcs = m_currSoluteConcs[soluteIndex];
-  std::vector<double> &outputSoluteConcs = m_outSoluteConcs[soluteIndex];
-  m_dsolutePrevTimes[soluteIndex] = m_currentDateTime *  86400.0;
-
-  //Set initial values.
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-  for(int i = 0 ; i < (int)m_elements.size(); i++)
-  {
-    Element *element = m_elements[i];
-    currentSoluteConcs[element->index] = element->soluteConcs[soluteIndex].value;
-    outputSoluteConcs[element->index] = element->soluteConcs[soluteIndex].value;
-  }
-
-  //Solve using ODE solver
-  SolverUserData solverUserData; solverUserData.model = this; solverUserData.variableIndex = soluteIndex;
-
-  if(m_soluteSolvers[soluteIndex]->solve(currentSoluteConcs.data(), m_elements.size() , m_currentDateTime * 86400.0, timeStep,
-                                         outputSoluteConcs.data(), &CSHModel::computeDYDt, &solverUserData))
-  {
-    printf("CSH Solute Solver failed \n");
-  }
-
-
-  //Apply computed values;
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-  for(int i = 0 ; i < (int)m_elements.size(); i++)
-  {
-    Element *element = m_elements[i];
-    element->soluteConcs[soluteIndex].value = outputSoluteConcs[element->index];
+      for(size_t j = 0; j < m_solutes.size(); j++)
+      {
+        element->soluteConcs[j].value = m_solverOutputValues[element->index + m_soluteIndexes[j]];
+      }
+    }
   }
 }
 
@@ -452,42 +396,24 @@ void CSHModel::computeDYDt(double t, double y[], double dydt[], void* userData)
 {
   SolverUserData *solverUserData = (SolverUserData*) userData;
   CSHModel *modelInstance = solverUserData->model;
-  double dt = t - modelInstance->m_dheatPrevTime;
 
-  switch (solverUserData->variableIndex)
+#ifdef USE_OPENMP
+#pragma omp parallel for
+#endif
+  for(int i = 0 ; i < (int)modelInstance->m_elements.size(); i++)
   {
-    case -1:
-      {
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-        for(int i = 0 ; i < (int)modelInstance->m_elements.size(); i++)
-        {
-          Element *element = modelInstance->m_elements[i];
-          dydt[element->index] = element->computeDTDt(dt,y);
-        }
+    Element *element = modelInstance->m_elements[i];
+    dydt[element->index] = element->computeDTDt(t,y);
 
-        modelInstance->m_dheatPrevTime = t;
-      }
-      break;
-    default:
-      {
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-        for(int i = 0 ; i < (int)modelInstance->m_elements.size(); i++)
-        {
-          Element *element = modelInstance->m_elements[i];
-          dydt[element->index] = element->computeDSoluteDt(dt,y,solverUserData->variableIndex);
-        }
-
-        modelInstance->m_dsolutePrevTimes[solverUserData->variableIndex] = t;
-      }
-      break;
+    for(size_t j = 0; j < modelInstance->m_solutes.size(); j++)
+    {
+      int soluteIndex = modelInstance->m_soluteIndexes[j];
+      dydt[element->index + soluteIndex] = element->computeDSoluteDt(t, &y[soluteIndex], j);
+    }
   }
 }
 
-void CSHModel::solveJunctionHeatContinuity(double timeStep)
+void CSHModel::solveJunctionContinuity(double timeStep)
 {
 #ifdef USE_OPENMP
 #pragma omp parallel for
@@ -500,29 +426,13 @@ void CSHModel::solveJunctionHeatContinuity(double timeStep)
     {
       elementJunction->solveHeatContinuity(timeStep);
     }
-    else if(!elementJunction->temperature.isBC)
-    {
-      elementJunction->interpTemp();
-    }
-  }
-}
 
-void CSHModel::solveJunctionSoluteContinuity(int soluteIndex, double timeStep)
-{
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-  for(int i = 0 ; i < (int)m_elementJunctions.size(); i++)
-  {
-    ElementJunction *elementJunction = m_elementJunctions[i];
-
-    if(elementJunction->soluteContinuityIndexes[soluteIndex] > -1)
+    for(size_t j = 0 ; j < m_solutes.size(); j++)
     {
-      elementJunction->solveSoluteContinuity(soluteIndex, timeStep);
-    }
-    else if(!elementJunction->soluteConcs[soluteIndex].isBC)
-    {
-      elementJunction->interpSoluteConcs(soluteIndex);
+      if(elementJunction->soluteContinuityIndexes[j] > -1)
+      {
+        elementJunction->solveSoluteContinuity(j, timeStep);
+      }
     }
   }
 }

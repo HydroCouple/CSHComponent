@@ -41,15 +41,15 @@ CSHModel::CSHModel(CSHComponent *component)
     m_currentPrintCount(0),
     m_flushToDiskFrequency(10),
     m_currentflushToDiskCount(0),
-    m_computeDispersion(false),
+    m_computeDispersion(0.0),
     m_useAdaptiveTimeStep(true),
     m_verbose(false),
     m_useEvaporation(false),
     m_useConvection(false),
     m_advectionMode(AdvectionDiscretizationMode::Upwind),
-    m_TVDFluxLimiter(0),
+    m_TVDFluxLimiter(ElementAdvTVD::MIN_MOD),
     m_numHeatElementJunctions(0),
-    m_heatSolver(nullptr),
+    m_odeSolver(nullptr),
     m_waterDensity(1000.0), //kg/m^3
     m_cp(4184.0), //4187.0 J/kg/C
     m_evapWindFuncCoeffA(1.505e-8),
@@ -61,7 +61,7 @@ CSHModel::CSHModel(CSHComponent *component)
     m_retrieveCouplingDataFunction(nullptr),
     m_component(component)
 {
-  m_heatSolver = new ODESolver(1, ODESolver::CVODE_ADAMS);
+  m_odeSolver = new ODESolver(1, ODESolver::CVODE_ADAMS);
 }
 
 CSHModel::~CSHModel()
@@ -80,15 +80,7 @@ CSHModel::~CSHModel()
   m_elementJunctions.clear();
   m_elementJunctionsById.clear();
 
-  if(m_heatSolver)
-    delete m_heatSolver;
-
-  for(size_t i = 0; i < m_soluteSolvers.size(); i++)
-  {
-    delete m_soluteSolvers[i];
-  }
-
-  m_soluteSolvers.clear();
+  delete m_odeSolver;
 
   closeOutputFiles();
 
@@ -181,19 +173,14 @@ double CSHModel::currentDateTime() const
   return m_currentDateTime;
 }
 
-ODESolver *CSHModel::heatSolver() const
+ODESolver *CSHModel::odeSolver() const
 {
-  return m_heatSolver;
-}
-
-std::vector<ODESolver*> CSHModel::soluteSolvers() const
-{
-  return m_soluteSolvers;
+  return m_odeSolver;
 }
 
 bool CSHModel::computeLongDispersion() const
 {
-  return m_computeDispersion;
+  return m_computeDispersion ? true : false;
 }
 
 void CSHModel::setComputeLongDispersion(bool calculate)
@@ -238,33 +225,55 @@ void CSHModel::setSpecificHeatCapacityWater(double value)
 
 int CSHModel::numSolutes() const
 {
-  return (int)m_solutes.size();
+  return m_numSolutes;
 }
 
 void CSHModel::setNumSolutes(int numSolutes)
 {
-  for(size_t i = 0; i < m_soluteSolvers.size(); i++)
+  m_numSolutes = numSolutes >= 0 ? numSolutes : 0;
+
+  if(m_simulateWaterAge)
   {
-    delete m_soluteSolvers[i];
+    int size = m_numSolutes + 1;
+
+    m_solutes.resize(size);
+    m_maxSolute.resize(size);
+    m_minSolute.resize(size);
+    m_totalSoluteMassBalance.resize(size);
+    m_totalAdvDispSoluteMassBalance.resize(size);
+    m_totalExternalSoluteFluxMassBalance.resize(size);
+    m_solute_first_order_k.resize(size, 0.0);
+
+    for(int i = 0 ; i < size; i++)
+    {
+      if(i < size - 1)
+      {
+        m_solutes[i] = "Solute_" + std::to_string(i + 1);
+      }
+      else
+      {
+        m_solutes[i] = "WATER_AGE";
+      }
+    }
   }
-
-  m_soluteSolvers.clear();
-
-  if(numSolutes >= 0)
+  else if(m_numSolutes >= 0)
   {
+    int soluteNamesSize = m_solutes.size();
+
     m_solutes.resize(numSolutes);
     m_maxSolute.resize(numSolutes);
     m_minSolute.resize(numSolutes);
     m_totalSoluteMassBalance.resize(numSolutes);
     m_totalAdvDispSoluteMassBalance.resize(numSolutes);
     m_totalExternalSoluteFluxMassBalance.resize(numSolutes);
-    m_dsolutePrevTimes.resize(numSolutes);
     m_solute_first_order_k.resize(numSolutes, 0.0);
 
     for(size_t i = 0 ; i < m_solutes.size(); i++)
     {
-      m_soluteSolvers.push_back(new ODESolver(m_elements.size(), ODESolver::CVODE_ADAMS));
-      m_solutes[i] = "Solute_" + std::to_string(i + 1);
+      if(i >= soluteNamesSize)
+      {
+        m_solutes[i] = "Solute_" + std::to_string(i + 1);
+      }
     }
   }
 }
@@ -277,6 +286,17 @@ void CSHModel::setSoluteName(int soluteIndex, const string &soluteName)
 string CSHModel::solute(int soluteIndex) const
 {
   return m_solutes[soluteIndex];
+}
+
+bool CSHModel::simulateWaterAge() const
+{
+  return m_simulateWaterAge;
+}
+
+void CSHModel::setSimulateWaterAge(bool simulate)
+{
+  m_simulateWaterAge = simulate;
+  setNumSolutes(m_numSolutes);
 }
 
 int CSHModel::numElementJunctions() const
@@ -580,26 +600,26 @@ bool CSHModel::initializeElements(std::list<string> &errors)
     }
   }
 
-  m_currTemps.resize(m_elements.size(), 0.0);
-  m_outTemps.resize(m_elements.size(), 0.0);
-
-  m_currSoluteConcs.resize(m_solutes.size(), std::vector<double>(m_elements.size(), 0.0));
-  m_outSoluteConcs.resize(m_solutes.size(), std::vector<double>(m_elements.size(), 0.0));
-
   return true;
 }
 
 bool CSHModel::initializeSolver(std::list<string> &errors)
 {
-  m_heatSolver->setSize(m_elements.size());
-  m_heatSolver->initialize();
+  int totalCells = (int) m_elements.size();
 
-  for(size_t i = 0; i < m_soluteSolvers.size(); i++)
+  m_soluteIndexes.clear();
+
+  for(size_t i = 0 ; i < m_solutes.size(); i++)
   {
-    ODESolver *solver =  m_soluteSolvers[i];
-    solver->setSize(m_elements.size());
-    solver->initialize();
+    m_soluteIndexes.push_back(totalCells);
+    totalCells += m_elements.size();
   }
+
+  m_solverCurrentValues.resize(totalCells, 0.0);
+  m_solverOutputValues.resize(totalCells, 0.0);
+
+  m_odeSolver->setSize(totalCells);
+  m_odeSolver->initialize();
 
   return true;
 }

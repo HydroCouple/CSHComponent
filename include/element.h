@@ -68,6 +68,7 @@ struct CSHCOMPONENT_EXPORT Element
    friend class ElementAdvQUICK;
    friend class ElementAdvULTIMATE;
    friend class ElementAdvTVD;
+   friend class CSHModel;
 
     /*!
     * \brief Element - Creates an instance of the control volume element used to represent a computational
@@ -335,6 +336,16 @@ struct CSHCOMPONENT_EXPORT Element
    double distanceFromUpStreamJunction;
 
    /*!
+    * \brief upstreamCourantNumber
+    */
+   double upstreamCourantNumber;
+
+   /*!
+    * \brief downstreamCourantNumber
+    */
+   double downstreamCourantNumber;
+
+   /*!
     * \brief dvolume_dt
     */
    Variable dvolume_dt;
@@ -405,6 +416,14 @@ struct CSHCOMPONENT_EXPORT Element
     * \return
     */
    double computeDTDtDispersionDownstreamNeighbour(double dt, double T[]);
+
+   /*!
+    * \brief computeDTDtDispersionDownstreamNeighbour
+    * \param dt
+    * \param T
+    * \return
+    */
+   double computeDTDtDispersionSelf(double dt, double T[]);
 
    /*!
     * \brief computeEvaporation
@@ -485,6 +504,8 @@ struct CSHCOMPONENT_EXPORT Element
     */
    double computeDSoluteDtDispersionDownstreamNeighbour(double dt, double S[], int soluteIndex);
 
+   double computeDSoluteDtDispersionSelf(double dt, double S[], int soluteIndex);
+
    /*!
     * \brief setDispersionFunctions
     */
@@ -538,12 +559,12 @@ struct CSHCOMPONENT_EXPORT Element
     */
    void computeSoluteBalance(double timeStep, int soluteIndex);
 
-  private:
-
    /*!
     * \brief initializeSolutes
     */
    void initializeSolutes();
+
+  private:
 
    /*!
     * \brief setUpstreamElement

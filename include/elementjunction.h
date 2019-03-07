@@ -165,7 +165,6 @@ struct CSHCOMPONENT_EXPORT ElementJunction
      */
     void copyVariablesToPrev();
 
-  private:
 
     /*!
      * \brief initializeSolutes

@@ -8,7 +8,7 @@ void ElementAdvUpwind::setAdvectionFunction(Element *element)
 {
   if(element->flow >= 0)
   {
-    if(element->upstreamElement && !element->upstreamJunction->temperature.isBC)
+    if(element->upstreamElement && !element->upstreamJunction->temperature.isBC && !element->upstreamJunction->heatContinuityIndex >= 0)
     {
       element->computeTempAdvDeriv[0] = &ElementAdvUpwind::inFluxUpNeighbour;
     }
@@ -21,7 +21,7 @@ void ElementAdvUpwind::setAdvectionFunction(Element *element)
 
     for(int i = 0 ; i < element->numSolutes; i++)
     {
-      if(element->upstreamElement && !element->upstreamJunction->soluteConcs[i].isBC)
+      if(element->upstreamElement && !element->upstreamJunction->soluteConcs[i].isBC && !element->upstreamJunction->soluteContinuityIndexes[i] >= 0)
       {
         element->computeSoluteAdvDeriv[i][0] = &ElementAdvUpwind::inFluxUpNeighbour;
       }
@@ -37,7 +37,7 @@ void ElementAdvUpwind::setAdvectionFunction(Element *element)
   {
     element->computeTempAdvDeriv[0] = &ElementAdvUpwind::inFluxSelf;
 
-    if(element->downstreamElement && !element->downstreamJunction->temperature.isBC)
+    if(element->downstreamElement && !element->downstreamJunction->temperature.isBC && !element->downstreamJunction->heatContinuityIndex >= 0)
     {
       element->computeTempAdvDeriv[1] = &ElementAdvUpwind::outFluxDownNeighbor;
     }
@@ -50,7 +50,7 @@ void ElementAdvUpwind::setAdvectionFunction(Element *element)
     {
       element->computeSoluteAdvDeriv[i][0] = &ElementAdvUpwind::inFluxSelf;
 
-      if(element->downstreamElement && !element->downstreamJunction->soluteConcs[i].isBC)
+      if(element->downstreamElement && !element->downstreamJunction->soluteConcs[i].isBC && !element->downstreamJunction->soluteContinuityIndexes[i] >= 0)
       {
         element->computeSoluteAdvDeriv[i][1] = &ElementAdvUpwind::outFluxDownNeighbor;
       }

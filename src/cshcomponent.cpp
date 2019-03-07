@@ -454,6 +454,8 @@ void CSHComponent::createInputs()
   {
     createExternalSoluteFluxInput(i);
   }
+
+  createWaterAgeFluxInput();
 }
 
 void CSHComponent::createFlowInput()
@@ -707,6 +709,41 @@ void CSHComponent::createExternalSoluteFluxInput(int soluteIndex)
   addInput(soluteFluxInput);
 }
 
+void CSHComponent::createWaterAgeFluxInput()
+{
+  if(m_modelInstance->simulateWaterAge())
+  {
+    Quantity *timeQuantity = Quantity::unitLessValues("Time/Time", QVariant::Double, this);
+
+    ElementSourceInput *soluteFluxInput  = new ElementSourceInput("WaterAgeFluxInput",
+                                                                  m_timeDimension,
+                                                                  m_geometryDimension,
+                                                                  timeQuantity,
+                                                                  ElementSourceInput::SoluteFlux,
+                                                                  this);
+
+    soluteFluxInput->setCaption("Element Water Age Flux (days/s)");
+    soluteFluxInput->setSoluteIndex(m_modelInstance->numSolutes());
+
+    QList<QSharedPointer<HCGeometry>> geometries;
+
+    for(const QSharedPointer<HCGeometry> &lineString : m_elementGeometries)
+    {
+      geometries.append(lineString);
+    }
+
+    soluteFluxInput->addGeometries(geometries);
+
+    SDKTemporal::DateTime *dt1 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime() - 1.0/1000000.0, soluteFluxInput);
+    SDKTemporal::DateTime *dt2 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime(), soluteFluxInput);
+
+    soluteFluxInput->addTime(dt1);
+    soluteFluxInput->addTime(dt2);
+
+    addInput(soluteFluxInput);
+  }
+}
+
 void CSHComponent::createOutputs()
 {
   createTemperatureOutput();
@@ -715,6 +752,8 @@ void CSHComponent::createOutputs()
   {
     createSoluteConcOutput(i);
   }
+
+  createWaterAgeFluxOutput();
 }
 
 void CSHComponent::createTemperatureOutput()
@@ -779,4 +818,37 @@ void CSHComponent::createSoluteConcOutput(int index)
   soluteOutput->addTime(dt2);
 
   addOutput(soluteOutput);
+}
+
+void CSHComponent::createWaterAgeFluxOutput()
+{
+  if(m_modelInstance->simulateWaterAge())
+  {
+    Quantity *timeQuantity = Quantity::timeInDays(this);
+    ElementOutput *soluteOutput  = new ElementOutput("WaterAgeOutput",
+                                                     m_timeDimension,
+                                                     m_geometryDimension,
+                                                     timeQuantity ,
+                                                     ElementOutput::SoluteConc,
+                                                     this);
+    soluteOutput->setCaption("Element Water Age (days)");
+    soluteOutput->setSoluteIndex(m_modelInstance->numSolutes());
+
+    QList<QSharedPointer<HCGeometry>> geometries;
+
+    for(const QSharedPointer<HCGeometry> &lineString : m_elementGeometries)
+    {
+      geometries.append(lineString);
+    }
+
+    soluteOutput->addGeometries(geometries);
+
+    SDKTemporal::DateTime *dt1 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime() - 1.0/1000000.0, soluteOutput);
+    SDKTemporal::DateTime *dt2 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime(), soluteOutput);
+
+    soluteOutput->addTime(dt1);
+    soluteOutput->addTime(dt2);
+
+    addOutput(soluteOutput);
+  }
 }

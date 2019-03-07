@@ -140,7 +140,7 @@ void Element::initialize()
         setAdvectionFuctions = &ElementAdvHybrid::setAdvectionFunction;
       }
       break;
-   case CSHModel::TVD:
+    case CSHModel::TVD:
       {
         setAdvectionFuctions = &ElementAdvTVD::setAdvectionFunction;
       }
@@ -235,7 +235,7 @@ double Element::computeDTDt(double dt, double T[])
 {
   double DTDt = 0.0;
 
-  if(volume > 1e-14)
+  if(volume > 1e-10)
   {
     //Compute advection
     DTDt += computeDTDtAdv(dt, T);
@@ -260,7 +260,6 @@ double Element::computeDTDt(double dt, double T[])
       DTDt -= temperature.value * dvolume_dt.value / volume;
     }
   }
-
 
   return DTDt;
 }
@@ -299,7 +298,7 @@ double Element::computeDTDtDispersionUpstreamJunction(double dt, double T[])
 {
   double DTDt = upstreamLongDispersion * upstreamXSectionArea * rho_cp *
                 (upstreamJunction->temperature.value - T[index]) /
-                 (length / 2.0);
+                (length / 2.0);
 
   return DTDt;
 }
@@ -326,9 +325,14 @@ double Element::computeDTDtDispersionDownstreamNeighbour(double dt, double T[])
 {
   double DTDt = downstreamLongDispersion * downstreamXSectionArea * rho_cp *
                 (T[downstreamElement->index]  - T[index]) /
-                ((length / 2.0) + (downstreamElement->length / 2.0));
+      ((length / 2.0) + (downstreamElement->length / 2.0));
 
   return DTDt;
+}
+
+double Element::computeDTDtDispersionSelf(double dt, double T[])
+{
+  return 0.0;
 }
 
 void Element::computeEvaporation()
@@ -367,7 +371,7 @@ double Element::computeDSoluteDt(double dt, double S[], int soluteIndex)
 {
   double DSoluteDt = 0;
 
-  if(volume > 1e-14)
+  if(volume > 1e-1)
   {
     //Compute advection
     DSoluteDt += computeDSoluteDtAdv(dt, S, soluteIndex);
@@ -454,9 +458,14 @@ double Element::computeDSoluteDtDispersionDownstreamNeighbour(double dt, double 
 {
   double DSoluteDt = downstreamLongDispersion * downstreamXSectionArea *
                      (S[downstreamElement->index]  - S[index]) /
-                     ((length / 2.0) +  (downstreamElement->length / 2.0));
+      ((length / 2.0) +  (downstreamElement->length / 2.0));
 
   return DSoluteDt;
+}
+
+double Element::computeDSoluteDtDispersionSelf(double dt, double S[], int soluteIndex)
+{
+  return 0.0;
 }
 
 void Element::setDispersionFunctions()
@@ -471,7 +480,14 @@ void Element::setDispersionFunctions()
   }
   else
   {
-    computeTempDispDeriv[0] = &Element::computeDTDtDispersionUpstreamJunction;
+    if(flow >= 0)
+    {
+      computeTempDispDeriv[0] = &Element::computeDTDtDispersionUpstreamJunction;
+    }
+    else
+    {
+      computeTempDispDeriv[0] = &Element::computeDTDtDispersionSelf;
+    }
   }
 
   if(downstreamJunction->temperature.isBC)
@@ -484,7 +500,14 @@ void Element::setDispersionFunctions()
   }
   else
   {
-    computeTempDispDeriv[1] = &Element::computeDTDtDispersionDownstreamJunction;
+    if(flow >= 0)
+    {
+      computeTempDispDeriv[1] = &Element::computeDTDtDispersionSelf;
+    }
+    else
+    {
+      computeTempDispDeriv[1] = &Element::computeDTDtDispersionDownstreamJunction;
+    }
   }
 
   for(int i = 0; i < numSolutes; i++)
@@ -499,7 +522,14 @@ void Element::setDispersionFunctions()
     }
     else
     {
-      computeSoluteDispDeriv[i][0] = &Element::computeDSoluteDtDispersionUpstreamJunction;
+      if(flow >= 0)
+      {
+        computeSoluteDispDeriv[i][0] = &Element::computeDSoluteDtDispersionUpstreamJunction;
+      }
+      else
+      {
+        computeSoluteDispDeriv[i][0] = &Element::computeDSoluteDtDispersionSelf;
+      }
     }
 
     if(downstreamJunction->soluteConcs[i].isBC)
@@ -512,7 +542,14 @@ void Element::setDispersionFunctions()
     }
     else
     {
-      computeSoluteDispDeriv[i][1] = &Element::computeDSoluteDtDispersionDownstreamJunction;
+      if(flow >= 0)
+      {
+        computeSoluteDispDeriv[i][1] = &Element::computeDSoluteDtDispersionSelf;
+      }
+      else
+      {
+        computeSoluteDispDeriv[i][1] = &Element::computeDSoluteDtDispersionDownstreamJunction;
+      }
     }
   }
 }
@@ -546,29 +583,7 @@ void Element::computeDerivedHydraulics()
   rho_cp_vol = rho_cp * volume;
   top_area = length * width;
 
-  //  setDispersionFunctions();
-  (*setAdvectionFuctions)(this);
-}
 
-void Element::computeLongDispersion()
-{
-  double vel = flow / xSectionArea;
-  slope = max(0.00001, fabs(upstreamJunction->z - downstreamJunction->z) / length);
-
-  double fricVel = sqrt(9.81 * depth * slope);
-  double dispFischer = (0.011 * vel * vel * width * width) / (depth * fricVel);
-  double dispNumerical = fabs( vel * length / 2.0);
-
-  longDispersion.value = dispNumerical <= dispFischer ? dispFischer - dispNumerical : 0.0;
-}
-
-void Element::computePecletNumbers()
-{
-  pecletNumber = longDispersion.value ? (flow / xSectionArea) * length / longDispersion.value : flow * 10000 / fabs(flow);
-}
-
-void Element::computeUpstreamPeclet()
-{
   if(upstreamElement != nullptr)
   {
     upstreamFlow =  ((upstreamElement->flow * upstreamElementDirection  / (upstreamElement->length * 0.5)) +
@@ -582,25 +597,20 @@ void Element::computeUpstreamPeclet()
     upstreamXSectionArea = ((upstreamElement->xSectionArea / (upstreamElement->length * 0.5)) + (xSectionArea / (length * 0.5))) /
                            ((1.0 / (upstreamElement->length * 0.5)) + (1.0 / (length * 0.5)));
 
-    upstreamLongDispersion =  ((upstreamElement->longDispersion.value / (upstreamElement->length * 0.5)) + (longDispersion.value / (length * 0.5))) /
-                              ((1.0 / (upstreamElement->length * 0.5)) + (1.0 / (length * 0.5)));
 
-    upstreamPecletNumber = upstreamLongDispersion > 0 ? upstreamVelocity * ((upstreamElement->length / 2.0) + (length / 2.0)) / (upstreamLongDispersion)
-                                                      : upstreamVelocity * 10000 / upstreamVelocity;
+    upstreamCourantNumber = upstreamVelocity * model->m_timeStep / (length / 2.0 + upstreamElement->length / 2.0);
+
   }
   else
   {
     upstreamFlow = flow;
     upstreamVelocity = upstreamFlow / xSectionArea;
     upstreamXSectionArea = xSectionArea;
-    upstreamLongDispersion = longDispersion.value;
-    upstreamPecletNumber = pecletNumber;
+    upstreamCourantNumber = upstreamVelocity * model->m_timeStep / (length);
   }
 
-}
 
-void Element::computeDownstreamPeclet()
-{
+
   if(downstreamElement != nullptr)
   {
     downstreamFlow = ((downstreamElement->flow * downstreamElementDirection  / (downstreamElement->length * 0.5)) +
@@ -614,18 +624,92 @@ void Element::computeDownstreamPeclet()
     downstreamXSectionArea = ((downstreamElement->xSectionArea / (downstreamElement->length * 0.5)) + (xSectionArea / (length * 0.5))) /
                              ((1.0 / (downstreamElement->length * 0.5)) + (1.0 / (length * 0.5)));
 
-    downstreamLongDispersion = ((downstreamElement->longDispersion.value / (downstreamElement->length * 0.5)) + (longDispersion.value / (length * 0.5))) /
-                               ((1.0 / (downstreamElement->length * 0.5)) + (1.0 / (length * 0.5)));
+    downstreamCourantNumber = downstreamVelocity * model->m_timeStep / (length / 2.0 + downstreamElement->length / 2.0);
 
-    downstreamPecletNumber = downstreamLongDispersion > 0 ? downstreamVelocity * ((downstreamElement->length / 2.0) + (length / 2.0)) / (downstreamLongDispersion)
-                                                          : downstreamVelocity * 10000 / downstreamVelocity;
   }
   else
   {
     downstreamFlow = flow;
     downstreamVelocity = downstreamFlow / xSectionArea;
     downstreamXSectionArea = xSectionArea;
+    downstreamCourantNumber = downstreamVelocity * model->m_timeStep / (length);
+  }
+
+
+  //  setDispersionFunctions();
+  (*setAdvectionFuctions)(this);
+}
+
+void Element::computeLongDispersion()
+{
+  double vel = flow / xSectionArea;
+
+  slope = max(0.00001, fabs(upstreamJunction->z - downstreamJunction->z) / length);
+  double fricVel = sqrt(9.81 * depth * slope);
+  double dispFischer = model->m_computeDispersion  * (0.011 * vel * vel * width * width) / (depth * fricVel);
+  double dispNumerical = fabs(vel * length / 2.0);
+
+  //  longDispersion.value = dispNumerical <= dispFischer ? dispFischer - dispNumerical : dispNumerical;
+  longDispersion.value = dispFischer;
+}
+
+void Element::computePecletNumbers()
+{
+  pecletNumber = longDispersion.value ? (flow / xSectionArea) * length / longDispersion.value : flow * 10000 / fabs(flow);
+}
+
+void Element::computeUpstreamPeclet()
+{
+  if(upstreamElement != nullptr)
+  {
+
+    upstreamLongDispersion =  ((upstreamElement->longDispersion.value / (upstreamElement->length * 0.5)) + (longDispersion.value / (length * 0.5))) /
+                              ((1.0 / (upstreamElement->length * 0.5)) + (1.0 / (length * 0.5)));
+
+    double dispNum = fabs(upstreamVelocity) * (length / 2.0 + upstreamElement->length / 2.0) / 2.0;
+
+    upstreamLongDispersion = dispNum < upstreamLongDispersion ? upstreamLongDispersion - dispNum : dispNum;
+
+    upstreamPecletNumber = upstreamLongDispersion > 0 ? upstreamVelocity * ((upstreamElement->length / 2.0) + (length / 2.0)) / (upstreamLongDispersion)
+                                                      : upstreamVelocity * 10000 / upstreamVelocity;
+  }
+  else
+  {
+    upstreamLongDispersion = longDispersion.value;
+
+    double dispNum = fabs(upstreamVelocity) * length / 2.0;
+
+    upstreamLongDispersion = dispNum < upstreamLongDispersion ? upstreamLongDispersion - dispNum : dispNum;
+
+    upstreamPecletNumber = pecletNumber;
+  }
+
+}
+
+void Element::computeDownstreamPeclet()
+{
+  if(downstreamElement != nullptr)
+  {
+    downstreamLongDispersion = ((downstreamElement->longDispersion.value / (downstreamElement->length * 0.5)) + (longDispersion.value / (length * 0.5))) /
+                               ((1.0 / (downstreamElement->length * 0.5)) + (1.0 / (length * 0.5)));
+
+
+    double dispNum = fabs(downstreamVelocity) * (length / 2.0 + downstreamElement->length / 2.0) / 2.0;
+
+    downstreamLongDispersion = dispNum < downstreamLongDispersion ? downstreamLongDispersion - dispNum : dispNum;
+
+
+    downstreamPecletNumber = downstreamLongDispersion > 0 ? downstreamVelocity * ((downstreamElement->length / 2.0) + (length / 2.0)) / (downstreamLongDispersion)
+                                                          : downstreamVelocity * 10000 / downstreamVelocity;
+  }
+  else
+  {
     downstreamLongDispersion = longDispersion.value;
+
+    double dispNum = fabs(downstreamVelocity) * length  / 2.0;
+
+    downstreamLongDispersion = dispNum < downstreamLongDispersion ? downstreamLongDispersion - dispNum : dispNum;
+
     downstreamPecletNumber = pecletNumber;
   }
 }

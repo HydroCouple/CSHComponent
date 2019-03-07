@@ -190,6 +190,11 @@ class CSHCOMPONENT_EXPORT CSHComponent : public AbstractTimeModelComponent,
     void createExternalSoluteFluxInput(int soluteIndex);
 
     /*!
+     * \brief createWaterAgeFluxInput
+     */
+    void createWaterAgeFluxInput();
+
+    /*!
      * \brief createOutputs
      */
     void createOutputs() override;
@@ -204,6 +209,11 @@ class CSHCOMPONENT_EXPORT CSHComponent : public AbstractTimeModelComponent,
      * \param index
      */
     void createSoluteConcOutput(int index);
+
+    /*!
+     * \brief createWaterAgeFluxOutput
+     */
+    void createWaterAgeFluxOutput();
 
   private:
 

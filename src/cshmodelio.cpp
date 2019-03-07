@@ -113,15 +113,21 @@ void CSHModel::printStatus()
   if (m_currentPrintCount >= m_printFrequency)
   {
 
-    printf("CSH TimeStep (s): %f\tDateTime: %f\tTemp (°C) { Iters: %i/%i\tMin: %f\tMax: %f\tTotalHeatBalance: %g (KJ)}", m_timeStep, m_currentDateTime,
-           m_heatSolver->getIterations(), m_heatSolver->maxIterations(), m_minTemp, m_maxTemp, m_totalHeatBalance);
+    printf("CSH TimeStep (s): %f\tDateTime: %f\tIters: %i/%i\tTemp (°C) { Min: %f\tMax: %f\tTotalHeatBalance: %g (KJ)}", m_timeStep, m_currentDateTime,
+           m_odeSolver->getIterations(), m_odeSolver->maxIterations(), m_minTemp, m_maxTemp, m_totalHeatBalance);
 
     for (size_t j = 0; j < m_solutes.size(); j++)
     {
       std::string &solute = m_solutes[j];
-      ODESolver *solver = m_soluteSolvers[j];
-      printf("\t%s (kg/m^3) { Iters: %i/%i\tMin: %f\tMax: %f\tTotalMassBalance: %g (kg)}", solute.c_str(), solver->getIterations(), solver->maxIterations(),
-             m_minSolute[j], m_maxSolute[j], m_totalSoluteMassBalance[j]);
+
+      if(solute == "WATER_AGE")
+      {
+        printf("\t%s (days) { Min: %f\tMax: %f}", solute.c_str(), m_minSolute[j], m_maxSolute[j]);
+      }
+      else
+      {
+        printf("\t%s (kg/m^3) { Min: %f\tMax: %f\tTotalMassBalance: %g (kg)}", solute.c_str(), m_minSolute[j], m_maxSolute[j], m_totalSoluteMassBalance[j]);
+      }
     }
 
     printf("\n");
@@ -353,31 +359,8 @@ bool CSHModel::initializeNetCDFOutputFile(list<string> &errors)
     m_outNetCDFVariables["time"] = timeVar;
 
     //Add Solutes
-    ThreadSafeNcDim solutesDim =  m_outputNetCDF->addDim("solutes", m_solutes.size());
-    ThreadSafeNcVar solutes =  m_outputNetCDF->addVar("solute_names", NcType::nc_STRING, solutesDim);
-    solutes.putAtt("long_name", "Solutes");
-    m_outNetCDFVariables["solutes"] = solutes;
+    ThreadSafeNcDim solutesDim =  m_outputNetCDF->addDim("solutes", m_numSolutes);
 
-    if (m_solutes.size())
-    {
-      char **soluteNames = new char *[m_solutes.size()];
-
-      for (size_t i = 0; i < m_solutes.size(); i++)
-      {
-        string soluteName = m_solutes[i];
-        soluteNames[i] = new char[soluteName.size() + 1];
-        strcpy(soluteNames[i], soluteName.c_str());
-      }
-
-      solutes.putVar(soluteNames);
-
-      for (size_t i = 0; i < m_solutes.size(); i++)
-      {
-        delete[] soluteNames[i];
-      }
-
-      delete[] soluteNames;
-    }
 
     //Add element junctions
     ThreadSafeNcDim junctionDim =  m_outputNetCDF->addDim("element_junctions", m_elementJunctions.size());
@@ -570,6 +553,12 @@ bool CSHModel::initializeNetCDFOutputFile(list<string> &errors)
     temperatureVar.putAtt("units", "°C");
     m_outNetCDFVariables["temperature"] = temperatureVar;
 
+    ThreadSafeNcVar waterAgeVar =  m_outputNetCDF->addVar("water_age", "float",
+                                                          std::vector<std::string>({"time", "elements"}));
+    waterAgeVar.putAtt("long_name", "Water Age");
+    waterAgeVar.putAtt("units", "days");
+    m_outNetCDFVariables["water_age"] = waterAgeVar;
+
 
     ThreadSafeNcVar totalElementHeatBalanceVar =  m_outputNetCDF->addVar("total_element_heat_balance", "float",
                                                                          std::vector<std::string>({"time", "elements"}));
@@ -746,6 +735,32 @@ bool CSHModel::initializeNetCDFOutputFile(list<string> &errors)
     totalExternalHeatFluxBalanceVar.putAtt("long_name", "Total External Heat Flux Balance");
     totalExternalHeatFluxBalanceVar.putAtt("units", "KJ");
     m_outNetCDFVariables["total_external_heat_flux_balance"] = totalExternalHeatFluxBalanceVar;
+
+
+    ThreadSafeNcVar solutes =  m_outputNetCDF->addVar("solute_names", NcType::nc_STRING, solutesDim);
+    solutes.putAtt("long_name", "Solutes");
+    m_outNetCDFVariables["solutes"] = solutes;
+
+    if (m_numSolutes)
+    {
+      char **soluteNames = new char *[m_numSolutes];
+
+      for (int i = 0; i < m_numSolutes; i++)
+      {
+        string soluteName = m_solutes[i];
+        soluteNames[i] = new char[soluteName.size() + 1];
+        strcpy(soluteNames[i], soluteName.c_str());
+      }
+
+      solutes.putVar(soluteNames);
+
+      for (int i = 0; i < m_numSolutes; i++)
+      {
+        delete[] soluteNames[i];
+      }
+
+      delete[] soluteNames;
+    }
 
 
     ThreadSafeNcVar solutesVar =  m_outputNetCDF->addVar("solute_concentration", "float",
@@ -1013,12 +1028,6 @@ bool CSHModel::readInputFileOptionTag(const QString &line, QString &errorMessage
               case 4:
                 m_advectionMode = AdvectionDiscretizationMode::TVD;
                 break;
-              case 5:
-                m_advectionMode = AdvectionDiscretizationMode::QUICK;
-                break;
-              case 6:
-                m_advectionMode = AdvectionDiscretizationMode::ULTIMATE;
-                break;
               default:
                 foundError = true;
                 break;
@@ -1042,7 +1051,10 @@ bool CSHModel::readInputFileOptionTag(const QString &line, QString &errorMessage
 
           if (options.size() == 2)
           {
-            m_computeDispersion = QString::compare(options[1], "No", Qt::CaseInsensitive);
+            if(QString::compare(options[1], "No", Qt::CaseInsensitive))
+              m_computeDispersion = 1.0;
+            else
+              m_computeDispersion = 0.0;
           }
           else
           {
@@ -1057,6 +1069,7 @@ bool CSHModel::readInputFileOptionTag(const QString &line, QString &errorMessage
         }
         break;
       case 11:
+      case 29:
         {
           bool foundError = false;
 
@@ -1065,34 +1078,34 @@ bool CSHModel::readInputFileOptionTag(const QString &line, QString &errorMessage
             std::string code = options[1].toUpper().toStdString();
             auto it = m_solverTypeFlags.find(code);
 
-            int heatSolverMode = -1;
+            int odeSolver = -1;
 
             if (it != m_solverTypeFlags.end())
-              heatSolverMode = it->second;
+              odeSolver = it->second;
 
-            switch (heatSolverMode)
+            switch (odeSolver)
             {
               case 1:
-                m_heatSolver->setSolverType(ODESolver::RK4);
+                m_odeSolver->setSolverType(ODESolver::RK4);
                 break;
               case 2:
-                m_heatSolver->setSolverType(ODESolver::RKQS);
+                m_odeSolver->setSolverType(ODESolver::RKQS);
                 break;
               case 3:
                 {
-                  m_heatSolver->setSolverType(ODESolver::CVODE_ADAMS);
-                  m_heatSolver->setSolverIterationMethod(ODESolver::IterationMethod::FUNCTIONAL);
+                  m_odeSolver->setSolverType(ODESolver::CVODE_ADAMS);
+                  m_odeSolver->setSolverIterationMethod(ODESolver::IterationMethod::FUNCTIONAL);
                 }
                 break;
               case 4:
                 {
-                  m_heatSolver->setSolverType(ODESolver::CVODE_BDF);
-                  m_heatSolver->setSolverIterationMethod(ODESolver::IterationMethod::NEWTON);
-                  m_heatSolver->setLinearSolverType(ODESolver::LinearSolverType::GMRES);
+                  m_odeSolver->setSolverType(ODESolver::CVODE_BDF);
+                  m_odeSolver->setSolverIterationMethod(ODESolver::IterationMethod::NEWTON);
+                  m_odeSolver->setLinearSolverType(ODESolver::LinearSolverType::GMRES);
                 }
                 break;
               case 5:
-                m_heatSolver->setSolverType(ODESolver::EULER);
+                m_odeSolver->setSolverType(ODESolver::EULER);
                 break;
               default:
                 foundError = true;
@@ -1106,12 +1119,13 @@ bool CSHModel::readInputFileOptionTag(const QString &line, QString &errorMessage
 
           if (foundError)
           {
-            errorMessage = "Temperature solver type error";
+            errorMessage = "Solver type error";
             return false;
           }
         }
         break;
       case 12:
+      case 30:
         {
           bool foundError = false;
 
@@ -1122,7 +1136,7 @@ bool CSHModel::readInputFileOptionTag(const QString &line, QString &errorMessage
             double abs_tol = options[1].toDouble(&ok);
 
             if (ok)
-              m_heatSolver->setAbsoluteTolerance(abs_tol);
+              m_odeSolver->setAbsoluteTolerance(abs_tol);
 
             foundError = !ok;
           }
@@ -1133,12 +1147,13 @@ bool CSHModel::readInputFileOptionTag(const QString &line, QString &errorMessage
 
           if (foundError)
           {
-            errorMessage = "Temperature solver absolute tolerance error";
+            errorMessage = "Solver absolute tolerance error";
             return false;
           }
         }
         break;
       case 13:
+      case 31:
         {
           bool foundError = false;
 
@@ -1148,7 +1163,7 @@ bool CSHModel::readInputFileOptionTag(const QString &line, QString &errorMessage
             double rel_tol = options[1].toDouble(&ok);
 
             if (ok)
-              m_heatSolver->setRelativeTolerance(rel_tol);
+              m_odeSolver->setRelativeTolerance(rel_tol);
 
             foundError = !ok;
           }
@@ -1159,7 +1174,7 @@ bool CSHModel::readInputFileOptionTag(const QString &line, QString &errorMessage
 
           if (foundError)
           {
-            errorMessage = "Temperature solver relative tolerance error";
+            errorMessage = "Solver relative tolerance error";
             return false;
           }
         }
@@ -1434,9 +1449,9 @@ bool CSHModel::readInputFileOptionTag(const QString &line, QString &errorMessage
           {
             bool ok;
             int fluxLimiter = options[1].toInt(&ok);
-            foundError = fluxLimiter > 7 || !ok;
+            foundError = !ok;
 
-            m_TVDFluxLimiter = fluxLimiter;
+            m_TVDFluxLimiter = (ElementAdvTVD::TVDFluxLimiter)fluxLimiter;
           }
           else
           {
@@ -1446,6 +1461,77 @@ bool CSHModel::readInputFileOptionTag(const QString &line, QString &errorMessage
           if(foundError)
           {
             errorMessage = "TVD flux limiter error";
+            return false;
+          }
+        }
+        break;
+      case 28:
+        {
+          bool foundError = false;
+
+          if (options.size() == 2)
+          {
+            m_simulateWaterAge = QString::compare(options[1], "No", Qt::CaseInsensitive);
+
+            if(m_simulateWaterAge)
+              setNumSolutes(m_numSolutes);
+          }
+          else
+          {
+            foundError = true;
+          }
+
+          if (foundError)
+          {
+            errorMessage = "Simulate water age error";
+            return false;
+          }
+        }
+        break;
+      case 32:
+        {
+          bool foundError = false;
+
+          if (options.size() == 2)
+          {
+            std::string code = options[1].toUpper().toStdString();
+            auto it = m_linearSolverTypeFlags.find(code);
+
+            int linearSolver = -1;
+
+            if (it != m_linearSolverTypeFlags.end())
+              linearSolver = it->second;
+
+            switch (linearSolver)
+            {
+              case 1:
+                m_odeSolver->setLinearSolverType(ODESolver::LinearSolverType::GMRES);
+                break;
+              case 2:
+                m_odeSolver->setLinearSolverType(ODESolver::LinearSolverType::FGMRES);
+                break;
+              case 3:
+                m_odeSolver->setLinearSolverType(ODESolver::LinearSolverType::Bi_CGStab);
+                break;
+              case 4:
+                m_odeSolver->setLinearSolverType(ODESolver::LinearSolverType::TFQMR);
+                break;
+              case 5:
+                m_odeSolver->setLinearSolverType(ODESolver::LinearSolverType::PCG);
+                break;
+              default:
+                foundError = true;
+                break;
+            }
+          }
+          else
+          {
+            foundError = true;
+          }
+
+          if (foundError)
+          {
+            errorMessage = "Linear solver type error";
             return false;
           }
         }
@@ -1485,98 +1571,22 @@ bool CSHModel::readInputFileSolutesTag(const QString &line, QString &errorMessag
 {
   QStringList columns = line.split(m_delimiters, QString::SkipEmptyParts);
 
-  if (columns.size() == 5)
+  if (columns.size() >= 2)
   {
-    bool foundError = false;
-
     if (m_addedSoluteCount < (int)m_solutes.size())
     {
       m_solutes[m_addedSoluteCount] = columns[0].toStdString();
 
-      std::string solverType = columns[2].toStdString();
-      auto it = m_solverTypeFlags.find(solverType);
+      bool parsed;
+      double first_order_k = columns[1].toDouble(&parsed);
 
-      if (it != m_solverTypeFlags.end())
+      if(parsed)
       {
-        int solverTypeCode = it->second;
-
-        switch (solverTypeCode)
-        {
-          case 1:
-            m_soluteSolvers[m_addedSoluteCount]->setSolverType(ODESolver::RK4);
-            break;
-          case 2:
-            m_soluteSolvers[m_addedSoluteCount]->setSolverType(ODESolver::RKQS);
-            break;
-          case 3:
-            {
-              m_soluteSolvers[m_addedSoluteCount]->setSolverType(ODESolver::CVODE_ADAMS);
-              m_soluteSolvers[m_addedSoluteCount]->setSolverIterationMethod(ODESolver::IterationMethod::FUNCTIONAL);
-            }
-            break;
-          case 4:
-            {
-              m_soluteSolvers[m_addedSoluteCount]->setSolverType(ODESolver::CVODE_BDF);
-              m_soluteSolvers[m_addedSoluteCount]->setSolverIterationMethod(ODESolver::IterationMethod::NEWTON);
-              m_soluteSolvers[m_addedSoluteCount]->setLinearSolverType(ODESolver::LinearSolverType::GMRES);
-            }
-            break;
-          case 5:
-            m_soluteSolvers[m_addedSoluteCount]->setSolverType(ODESolver::EULER);
-            break;
-          default:
-            foundError = true;
-            break;
-        }
-
-        if (foundError)
-        {
-          errorMessage = "Solute error";
-          return false;
-        }
-
-
-        bool parsed;
-        double first_order_k = columns[1].toDouble(&parsed);
-
-        if(parsed)
-        {
-          m_solute_first_order_k[m_addedSoluteCount] = first_order_k;
-        }
-        else
-        {
-          errorMessage = "Invalid solute first order reaction rate";
-          return false;
-        }
-
-
-        double abs_tol = columns[3].toDouble(&parsed);
-
-        if (parsed)
-        {
-          m_soluteSolvers[m_addedSoluteCount]->setAbsoluteTolerance(abs_tol);
-        }
-        else
-        {
-          errorMessage = "Solute absolute tolerance error";
-          return false;
-        }
-
-        double rel_tol = columns[4].toDouble(&parsed);
-
-        if (parsed)
-        {
-          m_soluteSolvers[m_addedSoluteCount]->setRelativeTolerance(rel_tol);
-        }
-        else
-        {
-          errorMessage = "Solute relative tolerance error";
-          return false;
-        }
+        m_solute_first_order_k[m_addedSoluteCount] = first_order_k;
       }
       else
       {
-        errorMessage = "Solute error";
+        errorMessage = "Invalid solute first order reaction rate";
         return false;
       }
 
@@ -1755,8 +1765,16 @@ bool CSHModel::readInputFileBoundaryConditionsTag(const QString &line, QString &
 
           if (valueOk)
           {
-            junction->temperature.isBC = true;
-            junction->temperature.value = value;
+            JunctionBC *junctionBC = new JunctionBC(junction, -1, this);
+
+            QSharedPointer<TimeSeries> timeSeries = QSharedPointer<TimeSeries>(new TimeSeries(QUuid::createUuid().toString(),1));
+            m_timeSeries[timeSeries->id().toStdString()] = timeSeries;
+            timeSeries->addRow(m_startDateTime - 0.1, value);
+            timeSeries->addRow(m_endDateTime + 0.1, value);
+            junctionBC->setTimeSeries(timeSeries);
+
+            m_boundaryConditions.push_back(junctionBC);
+
             found = true;
           }
           else
@@ -1778,11 +1796,23 @@ bool CSHModel::readInputFileBoundaryConditionsTag(const QString &line, QString &
 
               if (ok)
               {
-                junction->soluteConcs[i].isBC = true;
-                junction->soluteConcs[i].value = value;
+                JunctionBC *junctionBC = new JunctionBC(junction, i, this);
+
+                QSharedPointer<TimeSeries> timeSeries = QSharedPointer<TimeSeries>(new TimeSeries(QUuid::createUuid().toString(),1));
+                m_timeSeries[timeSeries->id().toStdString()] = timeSeries;
+                timeSeries->addRow(m_startDateTime - 0.1, value);
+                timeSeries->addRow(m_endDateTime + 0.1, value);
+                junctionBC->setTimeSeries(timeSeries);
+
+                m_boundaryConditions.push_back(junctionBC);
+
+
                 found = true;
               }
             }
+
+            if(found)
+              break;
           }
         }
 
@@ -2363,12 +2393,14 @@ void CSHModel::writeNetCDFOutput()
     //      timeVar.putVar(std::vector<size_t>({currentTime}), m_currentDateTime);
     m_outNetCDFVariables["time"].putVar(std::vector<size_t>({currentTime}), m_currentDateTime);
 
+
     float *flow = new float[m_elements.size()];
     float *depth = new float[m_elements.size()];
     float *width = new float[m_elements.size()];
     float *xsectArea = new float[m_elements.size()];
     float *dispersion = new float[m_elements.size()];
     float *temperature = new float[m_elements.size()];
+    float *waterAge = new float[m_elements.size()]();
     float *elementEvapHeatFlux = new float[m_elements.size()];
     float *elementConvHeatFlux = new float[m_elements.size()];
     float *elementRadiationFlux = new float[m_elements.size()];
@@ -2386,10 +2418,25 @@ void CSHModel::writeNetCDFOutput()
     float *totalElementConvHeatBalance = new float[m_elements.size()];
     float *totalElementRadiationFluxHeatBalance = new float[m_elements.size()];
     float *totalElementExternalHeatFluxBalance = new float[m_elements.size()];
-    float *solutes = new float[m_elements.size() * m_solutes.size()];
-    float *totalElementSoluteMassBalance = new float[m_elements.size() * m_solutes.size()];
-    float *totalElementAdvDispSoluteMassBalance = new float[m_elements.size() * m_solutes.size()];
-    float *totalElementExternalSoluteFluxMassBalance = new float[m_elements.size() * m_solutes.size()];
+    float *solutes = new float[m_elements.size() * m_numSolutes];
+    float *totalElementSoluteMassBalance = new float[m_elements.size() * m_numSolutes];
+    float *totalElementAdvDispSoluteMassBalance = new float[m_elements.size() * m_numSolutes];
+    float *totalElementExternalSoluteFluxMassBalance = new float[m_elements.size() * m_numSolutes];
+
+
+    if(m_simulateWaterAge)
+    {
+#ifdef USE_OPENMP
+#pragma omp parallel for
+#endif
+      for (int i = 0; i < (int)m_elements.size(); i++)
+      {
+        Element *element = m_elements[i];
+        waterAge[i] = element->soluteConcs[m_solutes.size() - 1].value;
+      }
+
+      m_outNetCDFVariables["water_age"].putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), waterAge);
+    }
 
 #ifdef USE_OPENMP
 #pragma omp parallel for
@@ -2421,7 +2468,7 @@ void CSHModel::writeNetCDFOutput()
       elementAirVaporPress[i] = element->vaporPressureAir;
       elementAirSatVaporPress[i] = element->saturationVaporPressureAir;
 
-      for (size_t j = 0; j < m_solutes.size(); j++)
+      for (int j = 0; j < m_numSolutes; j++)
       {
         solutes[i + j * m_elements.size()] = element->soluteConcs[j].value;
         totalElementSoluteMassBalance[i + j * m_elements.size()] = element->totalSoluteMassBalance[j];
@@ -2476,17 +2523,6 @@ void CSHModel::writeNetCDFOutput()
 
     m_outNetCDFVariables["total_element_external_heat_flux_balance"].putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), totalElementExternalHeatFluxBalance);
 
-    if(m_solutes.size())
-    {
-      m_outNetCDFVariables["solute_concentration"].putVar(std::vector<size_t>({currentTime, 0, 0}), std::vector<size_t>({1, m_solutes.size(), m_elements.size()}), solutes);
-    }
-
-    m_outNetCDFVariables["total_element_solute_mass_balance"].putVar(std::vector<size_t>({currentTime, 0, 0}), std::vector<size_t>({1, m_solutes.size(), m_elements.size()}), totalElementSoluteMassBalance);
-
-    m_outNetCDFVariables["total_element_adv_disp_solute_mass_balance"].putVar(std::vector<size_t>({currentTime, 0, 0}), std::vector<size_t>({1, m_solutes.size(), m_elements.size()}), totalElementAdvDispSoluteMassBalance);
-
-    m_outNetCDFVariables["total_element_external_solute_flux_mass_balance"].putVar(std::vector<size_t>({currentTime, 0, 0}), std::vector<size_t>({1, m_solutes.size(), m_elements.size()}), totalElementExternalSoluteFluxMassBalance);
-
     m_outNetCDFVariables["total_heat_balance"].putVar(std::vector<size_t>({currentTime}), std::vector<size_t>({1}), &m_totalHeatBalance);
 
     m_outNetCDFVariables["total_adv_disp_heat_balance"].putVar(std::vector<size_t>({currentTime}), std::vector<size_t>({1}), &m_totalAdvDispHeatBalance);
@@ -2499,11 +2535,22 @@ void CSHModel::writeNetCDFOutput()
 
     m_outNetCDFVariables["total_external_heat_flux_balance"].putVar(std::vector<size_t>({currentTime}), std::vector<size_t>({1}), &m_totalExternalHeatFluxBalance);
 
-    m_outNetCDFVariables["total_solute_mass_balance"].putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_solutes.size()}), m_totalSoluteMassBalance.data());
+    if(m_numSolutes)
+    {
+      m_outNetCDFVariables["solute_concentration"].putVar(std::vector<size_t>({currentTime, 0, 0}), std::vector<size_t>({1, (size_t)m_numSolutes, m_elements.size()}), solutes);
 
-    m_outNetCDFVariables["total_adv_disp_solute_mass_balance"].putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_solutes.size()}), m_totalAdvDispSoluteMassBalance.data());
+      m_outNetCDFVariables["total_element_solute_mass_balance"].putVar(std::vector<size_t>({currentTime, 0, 0}), std::vector<size_t>({1, (size_t)m_numSolutes, m_elements.size()}), totalElementSoluteMassBalance);
 
-    m_outNetCDFVariables["total_external_solute_flux_mass_balance"].putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_solutes.size()}), m_totalExternalSoluteFluxMassBalance.data());
+      m_outNetCDFVariables["total_element_adv_disp_solute_mass_balance"].putVar(std::vector<size_t>({currentTime, 0, 0}), std::vector<size_t>({1, (size_t)m_numSolutes, m_elements.size()}), totalElementAdvDispSoluteMassBalance);
+
+      m_outNetCDFVariables["total_element_external_solute_flux_mass_balance"].putVar(std::vector<size_t>({currentTime, 0, 0}), std::vector<size_t>({1, (size_t)m_numSolutes, m_elements.size()}), totalElementExternalSoluteFluxMassBalance);
+
+      m_outNetCDFVariables["total_solute_mass_balance"].putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, (size_t)m_numSolutes}), m_totalSoluteMassBalance.data());
+
+      m_outNetCDFVariables["total_adv_disp_solute_mass_balance"].putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, (size_t)m_numSolutes}), m_totalAdvDispSoluteMassBalance.data());
+
+      m_outNetCDFVariables["total_external_solute_flux_mass_balance"].putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, (size_t)m_numSolutes}), m_totalExternalSoluteFluxMassBalance.data());
+    }
 
     delete[] flow;
     delete[] depth;
@@ -2511,6 +2558,7 @@ void CSHModel::writeNetCDFOutput()
     delete[] xsectArea;
     delete[] dispersion;
     delete[] temperature;
+    delete[] waterAge;
     delete[] elementEvapHeatFlux;
     delete[] elementConvHeatFlux;
     delete[] elementRadiationFlux;
@@ -2635,6 +2683,11 @@ const unordered_map<string, int> CSHModel::m_optionsFlags({
                                                             {"PRESSURE_RATIO", 25},
                                                             {"TVD_FLUX_LIMITER", 26},
                                                             {"NETCDF_THREAD_SAFE", 27},
+                                                            {"SIMULATE_WATER_AGE", 28},
+                                                            {"SOLVER", 29},
+                                                            {"SOLVER_ABS_TOL", 30},
+                                                            {"SOLVER_REL_TOL", 31},
+                                                            {"LINEAR_SOLVER", 32},
                                                           });
 
 const unordered_map<string, int> CSHModel::m_advectionFlags({
@@ -2642,8 +2695,6 @@ const unordered_map<string, int> CSHModel::m_advectionFlags({
                                                               {"CENTRAL", 2},
                                                               {"HYBRID", 3},
                                                               {"TVD", 4},
-                                                              {"QUICK", 5},
-                                                              {"ULTIMATE", 6},
                                                             });
 
 const unordered_map<string, int> CSHModel::m_solverTypeFlags({{"RK4", 1},
@@ -2652,6 +2703,13 @@ const unordered_map<string, int> CSHModel::m_solverTypeFlags({{"RK4", 1},
                                                               {"BDF", 4},
                                                               {"EULER", 5}
                                                              });
+
+const unordered_map<string, int> CSHModel::m_linearSolverTypeFlags({{"GMRES", 1},
+                                                                   {"FGMRES", 2},
+                                                                   {"Bi_CGStab", 3},
+                                                                   {"TFQMR", 4},
+                                                                   {"PCG", 5}
+                                                                  });
 
 const unordered_map<string, int> CSHModel::m_hydraulicVariableFlags({{"DEPTH", 1},
                                                                      {"WIDTH", 2},

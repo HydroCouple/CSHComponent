@@ -61,8 +61,7 @@ HEADERS += ./include/stdafx.h\
            ./include/elementadvupwind.h \
            ./include/elementadvcentral.h \
            ./include/elementadvhybrid.h \
-           ./include/elementadvtvd.h \
-           ./include/elementadvquick.h
+           ./include/elementadvtvd.h
 
 SOURCES +=./src/stdafx.cpp \
           ./src/cshcomponent.cpp \
@@ -84,8 +83,7 @@ SOURCES +=./src/stdafx.cpp \
           ./src/elementadvupwind.cpp \
           ./src/elementadvcentral.cpp \
           ./src/elementadvhybrid.cpp \
-          ./src/elementadvtvd.cpp \
-          ./src/elementadvquick.cpp
+          ./src/elementadvtvd.cpp
 
 
 macx{
