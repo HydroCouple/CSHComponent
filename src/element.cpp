@@ -337,34 +337,28 @@ double Element::computeDTDtDispersionSelf(double dt, double T[])
 
 void Element::computeEvaporation()
 {
-  if(model->m_useEvaporation)
-  {
-    double Le = 1000.0 * (2499.0 - 2.36 * temperature.value);
+  double Le = 1000.0 * (2499.0 - 2.36 * temperature.value);
 
-    saturationVaporPressureAir = 0.61275 * exp(17.27 * airTemperature / (237.3 + airTemperature));
+  saturationVaporPressureAir = 0.61275 * exp(17.27 * airTemperature / (237.3 + airTemperature));
 
-    saturationVaporPressureWater = 0.61275 * exp(17.27 * temperature.value / (237.3 + temperature.value));
+  saturationVaporPressureWater = 0.61275 * exp(17.27 * temperature.value / (237.3 + temperature.value));
 
-    vaporPressureAir = relativeHumidity * saturationVaporPressureAir / 100.0;
+  vaporPressureAir = relativeHumidity * saturationVaporPressureAir / 100.0;
 
-    vaporPressureWater = relativeHumidity * saturationVaporPressureWater / 100.0;
+  vaporPressureWater = relativeHumidity * saturationVaporPressureWater / 100.0;
 
-    windFunction = model->m_evapWindFuncCoeffA + model->m_evapWindFuncCoeffB * fabs(windSpeed);
+  windFunction = model->m_evapWindFuncCoeffA + model->m_evapWindFuncCoeffB * fabs(windSpeed);
 
-    evaporationRate = windFunction * (saturationVaporPressureWater - vaporPressureAir);
+  evaporationRate = windFunction * (saturationVaporPressureWater - vaporPressureAir);
 
-    evaporationHeatFlux = -Le * evaporationRate * model->m_waterDensity;
-  }
+  evaporationHeatFlux = -Le * evaporationRate * model->m_waterDensity;
 }
 
 void Element::computeConvection()
 {
-  if(model->m_useConvection)
-  {
-    double Le = 1000.0 * (2499.0 - 2.36 * temperature.value);
-    windFunction = model->m_evapWindFuncCoeffA + model->m_evapWindFuncCoeffB * fabs(windSpeed);
-    convectionHeatFlux = - model->m_waterDensity * Le * windFunction * model->m_bowensCoeff * model->m_pressureRatio * (temperature.value - airTemperature) ;
-  }
+  double Le = 1000.0 * (2499.0 - 2.36 * temperature.value);
+  windFunction = model->m_evapWindFuncCoeffA + model->m_evapWindFuncCoeffB * fabs(windSpeed);
+  convectionHeatFlux = - model->m_waterDensity * Le * windFunction * model->m_bowensCoeff * model->m_pressureRatio * (temperature.value - airTemperature);
 }
 
 double Element::computeDSoluteDt(double dt, double S[], int soluteIndex)

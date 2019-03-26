@@ -49,6 +49,10 @@ void CSHModel:: update()
 
     computeLongDispersion();
 
+    computeEvaporation();
+
+    computeConvection();
+
     solveJunctionContinuity(m_timeStep);
 
     solve(m_timeStep);
@@ -300,16 +304,35 @@ void CSHModel::computeDerivedHydraulics()
 
 }
 
-void CSHModel::computeEvapAndConv()
+void CSHModel::computeEvaporation()
 {
+  if(m_useEvaporation)
+  {
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-  for(int i = 0 ; i < (int)m_elements.size(); i++)
+    for(int i = 0 ; i < (int)m_elements.size(); i++)
+    {
+      Element *element = m_elements[i];
+      element->computeEvaporation();
+      element->computeConvection();
+    }
+  }
+}
+
+void CSHModel::computeConvection()
+{
+  if(m_useConvection)
   {
-    Element *element = m_elements[i];
-    element->computeEvaporation();
-    element->computeConvection();
+#ifdef USE_OPENMP
+#pragma omp parallel for
+#endif
+    for(int i = 0 ; i < (int)m_elements.size(); i++)
+    {
+      Element *element = m_elements[i];
+      element->computeEvaporation();
+      element->computeConvection();
+    }
   }
 }
 

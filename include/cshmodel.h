@@ -209,16 +209,20 @@ class CSHCOMPONENT_EXPORT CSHModel : public QObject
      */
     ODESolver *odeSolver() const;
 
-
     /*!
      * \brief computeDerivedHydraulics
      */
     void computeDerivedHydraulics();
 
     /*!
-     * \brief computeEvapAndConv
+     * \brief computeEvaporation
      */
-    void computeEvapAndConv();
+    void computeEvaporation();
+
+    /*!
+     * \brief computeConvection
+     */
+    void computeConvection();
 
     /*!
      * \brief computeLongDispersion

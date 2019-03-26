@@ -270,7 +270,7 @@ void CSHModel::setNumSolutes(int numSolutes)
 
     for(size_t i = 0 ; i < m_solutes.size(); i++)
     {
-      if(i >= soluteNamesSize)
+      if((int)i >= soluteNamesSize)
       {
         m_solutes[i] = "Solute_" + std::to_string(i + 1);
       }
