@@ -175,7 +175,7 @@ void ElementInput::applyData()
             value2 *= orientation;
 
             Element *element =  m_component->modelInstance()->getElement(it.first);
-            element->flow = value2 + factor *(value1 - value2);
+            element->flow.value = value2 + factor *(value1 - value2);
 
           }
         }
@@ -255,7 +255,7 @@ void ElementInput::applyData()
             timeGeometryDataItem->getValue(currentTimeIndex,it.second, & value);
             value *= m_geometryMappingOrientation[it.first];
             Element *element =  m_component->modelInstance()->getElement(it.first);
-            element->flow = value;
+            element->flow.value = value;
           }
         }
         break;

@@ -216,6 +216,9 @@ bool CSHModel::initializeInputFiles(list<string> &errors)
               case 5:
                 readSuccess = readInputFileElementsTag(line, error);
                 break;
+              case 12:
+                readSuccess = readInputFileElementHydraulicVariablesTag(line, error);
+                break;
               case 6:
                 readSuccess = readInputFileBoundaryConditionsTag(line, error);
                 break;
@@ -471,8 +474,8 @@ bool CSHModel::initializeNetCDFOutputFile(list<string> &errors)
       elementIds[i] = new char[element->id.size() + 1];
       strcpy(elementIds[i], element->id.c_str());
 
-      fromJunctions[i] = element->upstreamJunction->index;
-      toJunctions[i] = element->downstreamJunction->index;
+      fromJunctions[i] = element->upstreamJunction->tIndex;
+      toJunctions[i] = element->downstreamJunction->tIndex;
 
       elX[i] = element->x;
       elY[i] = element->y;
@@ -1536,6 +1539,28 @@ bool CSHModel::readInputFileOptionTag(const QString &line, QString &errorMessage
           }
         }
         break;
+      case 33:
+        {
+
+          bool foundError = false;
+
+          if (options.size() == 2)
+          {
+            m_solveHydraulics = QString::compare(options[1], "No", Qt::CaseInsensitive);
+          }
+          else
+          {
+            foundError = true;
+          }
+
+
+          if (foundError)
+          {
+            errorMessage = "Solve hydraulics tag";
+            return false;
+          }
+        }
+        break;
     }
   }
 
@@ -1701,7 +1726,7 @@ bool CSHModel::readInputFileElementsTag(const QString &line, QString &errorMessa
         element->slope = slope;
         element->longDispersion.value = disperseCoeff;
         element->temperature.value = temp;
-        element->flow = flow;
+        element->flow.value  = element->prevFlow.value = flow;
 
         if(m_solutes.size() && columns.size() > 10)
         {
@@ -1721,6 +1746,7 @@ bool CSHModel::readInputFileElementsTag(const QString &line, QString &errorMessa
             }
           }
         }
+
       }
       else
       {
@@ -1731,6 +1757,72 @@ bool CSHModel::readInputFileElementsTag(const QString &line, QString &errorMessa
     else
     {
       errorMessage = "Wrong upstream or downstream junction";
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool CSHModel::readInputFileElementHydraulicVariablesTag(const QString &line, QString &errorMessage)
+{
+  errorMessage = "";
+  QStringList columns = line.split(m_delimiters, QString::SkipEmptyParts);
+
+  if (columns.size() == 6)
+  {
+    QString id = columns[0];
+
+
+    auto idIt = m_elementsById.find(id.toStdString());
+
+    if(idIt != m_elementsById.end())
+    {
+      Element *element = m_elementsById[id.toStdString()];
+
+      bool manOk;
+      double man = columns[1].toDouble(&manOk);
+
+
+
+      Element::XSectType xSectType = Element::RECT;
+
+      QString xsect = columns[2];
+
+      if(!xsect.compare("TRAP", Qt::CaseInsensitive))
+      {
+        xSectType = Element::TRAP;
+      }
+      else if(!xsect.compare("IRREGULAR", Qt::CaseInsensitive))
+      {
+
+      }
+
+      bool bottomWidthOk ;
+      double bottomWidth = columns[3].toDouble(&bottomWidthOk);
+
+      bool slope1Ok ;
+      double slope1 = columns[4].toDouble(&slope1Ok);
+
+      bool slope2Ok ;
+      double slope2 = columns[5].toDouble(&slope2Ok);
+
+      if (manOk && bottomWidthOk && slope1Ok && slope2Ok)
+      {
+        element->width = bottomWidth;
+        element->mannings = man;
+        element->sideSlopes[0] = slope1;
+        element->sideSlopes[1] = slope2;
+      }
+      else
+      {
+        errorMessage = "";
+        return false;
+      }
+    }
+    else
+    {
+      errorMessage = "Specified element not found";
       return false;
     }
   }
@@ -1783,6 +1875,31 @@ bool CSHModel::readInputFileBoundaryConditionsTag(const QString &line, QString &
             return false;
           }
         }
+        else if (!QString::compare(variable, "FLOW", Qt::CaseInsensitive))
+        {
+          bool valueOk ;
+          double value = columns[3].toDouble(&valueOk);
+
+          if (valueOk)
+          {
+            JunctionBC *junctionBC = new JunctionBC(junction, -2, this);
+
+            QSharedPointer<TimeSeries> timeSeries = QSharedPointer<TimeSeries>(new TimeSeries(QUuid::createUuid().toString(),1));
+            m_timeSeries[timeSeries->id().toStdString()] = timeSeries;
+            timeSeries->addRow(m_startDateTime - 0.1, value);
+            timeSeries->addRow(m_endDateTime + 0.1, value);
+            junctionBC->setTimeSeries(timeSeries);
+
+            m_boundaryConditions.push_back(junctionBC);
+
+            found = true;
+          }
+          else
+          {
+            errorMessage = "Temperature BC value is invalid";
+            return false;
+          }
+        }
         else
         {
           for (size_t i = 0; i < m_solutes.size(); i++)
@@ -1806,7 +1923,6 @@ bool CSHModel::readInputFileBoundaryConditionsTag(const QString &line, QString &
 
                 m_boundaryConditions.push_back(junctionBC);
 
-
                 found = true;
               }
             }
@@ -1829,6 +1945,10 @@ bool CSHModel::readInputFileBoundaryConditionsTag(const QString &line, QString &
         {
           variableIndex = -1;
         }
+        else if (!QString::compare(variable, "FLOW", Qt::CaseInsensitive))
+        {
+          variableIndex = -2;
+        }
         else
         {
           for (size_t i = 0; i < m_solutes.size(); i++)
@@ -1843,7 +1963,7 @@ bool CSHModel::readInputFileBoundaryConditionsTag(const QString &line, QString &
           }
         }
 
-        if (variableIndex > -2)
+        if (variableIndex > -3)
         {
           std::string tsId = columns[3].toStdString();
           auto tsIt = m_timeSeries.find(tsId);
@@ -2347,7 +2467,7 @@ void CSHModel::writeCSVOutput()
     {
       Element *element = m_elements[i];
 
-      m_outputCSVStream << m_currentDateTime << ", " << QString::fromStdString(element->id) << ", " << element->index
+      m_outputCSVStream << m_currentDateTime << ", " << QString::fromStdString(element->id) << ", " << element->tIndex
                         << ", " << element->x << ", " << element->y << ", " << element->z
                         << ", " << element->depth
                         << ", " << element->width
@@ -2444,7 +2564,7 @@ void CSHModel::writeNetCDFOutput()
     for (int i = 0; i < (int)m_elements.size(); i++)
     {
       Element *element = m_elements[i];
-      flow[i] = element->flow;
+      flow[i] = element->flow.value ;
       depth[i] = element->depth;
       width[i] = element->width;
       xsectArea[i] = element->xSectionArea;
@@ -2647,6 +2767,7 @@ const unordered_map<string, int> CSHModel::m_inputFileFlags({
                                                               {"[SOLUTES]", 3},
                                                               {"[ELEMENTJUNCTIONS]", 4},
                                                               {"[ELEMENTS]", 5},
+                                                              {"[ELEMENT_HYDRAULIC_VARIABLES]", 12},
                                                               {"[BOUNDARY_CONDITIONS]", 6},
                                                               {"[SOURCES]", 7},
                                                               {"[HYDRAULICS]", 8},
@@ -2688,6 +2809,7 @@ const unordered_map<string, int> CSHModel::m_optionsFlags({
                                                             {"SOLVER_ABS_TOL", 30},
                                                             {"SOLVER_REL_TOL", 31},
                                                             {"LINEAR_SOLVER", 32},
+                                                            {"SOLVE_HYDRAULICS", 33},
                                                           });
 
 const unordered_map<string, int> CSHModel::m_advectionFlags({
@@ -2705,11 +2827,11 @@ const unordered_map<string, int> CSHModel::m_solverTypeFlags({{"RK4", 1},
                                                              });
 
 const unordered_map<string, int> CSHModel::m_linearSolverTypeFlags({{"GMRES", 1},
-                                                                   {"FGMRES", 2},
-                                                                   {"Bi_CGStab", 3},
-                                                                   {"TFQMR", 4},
-                                                                   {"PCG", 5}
-                                                                  });
+                                                                    {"FGMRES", 2},
+                                                                    {"Bi_CGStab", 3},
+                                                                    {"TFQMR", 4},
+                                                                    {"PCG", 5}
+                                                                   });
 
 const unordered_map<string, int> CSHModel::m_hydraulicVariableFlags({{"DEPTH", 1},
                                                                      {"WIDTH", 2},

@@ -643,6 +643,14 @@ class CSHCOMPONENT_EXPORT CSHModel : public QObject
     bool readInputFileElementsTag(const QString &line, QString &errorMessage);
 
     /*!
+     * \brief readInputFileElementHydraulicVariablesTag
+     * \param line
+     * \param errorMessage
+     * \return
+     */
+    bool readInputFileElementHydraulicVariablesTag(const QString &line, QString &errorMessage);
+
+    /*!
      * \brief readInputFileBoundaryConditionsTag
      * \param line
      */
@@ -772,7 +780,8 @@ class CSHCOMPONENT_EXPORT CSHModel : public QObject
     m_flushToDiskFrequency, // Number of times to write output stored in memory to disk
     m_currentflushToDiskCount, //Number of timesteps that have been stored in memory so far since the last flush to disk
     m_addedSoluteCount,
-    m_numSolutes = 0;
+    m_numSolutes = 0,
+    m_solverSize = 0;
 
     double m_computeDispersion; //Override user provided dispersion and compute dispersion based on Fisher
     bool m_useAdaptiveTimeStep, //Use the adaptive time step option
@@ -780,7 +789,8 @@ class CSHCOMPONENT_EXPORT CSHModel : public QObject
     m_flushToDisk, //Write output saved in memory to disk
     m_useEvaporation,
     m_useConvection,
-    m_simulateWaterAge = false;
+    m_simulateWaterAge = false,
+    m_solveHydraulics = false;
 
     std::unordered_map<std::string, QSharedPointer<TimeSeries>> m_timeSeries;
 
@@ -788,6 +798,7 @@ class CSHCOMPONENT_EXPORT CSHModel : public QObject
     ElementAdvTVD::TVDFluxLimiter m_TVDFluxLimiter;
 
     //Element junctions
+    std::vector<ElementJunction*> m_eligibleJunctions;
     std::vector<ElementJunction*> m_elementJunctions;
     std::unordered_map<std::string, ElementJunction*> m_elementJunctionsById; //added for fast lookup using identifiers instead of indexes.
 
@@ -797,12 +808,6 @@ class CSHCOMPONENT_EXPORT CSHModel : public QObject
 
     //Boundary conditions list
     std::vector<IBoundaryCondition*> m_boundaryConditions;
-
-    //Number of junctions where continuity needs to be enforced.
-    int m_numHeatElementJunctions;
-    std::vector<int> m_numSoluteElementJunctions,
-                     m_soluteIndexes;
-
 
     ODESolver *m_odeSolver = nullptr;
 

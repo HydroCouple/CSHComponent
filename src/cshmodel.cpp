@@ -48,7 +48,6 @@ CSHModel::CSHModel(CSHComponent *component)
     m_useConvection(false),
     m_advectionMode(AdvectionDiscretizationMode::Upwind),
     m_TVDFluxLimiter(ElementAdvTVD::MIN_MOD),
-    m_numHeatElementJunctions(0),
     m_odeSolver(nullptr),
     m_waterDensity(1000.0), //kg/m^3
     m_cp(4184.0), //4187.0 J/kg/C
@@ -309,7 +308,7 @@ ElementJunction *CSHModel::addElementJunction(const string &id, double x, double
   if(m_elementJunctionsById.find(id) == m_elementJunctionsById.end())
   {
     ElementJunction *eJunction = new ElementJunction(id, x, y, z, this);
-    eJunction->index = m_elementJunctions.size();
+    eJunction->tIndex = m_elementJunctions.size();
     m_elementJunctions.push_back(eJunction);
     m_elementJunctionsById[id] = eJunction;
     return eJunction;
@@ -370,7 +369,7 @@ Element *CSHModel::addElement(const string &id, ElementJunction *upStream, Eleme
   if(upStream && downStream)
   {
     Element *element = new Element(id, upStream, downStream, this);
-    element->index = m_elements.size();
+    element->tIndex = m_elements.size();
     m_elements.push_back(element);
     m_elementsById[id] = element;
     return element;
@@ -445,6 +444,7 @@ bool CSHModel::initialize(list<string> &errors)
 
 
     applyInitialConditions();
+
   }
 
   return initialized;
@@ -508,8 +508,8 @@ bool CSHModel::initializeElements(std::list<string> &errors)
   for(int i = 0 ; i < (int)m_elementJunctions.size()  ; i++)
   {
     ElementJunction *elementJunction = m_elementJunctions[i];
-    elementJunction->index = i;
     size_t numElements = elementJunction->incomingElements.size() + elementJunction->outgoingElements.size();
+    elementJunction->tIndex = -1;
 
     switch (numElements)
     {
@@ -529,14 +529,37 @@ bool CSHModel::initializeElements(std::list<string> &errors)
 
   }
 
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
+  m_solverSize = 0;
+
+  if(m_solveHydraulics)
+  {
+    for(int i = 0 ; i < (int)m_elements.size()  ; i++)
+    {
+      Element *element = m_elements[i];
+      element->hIndex = m_solverSize; m_solverSize++;
+      element->distanceFromUpStreamJunction = 0;
+    }
+  }
+  else
+  {
+    for(int i = 0 ; i < (int)m_elements.size()  ; i++)
+    {
+      Element *element = m_elements[i];
+      element->hIndex = -1;
+    }
+  }
+
+
   for(int i = 0 ; i < (int)m_elements.size()  ; i++)
   {
     Element *element = m_elements[i];
-    element->index = i;
-    element->distanceFromUpStreamJunction = 0;
+    element->tIndex = m_solverSize; m_solverSize++;
+
+    for(size_t j = 0 ; j < m_solutes.size(); j++)
+    {
+      element->sIndex[j] = m_solverSize; m_solverSize++;
+    }
+
     element->initialize();
   }
 
@@ -545,59 +568,47 @@ bool CSHModel::initializeElements(std::list<string> &errors)
     calculateDistanceFromUpstreamJunction(m_elements[i]);
   }
 
-  //Set tempearture continuity junctions
-  m_numHeatElementJunctions = 0;
-
-  //Number of junctions where continuity needs to be enforced.
-  m_numSoluteElementJunctions.resize(m_solutes.size(), 0);
+  m_eligibleJunctions.clear();
 
   for(size_t i = 0 ; i < m_elementJunctions.size()  ; i++)
   {
     ElementJunction *elementJunction = m_elementJunctions[i];
-    elementJunction->index = i;
 
-    size_t numJunctions = elementJunction->outgoingElements.size() + elementJunction->incomingElements.size();
-
-    if(!elementJunction->temperature.isBC)
+    if(elementJunction->junctionType == ElementJunction::MultiElement)
     {
-      //If more than one junction solve continuity
-      if(numJunctions > 1)
+      bool found  = false;
+
+      if(!elementJunction->temperature.isBC)
       {
-        elementJunction->heatContinuityIndex = m_numHeatElementJunctions;
-        m_numHeatElementJunctions++;
+        elementJunction->tIndex = m_solverSize; m_solverSize++;
+        found  = true;
       }
       else
       {
-        elementJunction->heatContinuityIndex = -1;
+        elementJunction->tIndex = -1;
       }
-    }
-    else
-    {
-      //Otherwise don't solve continuity
-      elementJunction->heatContinuityIndex = -1;
-    }
 
-    //Set solute indexes
-    for(size_t j = 0 ; j < m_solutes.size(); j++)
-    {
-      if(!elementJunction->soluteConcs[j].isBC)
+      //Set solute indexes
+      for(size_t j = 0 ; j < m_solutes.size(); j++)
       {
-        //If more than one junction solve continuity
-        if(numJunctions > 2)
+        if(!elementJunction->soluteConcs[j].isBC)
         {
-          elementJunction->soluteContinuityIndexes[j] = m_numSoluteElementJunctions[j];
-          m_numSoluteElementJunctions[j]++;
+          //If more than one junction solve continuity
+          elementJunction->sIndex[j] = m_solverSize; m_solverSize++;;
+          found  = true;
         }
         else
         {
-          elementJunction->soluteContinuityIndexes[j] = -1;
+          elementJunction->sIndex[j] = -1;
         }
       }
-      else
+
+      if(found)
       {
-        elementJunction->soluteContinuityIndexes[j] = -1;
+        m_eligibleJunctions.push_back(elementJunction);
       }
     }
+
   }
 
   return true;
@@ -605,20 +616,20 @@ bool CSHModel::initializeElements(std::list<string> &errors)
 
 bool CSHModel::initializeSolver(std::list<string> &errors)
 {
-  int totalCells = (int) m_elements.size();
+  //  int totalCells = (int) m_elements.size();
 
-  m_soluteIndexes.clear();
+  //  m_soluteIndexes.clear();
 
-  for(size_t i = 0 ; i < m_solutes.size(); i++)
-  {
-    m_soluteIndexes.push_back(totalCells);
-    totalCells += m_elements.size();
-  }
+  //  for(size_t i = 0 ; i < m_solutes.size(); i++)
+  //  {
+  //    m_soluteIndexes.push_back(totalCells);
+  //    totalCells += m_elements.size();
+  //  }
 
-  m_solverCurrentValues.resize(totalCells, 0.0);
-  m_solverOutputValues.resize(totalCells, 0.0);
+  m_solverCurrentValues.resize(m_solverSize, 0.0);
+  m_solverOutputValues.resize(m_solverSize, 0.0);
 
-  m_odeSolver->setSize(totalCells);
+  m_odeSolver->setSize(m_solverSize);
   m_odeSolver->initialize();
 
   return true;

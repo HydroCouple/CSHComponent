@@ -6,7 +6,7 @@
 
 void ElementAdvCentral::setAdvectionFunction(Element *element)
 {
-  if(element->flow >= 0)
+  if(element->flow.value >= 0)
   {
     if(element->upstreamElement && !element->upstreamJunction->temperature.isBC)
     {
@@ -14,7 +14,7 @@ void ElementAdvCentral::setAdvectionFunction(Element *element)
     }
     else
     {
-      element->computeTempAdvDeriv[0] = &ElementAdvUpwind::inFluxUpJunction;
+      element->computeTempAdvDeriv[0] = &ElementAdvUpwind::inFluxUpJunctionBC;
     }
 
     if(element->downstreamElement && !element->downstreamJunction->temperature.isBC)
@@ -34,7 +34,7 @@ void ElementAdvCentral::setAdvectionFunction(Element *element)
       }
       else
       {
-        element->computeSoluteAdvDeriv[i][0] = &ElementAdvUpwind::inFluxUpJunction;
+        element->computeSoluteAdvDeriv[i][0] = &ElementAdvUpwind::inFluxUpJunctionBC;
       }
 
       if(element->downstreamElement && !element->downstreamJunction->soluteConcs[i].isBC)
@@ -64,7 +64,7 @@ void ElementAdvCentral::setAdvectionFunction(Element *element)
     }
     else
     {
-      element->computeTempAdvDeriv[1] = &ElementAdvUpwind::outFluxDownJunction;
+      element->computeTempAdvDeriv[1] = &ElementAdvUpwind::outFluxDownJunctionBC;
     }
 
     for(int i = 0 ; i < element->numSolutes; i++)
@@ -84,7 +84,7 @@ void ElementAdvCentral::setAdvectionFunction(Element *element)
       }
       else
       {
-        element->computeSoluteAdvDeriv[i][1] = &ElementAdvUpwind::outFluxDownJunction;
+        element->computeSoluteAdvDeriv[i][1] = &ElementAdvUpwind::outFluxDownJunctionBC;
       }
     }
   }
@@ -96,8 +96,8 @@ double ElementAdvCentral::fluxUpNeighbour(Element *element, double dt, double T[
   double centerFactor = 1.0 / element->length / 2.0 / denom;
   double upstreamFactor = 1.0 / element->upstreamElement->length / 2.0 / denom;
 
-  double incomingFlux = element->rho_cp  * (element->upstreamElement->flow * T[element->upstreamElement->index] * upstreamFactor +
-                        element->flow  * T[element->index] * centerFactor);
+  double incomingFlux = element->rho_cp  * (element->upstreamElement->flow.value * T[element->upstreamElement->tIndex] * upstreamFactor +
+                        element->flow.value  * T[element->tIndex] * centerFactor);
 
   return incomingFlux;
 }
@@ -108,8 +108,8 @@ double ElementAdvCentral::fluxDownNeighbour(Element *element, double dt, double 
   double centerFactor = 1.0 / element->length / 2.0 / denom;
   double downstreamFactor = 1.0 / element->downstreamElement->length / 2.0 / denom;
 
-  double outgoingFlux = -element->rho_cp * (element->downstreamElement->flow * T[element->downstreamElement->index] * downstreamFactor +
-                 element->flow * T[element->index] * centerFactor);
+  double outgoingFlux = -element->rho_cp * (element->downstreamElement->flow.value * T[element->downstreamElement->tIndex] * downstreamFactor +
+                 element->flow.value * T[element->tIndex] * centerFactor);
 
   return outgoingFlux;
 }
@@ -120,8 +120,8 @@ double ElementAdvCentral::fluxUpNeighbour(Element *element, double dt, double S[
   double centerFactor = 1.0 / element->length / 2.0 / denom;
   double upstreamFactor = 1.0 / element->upstreamElement->length / 2.0 / denom;
 
-  double incomingFlux = element->upstreamElement->flow * S[element->upstreamElement->index] * upstreamFactor +
-                        element->flow  * S[element->index] * centerFactor;
+  double incomingFlux = element->upstreamElement->flow.value * S[element->upstreamElement->tIndex] * upstreamFactor +
+                        element->flow.value  * S[element->sIndex[soluteIndex]] * centerFactor;
 
   return incomingFlux;
 }
@@ -132,8 +132,8 @@ double ElementAdvCentral::fluxDownNeighbour(Element *element, double dt, double 
   double centerFactor = 1.0 / element->length / 2.0 / denom;
   double downstreamFactor = 1.0 / element->downstreamElement->length / 2.0 / denom;
 
-  double outgoingFlux = -(element->downstreamElement->flow * S[element->downstreamElement->index] * downstreamFactor +
-                 element->flow * S[element->index] * centerFactor);
+  double outgoingFlux = -(element->downstreamElement->flow.value * S[element->downstreamElement->sIndex[soluteIndex]] * downstreamFactor +
+                 element->flow.value * S[element->sIndex[soluteIndex]] * centerFactor);
 
   return outgoingFlux;
 }

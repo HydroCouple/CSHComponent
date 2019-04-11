@@ -11,7 +11,7 @@ using namespace std;
 
 void ElementAdvTVD::setAdvectionFunction(Element *element)
 {
-  if(element->flow >= 0)
+  if(element->flow.value >= 0)
   {
     if(element->upstreamElement && !element->upstreamJunction->temperature.isBC)
     {
@@ -19,9 +19,13 @@ void ElementAdvTVD::setAdvectionFunction(Element *element)
       {
         element->computeTempAdvDeriv[0] = &ElementAdvTVD::fluxUpNeighbour;
       }
-      else
+      else if(element->upstreamElement->upstreamJunction->tIndex > -1)
       {
         element->computeTempAdvDeriv[0] = &ElementAdvTVD::fluxUpJunction;
+      }
+      else
+      {
+        element->computeTempAdvDeriv[0] = &ElementAdvTVD::fluxUpJunctionBC;
       }
 
       if(element->downstreamElement && !element->downstreamJunction->temperature.isBC)
@@ -35,11 +39,25 @@ void ElementAdvTVD::setAdvectionFunction(Element *element)
     }
     else
     {
-      element->computeTempAdvDeriv[0] = &ElementAdvUpwind::inFluxUpJunction;
+      if(element->upstreamJunction->tIndex > -1)
+      {
+        element->computeTempAdvDeriv[0] = &ElementAdvUpwind::inFluxUpJunction;
+      }
+      else
+      {
+        element->computeTempAdvDeriv[0] = &ElementAdvUpwind::inFluxUpJunctionBC;
+      }
 
       if(element->downstreamElement && !element->downstreamJunction->temperature.isBC)
       {
-        element->computeTempAdvDeriv[1] = &ElementAdvTVD::fluxDownNeighbourUpstreamJunction;
+        if(element->upstreamJunction->tIndex > -1)
+        {
+          element->computeTempAdvDeriv[1] = &ElementAdvTVD::fluxDownNeighbourUpstreamJunction;
+        }
+        else
+        {
+          element->computeTempAdvDeriv[1] = &ElementAdvTVD::fluxDownNeighbourUpstreamJunctionBC;
+        }
       }
       else
       {
@@ -55,9 +73,13 @@ void ElementAdvTVD::setAdvectionFunction(Element *element)
         {
           element->computeSoluteAdvDeriv[i][0] = &ElementAdvTVD::fluxUpNeighbour;
         }
-        else
+        else if(element->upstreamElement->upstreamJunction->sIndex[i] > -1)
         {
           element->computeSoluteAdvDeriv[i][0] = &ElementAdvTVD::fluxUpJunction;
+        }
+        else
+        {
+          element->computeSoluteAdvDeriv[i][0] = &ElementAdvTVD::fluxUpJunctionBC;
         }
 
         if(element->downstreamElement && !element->downstreamJunction->soluteConcs[i].isBC)
@@ -71,11 +93,26 @@ void ElementAdvTVD::setAdvectionFunction(Element *element)
       }
       else
       {
-        element->computeSoluteAdvDeriv[i][0] = &ElementAdvUpwind::inFluxUpJunction;
+
+        if(element->upstreamJunction->sIndex[i] > -1)
+        {
+          element->computeSoluteAdvDeriv[i][0] = &ElementAdvUpwind::inFluxUpJunction;
+        }
+        else
+        {
+          element->computeSoluteAdvDeriv[i][0] = &ElementAdvUpwind::inFluxUpJunctionBC;
+        }
 
         if(element->downstreamElement && !element->downstreamJunction->soluteConcs[i].isBC)
         {
-          element->computeSoluteAdvDeriv[i][1] = &ElementAdvTVD::fluxDownNeighbourUpstreamJunction;
+          if(element->upstreamJunction->sIndex[i] > -1)
+          {
+            element->computeSoluteAdvDeriv[i][1] = &ElementAdvTVD::fluxDownNeighbourUpstreamJunction;
+          }
+          else
+          {
+            element->computeSoluteAdvDeriv[i][1] = &ElementAdvTVD::fluxDownNeighbourUpstreamJunctionBC;
+          }
         }
         else
         {
@@ -116,7 +153,7 @@ void ElementAdvTVD::setAdvectionFunction(Element *element)
       }
       else
       {
-        element->computeTempAdvDeriv[1] = &ElementAdvUpwind::outFluxDownJunction;
+        element->computeTempAdvDeriv[1] = &ElementAdvUpwind::outFluxDownJunctionBC;
       }
     }
 
@@ -153,7 +190,7 @@ void ElementAdvTVD::setAdvectionFunction(Element *element)
         }
         else
         {
-          element->computeSoluteAdvDeriv[i][1] = &ElementAdvUpwind::outFluxDownJunction;
+          element->computeSoluteAdvDeriv[i][1] = &ElementAdvUpwind::outFluxDownJunctionBC;
         }
       }
 
@@ -163,11 +200,11 @@ void ElementAdvTVD::setAdvectionFunction(Element *element)
 
 double ElementAdvTVD::fluxUpNeighbour(Element *element, double dt, double T[])
 {
-  double dwdenom = (element->flow * T[element->index] - element->upstreamElement->flow * T[element->upstreamElement->index]) /
+  double dwdenom = (element->flow.value * T[element->tIndex] - element->upstreamElement->flow.value * T[element->upstreamElement->tIndex]) /
       (element->length + element->upstreamElement->length) / 2.0;
 
-  double rw = dwdenom ? (element->upstreamElement->flow * T[element->upstreamElement->index] -
-                        element->upstreamElement->upstreamElement->flow * T[element->upstreamElement->upstreamElement->index]) /
+  double rw = dwdenom ? (element->upstreamElement->flow.value * T[element->upstreamElement->tIndex] -
+                        element->upstreamElement->upstreamElement->flow.value * T[element->upstreamElement->upstreamElement->tIndex]) /
       (element->upstreamElement->length + element->upstreamElement->upstreamElement->length) / 2.0 / dwdenom : 0;
 
   double rw_func = computeTVDLimiter(rw, element->model->m_TVDFluxLimiter, element);
@@ -175,20 +212,20 @@ double ElementAdvTVD::fluxUpNeighbour(Element *element, double dt, double T[])
   double denom = (element->upstreamElement->length / 2.0) + (element->length / 2.0);
   double interpFactor = element->upstreamElement->length / 2.0 / denom;
 
-  double incomingFlux = element->rho_cp * element->upstreamElement->flow * T[element->upstreamElement->index] +
+  double incomingFlux = element->rho_cp * element->upstreamElement->flow.value * T[element->upstreamElement->tIndex] +
                         element->rho_cp * rw_func * interpFactor *
-                        (element->flow * T[element->index] - element->upstreamElement->flow * T[element->upstreamElement->index]);
+                        (element->flow.value * T[element->tIndex] - element->upstreamElement->flow.value * T[element->upstreamElement->tIndex]);
 
   return incomingFlux;
 }
 
 double ElementAdvTVD::fluxUpJunction(Element *element, double dt, double T[])
 {
-  double dwdenom = (element->flow * T[element->index] - element->upstreamElement->flow * T[element->upstreamElement->index]) /
+  double dwdenom = (element->flow.value * T[element->tIndex] - element->upstreamElement->flow.value * T[element->upstreamElement->tIndex]) /
       (element->length + element->upstreamElement->length) / 2.0;
 
-  double rw = dwdenom ? (element->upstreamElement->flow * T[element->upstreamElement->index] -
-                        element->upstreamElement->flow * element->upstreamElement->upstreamJunction->temperature.value) /
+  double rw = dwdenom ? (element->upstreamElement->flow.value * T[element->upstreamElement->tIndex] -
+                        element->upstreamElement->flow.value * T[element->upstreamElement->upstreamJunction->tIndex]) /
       (element->upstreamElement->length / 2.0) / dwdenom : 0;
 
 
@@ -197,19 +234,41 @@ double ElementAdvTVD::fluxUpJunction(Element *element, double dt, double T[])
   double denom = (element->upstreamElement->length / 2.0) + (element->length / 2.0);
   double interpFactor = element->upstreamElement->length / 2.0 / denom;
 
-  double incomingFlux = element->rho_cp * element->upstreamElement->flow * T[element->upstreamElement->index] +
+  double incomingFlux = element->rho_cp * element->upstreamElement->flow.value * T[element->upstreamElement->tIndex] +
                         element->rho_cp * rw_func * interpFactor *
-                        (element->flow * T[element->index] - element->upstreamElement->flow * T[element->upstreamElement->index]);
+                        (element->flow.value * T[element->tIndex] - element->upstreamElement->flow.value * T[element->upstreamElement->tIndex]);
+
+  return incomingFlux;
+}
+
+double ElementAdvTVD::fluxUpJunctionBC(Element *element, double dt, double T[])
+{
+  double dwdenom = (element->flow.value * T[element->tIndex] - element->upstreamElement->flow.value * T[element->upstreamElement->tIndex]) /
+      (element->length + element->upstreamElement->length) / 2.0;
+
+  double rw = dwdenom ? (element->upstreamElement->flow.value * T[element->upstreamElement->tIndex] -
+                        element->upstreamElement->flow.value * element->upstreamElement->upstreamJunction->temperature.value) /
+      (element->upstreamElement->length / 2.0) / dwdenom : 0;
+
+
+  double rw_func = computeTVDLimiter(rw, element->model->m_TVDFluxLimiter, element);
+
+  double denom = (element->upstreamElement->length / 2.0) + (element->length / 2.0);
+  double interpFactor = element->upstreamElement->length / 2.0 / denom;
+
+  double incomingFlux = element->rho_cp * element->upstreamElement->flow.value * T[element->upstreamElement->tIndex] +
+                        element->rho_cp * rw_func * interpFactor *
+                        (element->flow.value * T[element->tIndex] - element->upstreamElement->flow.value * T[element->upstreamElement->tIndex]);
 
   return incomingFlux;
 }
 
 double ElementAdvTVD::fluxDownNeighbourUpstreamNeighbour(Element *element, double dt, double T[])
 {
-  double dedenom = (element->downstreamElement->flow * T[element->downstreamElement->index] - element->flow * T[element->index]) /
+  double dedenom = (element->downstreamElement->flow.value * T[element->downstreamElement->tIndex] - element->flow.value * T[element->tIndex]) /
       (element->downstreamElement->length + element->length) / 2.0;
 
-  double re = dedenom ? (element->flow * T[element->index] - element->upstreamElement->flow * T[element->upstreamElement->index]) /
+  double re = dedenom ? (element->flow.value * T[element->tIndex] - element->upstreamElement->flow.value * T[element->upstreamElement->tIndex]) /
       (element->length + element->upstreamElement->length) / 2.0 / dedenom : 0.0;
 
   double re_func = computeTVDLimiter(re, element->model->m_TVDFluxLimiter, element, 1);
@@ -217,19 +276,19 @@ double ElementAdvTVD::fluxDownNeighbourUpstreamNeighbour(Element *element, doubl
   double denom = (element->downstreamElement->length / 2.0) + (element->length / 2.0);
   double interpFactor = element->length / 2.0 / denom;
 
-  double outgoingFlux = element->rho_cp * element->flow * T[element->index] +
+  double outgoingFlux = element->rho_cp * element->flow.value * T[element->tIndex] +
                         element->rho_cp * re_func * interpFactor *
-                        (element->downstreamElement->flow * T[element->downstreamElement->index] - element->flow * T[element->index]);
+                        (element->downstreamElement->flow.value * T[element->downstreamElement->tIndex] - element->flow.value * T[element->tIndex]);
 
   return -outgoingFlux;
 }
 
 double ElementAdvTVD::fluxDownNeighbourUpstreamJunction(Element *element, double dt, double T[])
 {
-  double dedenom = (element->downstreamElement->flow * T[element->downstreamElement->index] - element->flow * T[element->index]) /
+  double dedenom = (element->downstreamElement->flow.value * T[element->downstreamElement->tIndex] - element->flow.value * T[element->tIndex]) /
       (element->downstreamElement->length + element->length) / 2.0;
 
-  double re = dedenom ? (element->flow * T[element->index] - element->flow * element->upstreamJunction->temperature.value) /
+  double re = dedenom ? (element->flow.value * T[element->tIndex] - element->flow.value * T[element->upstreamJunction->tIndex]) /
       element->length / 2.0 / dedenom : 0.0;
 
   double re_func = computeTVDLimiter(re, element->model->m_TVDFluxLimiter, element, 1);
@@ -237,9 +296,29 @@ double ElementAdvTVD::fluxDownNeighbourUpstreamJunction(Element *element, double
   double denom = (element->downstreamElement->length / 2.0) + (element->length / 2.0);
   double interpFactor = element->length / 2.0 / denom;
 
-  double outgoingFlux = element->rho_cp * element->flow * T[element->index] +
+  double outgoingFlux = element->rho_cp * element->flow.value * T[element->tIndex] +
                         element->rho_cp * re_func * interpFactor *
-                        (element->downstreamElement->flow * T[element->downstreamElement->index] - element->flow * T[element->index]);
+                        (element->downstreamElement->flow.value * T[element->downstreamElement->tIndex] - element->flow.value * T[element->tIndex]);
+
+  return -outgoingFlux;
+}
+
+double ElementAdvTVD::fluxDownNeighbourUpstreamJunctionBC(Element *element, double dt, double T[])
+{
+  double dedenom = (element->downstreamElement->flow.value * T[element->downstreamElement->tIndex] - element->flow.value * T[element->tIndex]) /
+      (element->downstreamElement->length + element->length) / 2.0;
+
+  double re = dedenom ? (element->flow.value * T[element->tIndex] - element->flow.value * element->upstreamJunction->temperature.value) /
+      element->length / 2.0 / dedenom : 0.0;
+
+  double re_func = computeTVDLimiter(re, element->model->m_TVDFluxLimiter, element, 1);
+
+  double denom = (element->downstreamElement->length / 2.0) + (element->length / 2.0);
+  double interpFactor = element->length / 2.0 / denom;
+
+  double outgoingFlux = element->rho_cp * element->flow.value * T[element->tIndex] +
+                        element->rho_cp * re_func * interpFactor *
+                        (element->downstreamElement->flow.value * T[element->downstreamElement->tIndex] - element->flow.value * T[element->tIndex]);
 
   return -outgoingFlux;
 }
@@ -247,12 +326,12 @@ double ElementAdvTVD::fluxDownNeighbourUpstreamJunction(Element *element, double
 
 double ElementAdvTVD::fluxDownNeighbour(Element *element, double dt, double T[])
 {
-  double dwdenom = (element->downstreamElement->flow * T[element->downstreamElement->index] -
-                   element->flow * T[element->index]) /
+  double dwdenom = (element->downstreamElement->flow.value * T[element->downstreamElement->tIndex] -
+                   element->flow.value * T[element->tIndex]) /
       (element->downstreamElement->length + element->length) / 2.0;
 
-  double rw = dwdenom ? (element->downstreamElement->downstreamElement->flow * T[element->downstreamElement->downstreamElement->index] -
-                        element->downstreamElement->flow * T[element->downstreamElement->index]) /
+  double rw = dwdenom ? (element->downstreamElement->downstreamElement->flow.value * T[element->downstreamElement->downstreamElement->tIndex] -
+                        element->downstreamElement->flow.value * T[element->downstreamElement->tIndex]) /
       (element->downstreamElement->downstreamElement->length + element->downstreamElement->length) / 2.0 / dwdenom : 0;
 
   double rw_func = computeTVDLimiter(rw, element->model->m_TVDFluxLimiter, element, 1);
@@ -260,21 +339,21 @@ double ElementAdvTVD::fluxDownNeighbour(Element *element, double dt, double T[])
   double denom = (element->downstreamElement->length / 2.0) + (element->length / 2.0);
   double interpFactor = element->downstreamElement->length / 2.0 / denom;
 
-  double incomingFlux = element->rho_cp * element->downstreamElement->flow * T[element->downstreamElement->index] +
+  double incomingFlux = element->rho_cp * element->downstreamElement->flow.value * T[element->downstreamElement->tIndex] +
                         element->rho_cp * rw_func * interpFactor *
-                        (element->flow * T[element->index] - element->downstreamElement->flow * T[element->downstreamElement->index]);
+                        (element->flow.value * T[element->tIndex] - element->downstreamElement->flow.value * T[element->downstreamElement->tIndex]);
 
   return -incomingFlux;
 }
 
 double ElementAdvTVD::fluxDownJunction(Element *element, double dt, double T[])
 {
-  double dwdenom = (element->downstreamElement->flow * T[element->downstreamElement->index] -
-                   element->flow * T[element->index]) /
+  double dwdenom = (element->downstreamElement->flow.value * T[element->downstreamElement->tIndex] -
+                   element->flow.value * T[element->tIndex]) /
       (element->downstreamElement->length + element->length) / 2.0;
 
-  double rw = dwdenom ? (element->downstreamElement->flow * element->downstreamElement->downstreamJunction->temperature.value -
-                         element->downstreamElement->flow * T[element->downstreamElement->index]) /
+  double rw = dwdenom ? (element->downstreamElement->flow.value * element->downstreamElement->downstreamJunction->temperature.value -
+                         element->downstreamElement->flow.value * T[element->downstreamElement->tIndex]) /
       (element->downstreamElement->length / 2.0) / dwdenom : 0;
 
   double rw_func = computeTVDLimiter(rw, element->model->m_TVDFluxLimiter, element, 1);
@@ -282,20 +361,42 @@ double ElementAdvTVD::fluxDownJunction(Element *element, double dt, double T[])
   double denom = (element->downstreamElement->length / 2.0) + (element->length / 2.0);
   double interpFactor = element->downstreamElement->length / 2.0 / denom;
 
-  double incomingFlux = element->rho_cp * element->downstreamElement->flow * T[element->downstreamElement->index] +
+  double incomingFlux = element->rho_cp * element->downstreamElement->flow.value * T[element->downstreamElement->tIndex] +
                         element->rho_cp * rw_func * interpFactor *
-                        (element->flow * T[element->index] - element->downstreamElement->flow * T[element->downstreamElement->index]);
+                        (element->flow.value * T[element->tIndex] - element->downstreamElement->flow.value * T[element->downstreamElement->tIndex]);
+
+  return -incomingFlux;
+}
+
+double ElementAdvTVD::fluxDownJunctionBC(Element *element, double dt, double T[])
+{
+  double dwdenom = (element->downstreamElement->flow.value * T[element->downstreamElement->tIndex] -
+                   element->flow.value * T[element->tIndex]) /
+      (element->downstreamElement->length + element->length) / 2.0;
+
+  double rw = dwdenom ? (element->downstreamElement->flow.value * element->downstreamElement->downstreamJunction->temperature.value -
+                         element->downstreamElement->flow.value * T[element->downstreamElement->tIndex]) /
+      (element->downstreamElement->length / 2.0) / dwdenom : 0;
+
+  double rw_func = computeTVDLimiter(rw, element->model->m_TVDFluxLimiter, element, 1);
+
+  double denom = (element->downstreamElement->length / 2.0) + (element->length / 2.0);
+  double interpFactor = element->downstreamElement->length / 2.0 / denom;
+
+  double incomingFlux = element->rho_cp * element->downstreamElement->flow.value * T[element->downstreamElement->tIndex] +
+                        element->rho_cp * rw_func * interpFactor *
+                        (element->flow.value * T[element->tIndex] - element->downstreamElement->flow.value * T[element->downstreamElement->tIndex]);
 
   return -incomingFlux;
 }
 
 double ElementAdvTVD::fluxUpNeighbourDownstreamNeighbour(Element *element, double dt, double T[])
 {
-  double dedenom = (element->flow * T[element->index] - element->upstreamElement->flow * T[element->upstreamElement->index]) /
+  double dedenom = (element->flow.value * T[element->tIndex] - element->upstreamElement->flow.value * T[element->upstreamElement->tIndex]) /
       (element->length + element->upstreamElement->length) / 2.0;
 
-  double re = dedenom ? (element->downstreamElement->flow * T[element->downstreamElement->index] -
-                        element->flow * T[element->index]) /
+  double re = dedenom ? (element->downstreamElement->flow.value * T[element->downstreamElement->tIndex] -
+                        element->flow.value * T[element->tIndex]) /
       (element->downstreamElement->length + element->length) / 2.0 / dedenom : 0.0;
 
   double re_func = computeTVDLimiter(re, element->model->m_TVDFluxLimiter, element);
@@ -303,20 +404,20 @@ double ElementAdvTVD::fluxUpNeighbourDownstreamNeighbour(Element *element, doubl
   double denom = (element->upstreamElement->length / 2.0) + (element->length / 2.0);
   double interpFactor = element->length / 2.0 / denom;
 
-  double outgoingFlux = element->rho_cp * element->flow * T[element->index] +
+  double outgoingFlux = element->rho_cp * element->flow.value * T[element->tIndex] +
                         element->rho_cp * re_func * interpFactor *
-                        (element->upstreamElement->flow * T[element->upstreamElement->index] - element->flow * T[element->index]);
+                        (element->upstreamElement->flow.value * T[element->upstreamElement->tIndex] - element->flow.value * T[element->tIndex]);
 
   return outgoingFlux;
 }
 
 double ElementAdvTVD::fluxUpNeighbourDownstreamJunction(Element *element, double dt, double T[])
 {
-  double dedenom = (element->flow * T[element->index] - element->upstreamElement->flow * T[element->upstreamElement->index]) /
+  double dedenom = (element->flow.value * T[element->tIndex] - element->upstreamElement->flow.value * T[element->upstreamElement->tIndex]) /
       (element->length + element->upstreamElement->length) / 2.0;
 
-  double re = dedenom ? (element->flow * element->downstreamJunction->temperature.value -
-                         element->flow * T[element->index]) /
+  double re = dedenom ? (element->flow.value * T[element->downstreamJunction->tIndex] -
+                        element->flow.value * T[element->tIndex]) /
       element->length / 2.0 / dedenom : 0.0;
 
   double re_func = computeTVDLimiter(re, element->model->m_TVDFluxLimiter, element);
@@ -324,9 +425,30 @@ double ElementAdvTVD::fluxUpNeighbourDownstreamJunction(Element *element, double
   double denom = (element->upstreamElement->length / 2.0) + (element->length / 2.0);
   double interpFactor = element->length / 2.0 / denom;
 
-  double outgoingFlux = element->rho_cp * element->flow * T[element->index] +
+  double outgoingFlux = element->rho_cp * element->flow.value * T[element->tIndex] +
                         element->rho_cp * re_func * interpFactor *
-                        (element->upstreamElement->flow * T[element->upstreamElement->index] - element->flow * T[element->index]);
+                        (element->upstreamElement->flow.value * T[element->upstreamElement->tIndex] - element->flow.value * T[element->tIndex]);
+
+  return outgoingFlux;
+}
+
+double ElementAdvTVD::fluxUpNeighbourDownstreamJunctionBC(Element *element, double dt, double T[])
+{
+  double dedenom = (element->flow.value * T[element->tIndex] - element->upstreamElement->flow.value * T[element->upstreamElement->tIndex]) /
+      (element->length + element->upstreamElement->length) / 2.0;
+
+  double re = dedenom ? (element->flow.value * element->downstreamJunction->temperature.value -
+                         element->flow.value * T[element->tIndex]) /
+      element->length / 2.0 / dedenom : 0.0;
+
+  double re_func = computeTVDLimiter(re, element->model->m_TVDFluxLimiter, element);
+
+  double denom = (element->upstreamElement->length / 2.0) + (element->length / 2.0);
+  double interpFactor = element->length / 2.0 / denom;
+
+  double outgoingFlux = element->rho_cp * element->flow.value * T[element->tIndex] +
+                        element->rho_cp * re_func * interpFactor *
+                        (element->upstreamElement->flow.value * T[element->upstreamElement->tIndex] - element->flow.value * T[element->tIndex]);
 
   return outgoingFlux;
 }
@@ -334,11 +456,11 @@ double ElementAdvTVD::fluxUpNeighbourDownstreamJunction(Element *element, double
 
 double ElementAdvTVD::fluxUpNeighbour(Element *element, double dt, double S[], int soluteIndex)
 {
-  double dwdenom = (element->flow * S[element->index] - element->upstreamElement->flow * S[element->upstreamElement->index]) /
+  double dwdenom = (element->flow.value * S[element->sIndex[soluteIndex]] - element->upstreamElement->flow.value * S[element->upstreamElement->sIndex[soluteIndex]]) /
       (element->length + element->upstreamElement->length) / 2.0;
 
-  double rw = dwdenom ? (element->upstreamElement->flow * S[element->upstreamElement->index] -
-                        element->upstreamElement->upstreamElement->flow * S[element->upstreamElement->upstreamElement->index]) /
+  double rw = dwdenom ? (element->upstreamElement->flow.value * S[element->upstreamElement->sIndex[soluteIndex]] -
+                        element->upstreamElement->upstreamElement->flow.value * S[element->upstreamElement->upstreamElement->sIndex[soluteIndex]]) /
       (element->upstreamElement->length + element->upstreamElement->upstreamElement->length) / 2.0 / dwdenom : 0;
 
   double rw_func = computeTVDLimiter(rw, element->model->m_TVDFluxLimiter, element);
@@ -346,20 +468,20 @@ double ElementAdvTVD::fluxUpNeighbour(Element *element, double dt, double S[], i
   double denom = (element->upstreamElement->length / 2.0) + (element->length / 2.0);
   double interpFactor = element->upstreamElement->length / 2.0 / denom;
 
-  double incomingFlux = element->upstreamElement->flow * S[element->upstreamElement->index] +
+  double incomingFlux = element->upstreamElement->flow.value * S[element->upstreamElement->sIndex[soluteIndex]] +
                         rw_func * interpFactor *
-                        (element->flow * S[element->index] - element->upstreamElement->flow * S[element->upstreamElement->index]);
+                        (element->flow.value * S[element->sIndex[soluteIndex]] - element->upstreamElement->flow.value * S[element->upstreamElement->sIndex[soluteIndex]]);
 
   return incomingFlux;
 }
 
 double ElementAdvTVD::fluxUpJunction(Element *element, double dt, double S[], int soluteIndex)
 {
-  double dwdenom = (element->flow * S[element->index] - element->upstreamElement->flow * S[element->upstreamElement->index]) /
+  double dwdenom = (element->flow.value * S[element->sIndex[soluteIndex]] - element->upstreamElement->flow.value * S[element->upstreamElement->sIndex[soluteIndex]]) /
       (element->length + element->upstreamElement->length) / 2.0;
 
-  double rw = dwdenom ? (element->upstreamElement->flow * S[element->upstreamElement->index] -
-                        element->upstreamElement->flow * element->upstreamElement->upstreamJunction->soluteConcs[soluteIndex].value) /
+  double rw = dwdenom ? (element->upstreamElement->flow.value * S[element->upstreamElement->sIndex[soluteIndex]] -
+                        element->upstreamElement->flow.value * S[element->upstreamElement->upstreamJunction->sIndex[soluteIndex]]) /
       (element->upstreamElement->length / 2.0) / dwdenom : 0;
 
 
@@ -368,19 +490,41 @@ double ElementAdvTVD::fluxUpJunction(Element *element, double dt, double S[], in
   double denom = (element->upstreamElement->length / 2.0) + (element->length / 2.0);
   double interpFactor = element->upstreamElement->length / 2.0 / denom;
 
-  double incomingFlux = element->upstreamElement->flow * S[element->upstreamElement->index] +
+  double incomingFlux = element->upstreamElement->flow.value * S[element->upstreamElement->sIndex[soluteIndex]] +
                         rw_func * interpFactor *
-                        (element->flow * S[element->index] - element->upstreamElement->flow * S[element->upstreamElement->index]);
+                        (element->flow.value * S[element->sIndex[soluteIndex]] - element->upstreamElement->flow.value * S[element->upstreamElement->sIndex[soluteIndex]]);
+
+  return incomingFlux;
+}
+
+double ElementAdvTVD::fluxUpJunctionBC(Element *element, double dt, double S[], int soluteIndex)
+{
+  double dwdenom = (element->flow.value * S[element->sIndex[soluteIndex]] - element->upstreamElement->flow.value * S[element->upstreamElement->sIndex[soluteIndex]]) /
+      (element->length + element->upstreamElement->length) / 2.0;
+
+  double rw = dwdenom ? (element->upstreamElement->flow.value * S[element->upstreamElement->sIndex[soluteIndex]] -
+                        element->upstreamElement->flow.value * element->upstreamElement->upstreamJunction->soluteConcs[soluteIndex].value) /
+      (element->upstreamElement->length / 2.0) / dwdenom : 0;
+
+
+  double rw_func = computeTVDLimiter(rw, element->model->m_TVDFluxLimiter, element);
+
+  double denom = (element->upstreamElement->length / 2.0) + (element->length / 2.0);
+  double interpFactor = element->upstreamElement->length / 2.0 / denom;
+
+  double incomingFlux = element->upstreamElement->flow.value * S[element->upstreamElement->sIndex[soluteIndex]] +
+                        rw_func * interpFactor *
+                        (element->flow.value * S[element->sIndex[soluteIndex]] - element->upstreamElement->flow.value * S[element->upstreamElement->sIndex[soluteIndex]]);
 
   return incomingFlux;
 }
 
 double ElementAdvTVD::fluxDownNeighbourUpstreamNeighbour(Element *element, double dt, double S[], int soluteIndex)
 {
-  double dedenom = (element->downstreamElement->flow * S[element->downstreamElement->index] - element->flow * S[element->index]) /
+  double dedenom = (element->downstreamElement->flow.value * S[element->downstreamElement->sIndex[soluteIndex]]- element->flow.value * S[element->sIndex[soluteIndex]]) /
       (element->downstreamElement->length + element->length) / 2.0;
 
-  double re = dedenom ? (element->flow * S[element->index] - element->upstreamElement->flow * S[element->upstreamElement->index]) /
+  double re = dedenom ? (element->flow.value * S[element->sIndex[soluteIndex]] - element->upstreamElement->flow.value * S[element->upstreamElement->sIndex[soluteIndex]]) /
       (element->length + element->upstreamElement->length) / 2.0 / dedenom : 0.0;
 
   double re_func = computeTVDLimiter(re, element->model->m_TVDFluxLimiter, element, 1);
@@ -388,19 +532,19 @@ double ElementAdvTVD::fluxDownNeighbourUpstreamNeighbour(Element *element, doubl
   double denom = (element->downstreamElement->length / 2.0) + (element->length / 2.0);
   double interpFactor = element->length / 2.0 / denom;
 
-  double outgoingFlux = element->flow * S[element->index] +
+  double outgoingFlux = element->flow.value * S[element->sIndex[soluteIndex]] +
                         re_func * interpFactor *
-                        (element->downstreamElement->flow * S[element->downstreamElement->index] - element->flow * S[element->index]);
+                        (element->downstreamElement->flow.value * S[element->downstreamElement->sIndex[soluteIndex]]- element->flow.value * S[element->sIndex[soluteIndex]]);
 
   return -outgoingFlux;
 }
 
 double ElementAdvTVD::fluxDownNeighbourUpstreamJunction(Element *element, double dt, double S[], int soluteIndex)
 {
-  double dedenom = (element->downstreamElement->flow * S[element->downstreamElement->index] - element->flow * S[element->index]) /
+  double dedenom = (element->downstreamElement->flow.value * S[element->downstreamElement->sIndex[soluteIndex]]- element->flow.value * S[element->sIndex[soluteIndex]]) /
       (element->downstreamElement->length + element->length) / 2.0;
 
-  double re = dedenom ? (element->flow * S[element->index] - element->flow * element->upstreamJunction->soluteConcs[soluteIndex].value) /
+  double re = dedenom ? (element->flow.value * S[element->sIndex[soluteIndex]] - element->flow.value * S[element->upstreamJunction->sIndex[soluteIndex]]) /
       element->length / 2.0 / dedenom : 0.0;
 
   double re_func = computeTVDLimiter(re, element->model->m_TVDFluxLimiter, element, 1);
@@ -408,9 +552,29 @@ double ElementAdvTVD::fluxDownNeighbourUpstreamJunction(Element *element, double
   double denom = (element->downstreamElement->length / 2.0) + (element->length / 2.0);
   double interpFactor = element->length / 2.0 / denom;
 
-  double outgoingFlux = element->flow * S[element->index] +
+  double outgoingFlux = element->flow.value * S[element->sIndex[soluteIndex]] +
                         re_func * interpFactor *
-                        (element->downstreamElement->flow * S[element->downstreamElement->index] - element->flow * S[element->index]);
+                        (element->downstreamElement->flow.value * S[element->downstreamElement->sIndex[soluteIndex]]- element->flow.value * S[element->sIndex[soluteIndex]]);
+
+  return -outgoingFlux;
+}
+
+double ElementAdvTVD::fluxDownNeighbourUpstreamJunctionBC(Element *element, double dt, double S[], int soluteIndex)
+{
+  double dedenom = (element->downstreamElement->flow.value * S[element->downstreamElement->sIndex[soluteIndex]]- element->flow.value * S[element->sIndex[soluteIndex]]) /
+      (element->downstreamElement->length + element->length) / 2.0;
+
+  double re = dedenom ? (element->flow.value * S[element->sIndex[soluteIndex]] - element->flow.value * element->upstreamJunction->soluteConcs[soluteIndex].value) /
+      element->length / 2.0 / dedenom : 0.0;
+
+  double re_func = computeTVDLimiter(re, element->model->m_TVDFluxLimiter, element, 1);
+
+  double denom = (element->downstreamElement->length / 2.0) + (element->length / 2.0);
+  double interpFactor = element->length / 2.0 / denom;
+
+  double outgoingFlux = element->flow.value * S[element->sIndex[soluteIndex]] +
+                        re_func * interpFactor *
+                        (element->downstreamElement->flow.value * S[element->downstreamElement->sIndex[soluteIndex]]- element->flow.value * S[element->sIndex[soluteIndex]]);
 
   return -outgoingFlux;
 }
@@ -418,12 +582,12 @@ double ElementAdvTVD::fluxDownNeighbourUpstreamJunction(Element *element, double
 
 double ElementAdvTVD::fluxDownNeighbour(Element *element, double dt, double S[], int soluteIndex)
 {
-  double dwdenom = (element->downstreamElement->flow * S[element->downstreamElement->index] -
-                   element->flow * S[element->index]) /
+  double dwdenom = (element->downstreamElement->flow.value * S[element->downstreamElement->sIndex[soluteIndex]]-
+                   element->flow.value * S[element->sIndex[soluteIndex]]) /
       (element->downstreamElement->length + element->length) / 2.0;
 
-  double rw = dwdenom ? (element->downstreamElement->downstreamElement->flow * S[element->downstreamElement->downstreamElement->index] -
-                        element->downstreamElement->flow * S[element->downstreamElement->index]) /
+  double rw = dwdenom ? (element->downstreamElement->downstreamElement->flow.value * S[element->downstreamElement->downstreamElement->sIndex[soluteIndex]] -
+                        element->downstreamElement->flow.value * S[element->downstreamElement->sIndex[soluteIndex]]) /
       (element->downstreamElement->downstreamElement->length + element->downstreamElement->length) / 2.0 / dwdenom : 0;
 
   double rw_func = computeTVDLimiter(rw, element->model->m_TVDFluxLimiter, element, 1);
@@ -431,21 +595,21 @@ double ElementAdvTVD::fluxDownNeighbour(Element *element, double dt, double S[],
   double denom = (element->downstreamElement->length / 2.0) + (element->length / 2.0);
   double interpFactor = element->downstreamElement->length / 2.0 / denom;
 
-  double incomingFlux = element->downstreamElement->flow * S[element->downstreamElement->index] +
+  double incomingFlux = element->downstreamElement->flow.value * S[element->downstreamElement->sIndex[soluteIndex]]+
                         rw_func * interpFactor *
-                        (element->flow * S[element->index] - element->downstreamElement->flow * S[element->downstreamElement->index]);
+                        (element->flow.value * S[element->sIndex[soluteIndex]] - element->downstreamElement->flow.value * S[element->downstreamElement->sIndex[soluteIndex]]);
 
   return -incomingFlux;
 }
 
 double ElementAdvTVD::fluxDownJunction(Element *element, double dt, double S[], int soluteIndex)
 {
-  double dwdenom = (element->downstreamElement->flow * S[element->downstreamElement->index] -
-                   element->flow * S[element->index]) /
+  double dwdenom = (element->downstreamElement->flow.value * S[element->downstreamElement->sIndex[soluteIndex]]-
+                   element->flow.value * S[element->sIndex[soluteIndex]]) /
       (element->downstreamElement->length + element->length) / 2.0;
 
-  double rw = dwdenom ? (element->downstreamElement->flow * element->downstreamElement->downstreamJunction->soluteConcs[soluteIndex].value -
-                         element->downstreamElement->flow * S[element->downstreamElement->index]) /
+  double rw = dwdenom ? (element->downstreamElement->flow.value * S[element->downstreamElement->downstreamJunction->sIndex[soluteIndex]] -
+                        element->downstreamElement->flow.value * S[element->downstreamElement->sIndex[soluteIndex]]) /
       (element->downstreamElement->length / 2.0) / dwdenom : 0;
 
   double rw_func = computeTVDLimiter(rw, element->model->m_TVDFluxLimiter, element, 1);
@@ -453,20 +617,42 @@ double ElementAdvTVD::fluxDownJunction(Element *element, double dt, double S[], 
   double denom = (element->downstreamElement->length / 2.0) + (element->length / 2.0);
   double interpFactor = element->downstreamElement->length / 2.0 / denom;
 
-  double incomingFlux = element->downstreamElement->flow * S[element->downstreamElement->index] +
+  double incomingFlux = element->downstreamElement->flow.value * S[element->downstreamElement->sIndex[soluteIndex]]+
                         rw_func * interpFactor *
-                        (element->flow * S[element->index] - element->downstreamElement->flow * S[element->downstreamElement->index]);
+                        (element->flow.value * S[element->sIndex[soluteIndex]] - element->downstreamElement->flow.value * S[element->downstreamElement->sIndex[soluteIndex]]);
+
+  return -incomingFlux;
+}
+
+double ElementAdvTVD::fluxDownJunctionBC(Element *element, double dt, double S[], int soluteIndex)
+{
+  double dwdenom = (element->downstreamElement->flow.value * S[element->downstreamElement->sIndex[soluteIndex]]-
+                   element->flow.value * S[element->sIndex[soluteIndex]]) /
+      (element->downstreamElement->length + element->length) / 2.0;
+
+  double rw = dwdenom ? (element->downstreamElement->flow.value * element->downstreamElement->downstreamJunction->soluteConcs[soluteIndex].value -
+                         element->downstreamElement->flow.value * S[element->downstreamElement->sIndex[soluteIndex]]) /
+      (element->downstreamElement->length / 2.0) / dwdenom : 0;
+
+  double rw_func = computeTVDLimiter(rw, element->model->m_TVDFluxLimiter, element, 1);
+
+  double denom = (element->downstreamElement->length / 2.0) + (element->length / 2.0);
+  double interpFactor = element->downstreamElement->length / 2.0 / denom;
+
+  double incomingFlux = element->downstreamElement->flow.value * S[element->downstreamElement->sIndex[soluteIndex]]+
+                        rw_func * interpFactor *
+                        (element->flow.value * S[element->sIndex[soluteIndex]] - element->downstreamElement->flow.value * S[element->downstreamElement->sIndex[soluteIndex]]);
 
   return -incomingFlux;
 }
 
 double ElementAdvTVD::fluxUpNeighbourDownstreamNeighbour(Element *element, double dt, double S[], int soluteIndex)
 {
-  double dedenom = (element->flow * S[element->index] - element->upstreamElement->flow * S[element->upstreamElement->index]) /
+  double dedenom = (element->flow.value * S[element->sIndex[soluteIndex]] - element->upstreamElement->flow.value * S[element->upstreamElement->sIndex[soluteIndex]]) /
       (element->length + element->upstreamElement->length) / 2.0;
 
-  double re = dedenom ? (element->downstreamElement->flow * S[element->downstreamElement->index] -
-                        element->flow * S[element->index]) /
+  double re = dedenom ? (element->downstreamElement->flow.value * S[element->downstreamElement->sIndex[soluteIndex]]-
+                        element->flow.value * S[element->sIndex[soluteIndex]]) /
       (element->downstreamElement->length + element->length) / 2.0 / dedenom : 0.0;
 
   double re_func = computeTVDLimiter(re, element->model->m_TVDFluxLimiter, element);
@@ -474,20 +660,20 @@ double ElementAdvTVD::fluxUpNeighbourDownstreamNeighbour(Element *element, doubl
   double denom = (element->upstreamElement->length / 2.0) + (element->length / 2.0);
   double interpFactor = element->length / 2.0 / denom;
 
-  double outgoingFlux = element->flow * S[element->index] +
+  double outgoingFlux = element->flow.value * S[element->sIndex[soluteIndex]] +
                         re_func * interpFactor *
-                        (element->upstreamElement->flow * S[element->upstreamElement->index] - element->flow * S[element->index]);
+                        (element->upstreamElement->flow.value * S[element->upstreamElement->sIndex[soluteIndex]] - element->flow.value * S[element->sIndex[soluteIndex]]);
 
   return outgoingFlux;
 }
 
 double ElementAdvTVD::fluxUpNeighbourDownstreamJunction(Element *element, double dt, double S[], int soluteIndex)
 {
-  double dedenom = (element->flow * S[element->index] - element->upstreamElement->flow * S[element->upstreamElement->index]) /
+  double dedenom = (element->flow.value * S[element->sIndex[soluteIndex]] - element->upstreamElement->flow.value * S[element->upstreamElement->sIndex[soluteIndex]]) /
       (element->length + element->upstreamElement->length) / 2.0;
 
-  double re = dedenom ? (element->flow * element->downstreamJunction->soluteConcs[soluteIndex].value -
-                         element->flow * S[element->index]) /
+  double re = dedenom ? (element->flow.value * S[element->downstreamJunction->sIndex[soluteIndex]] -
+                        element->flow.value * S[element->sIndex[soluteIndex]]) /
       element->length / 2.0 / dedenom : 0.0;
 
   double re_func = computeTVDLimiter(re, element->model->m_TVDFluxLimiter, element);
@@ -495,9 +681,30 @@ double ElementAdvTVD::fluxUpNeighbourDownstreamJunction(Element *element, double
   double denom = (element->upstreamElement->length / 2.0) + (element->length / 2.0);
   double interpFactor = element->length / 2.0 / denom;
 
-  double outgoingFlux = element->flow * S[element->index] +
+  double outgoingFlux = element->flow.value * S[element->sIndex[soluteIndex]] +
                         re_func * interpFactor *
-                        (element->upstreamElement->flow * S[element->upstreamElement->index] - element->flow * S[element->index]);
+                        (element->upstreamElement->flow.value * S[element->upstreamElement->sIndex[soluteIndex]] - element->flow.value * S[element->sIndex[soluteIndex]]);
+
+  return outgoingFlux;
+}
+
+double ElementAdvTVD::fluxUpNeighbourDownstreamJunctionBC(Element *element, double dt, double S[], int soluteIndex)
+{
+  double dedenom = (element->flow.value * S[element->sIndex[soluteIndex]] - element->upstreamElement->flow.value * S[element->upstreamElement->sIndex[soluteIndex]]) /
+      (element->length + element->upstreamElement->length) / 2.0;
+
+  double re = dedenom ? (element->flow.value * element->downstreamJunction->soluteConcs[soluteIndex].value -
+                         element->flow.value * S[element->sIndex[soluteIndex]]) /
+      element->length / 2.0 / dedenom : 0.0;
+
+  double re_func = computeTVDLimiter(re, element->model->m_TVDFluxLimiter, element);
+
+  double denom = (element->upstreamElement->length / 2.0) + (element->length / 2.0);
+  double interpFactor = element->length / 2.0 / denom;
+
+  double outgoingFlux = element->flow.value * S[element->sIndex[soluteIndex]] +
+                        re_func * interpFactor *
+                        (element->upstreamElement->flow.value * S[element->upstreamElement->sIndex[soluteIndex]] - element->flow.value * S[element->sIndex[soluteIndex]]);
 
   return outgoingFlux;
 }
@@ -585,7 +792,7 @@ double ElementAdvTVD::computeTVDLimiter(double r, TVDFluxLimiter limiter, Elemen
             break;
         }
 
-//        if(cn)
+        //        if(cn)
         {
           r_func = max(0.0,
                        min({0.5 * (1.0 * r) + (1.0 - r)*(1.0 - 2.0 * fabs(cn)) / 6.0,

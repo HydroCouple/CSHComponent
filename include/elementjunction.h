@@ -62,9 +62,19 @@ struct CSHCOMPONENT_EXPORT ElementJunction
     std::string id;
 
     /*!
+     * \brief hIndex
+     */
+    int hIndex;
+
+    /*!
      * \brief index
      */
-    int index;
+    int tIndex;
+
+    /*!
+     * \brief sIndex
+     */
+    int *sIndex;
 
     /*!
      * \brief x location
@@ -80,16 +90,6 @@ struct CSHCOMPONENT_EXPORT ElementJunction
      * \brief z location
      */
     double z;
-
-    /*!
-     * \brief continuityIndex -1 if not used to compute continuity greater than -1 if used.
-     */
-    int heatContinuityIndex;
-
-    /*!
-     * \brief soluteContinuityIndexes
-     */
-    int *soluteContinuityIndexes;
 
     /*!
      * \brief numSolutes
@@ -132,9 +132,24 @@ struct CSHCOMPONENT_EXPORT ElementJunction
     JunctionType junctionType;
 
     /*!
+     * \brief flow
+     */
+    Variable inflow;
+
+    /*!
      * \brief model
      */
     CSHModel *model;
+
+    bool starting = true;
+
+    double volume;
+
+    double prev_volume;
+
+    double dvolume_dt;
+
+    void initialize();
 
     /*!
      * \brief interpTemp
@@ -161,16 +176,43 @@ struct CSHCOMPONENT_EXPORT ElementJunction
     void solveSoluteContinuity(int soluteIndex, double dt);
 
     /*!
+     * \brief computeDTDt
+     * \param dt
+     * \param T
+     * \return
+     */
+    double computeDTDt(double dt, double T[]);
+
+    /*!
+     * \brief computeDSoluteDt
+     * \param dt
+     * \param S
+     * \param soluteIndex
+     * \return
+     */
+    double computeDSoluteDt(double dt, double S[], int soluteIndex);
+
+    /*!
      * \brief copyVariablesToPrev
      */
     void copyVariablesToPrev();
-
 
     /*!
      * \brief initializeSolutes
      * \param numSolutes
      */
     void initializeSolutes();
+
+    /*!
+     * \brief computeDerivedHydraulics
+     */
+    void computeDerivedHydraulics();
+
+    /*!
+     * \brief computeInflow
+     * \param Q
+     */
+    void computeInflow(double Q[]);
 
 };
 

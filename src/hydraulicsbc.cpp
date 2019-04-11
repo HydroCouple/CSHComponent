@@ -54,7 +54,7 @@ void HydraulicsBC::applyBoundaryConditions(double dateTime)
             m_profile[i]->xSectionArea = value;
             break;
           case 4:
-            m_profile[i]->flow = value;
+            m_profile[i]->flow.value = value;
             break;
         }
       }
@@ -87,7 +87,7 @@ void HydraulicsBC::applyBoundaryConditions(double dateTime)
         case 4:
           for(size_t i = 0; i < m_profile.size(); i++)
           {
-            m_profile[i]->flow = value;
+            m_profile[i]->flow.value = value;
           }
           break;
       }

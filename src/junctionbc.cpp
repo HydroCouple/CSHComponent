@@ -51,6 +51,11 @@ void JunctionBC::prepare()
         m_elementJunction->temperature.isBC = true;
       }
       break;
+    case -2:
+      {
+        m_elementJunction->inflow.isBC = true;
+      }
+      break;
     default:
       {
         m_elementJunction->soluteConcs[m_variableIndex].isBC = true;
@@ -70,6 +75,11 @@ void JunctionBC::applyBoundaryConditions(double dateTime)
       case -1:
         {
           m_elementJunction->temperature.value = value;
+        }
+        break;
+      case -2:
+        {
+          m_elementJunction->inflow.value = value;
         }
         break;
       default:

@@ -101,7 +101,7 @@ void ElementOutput::updateValues()
         for(int i = 0 ; i < (int)m_geometries.size() ; i++)
         {
           Element *element = m_component->modelInstance()->getElement(i);
-          double value = element->flow;
+          double value = element->flow.value;
           setValue(currentTimeIndex,i,&value);
         }
       }

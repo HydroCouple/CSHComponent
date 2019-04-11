@@ -11,6 +11,8 @@ class ElementAdvUpwind
 
     static double inFluxUpJunction(Element *element, double dt, double T[]);
 
+    static double inFluxUpJunctionBC(Element *element, double dt, double T[]);
+
     static double inFluxUpNeighbour(Element *element, double dt, double T[]);
 
     static double inFluxSelf(Element *element, double dt, double T[]);
@@ -19,9 +21,13 @@ class ElementAdvUpwind
 
     static double outFluxDownJunction(Element *element, double dt, double T[]);
 
+    static double outFluxDownJunctionBC(Element *element, double dt, double T[]);
+
     static double outFluxDownNeighbor(Element *element, double dt, double T[]);
 
     static double inFluxUpJunction(Element *element, double dt, double S[], int soluteIndex);
+
+    static double inFluxUpJunctionBC(Element *element, double dt, double S[], int soluteIndex);
 
     static double inFluxUpNeighbour(Element *element, double dt, double S[], int soluteIndex);
 
@@ -30,6 +36,8 @@ class ElementAdvUpwind
     static double outFluxSelf(Element *element, double dt, double S[], int soluteIndex);
 
     static double outFluxDownJunction(Element *element, double dt, double S[], int soluteIndex);
+
+    static double outFluxDownJunctionBC(Element *element, double dt, double S[], int soluteIndex);
 
     static double outFluxDownNeighbor(Element *element, double dt, double S[], int soluteIndex);
 };

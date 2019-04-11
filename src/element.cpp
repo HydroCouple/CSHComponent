@@ -41,7 +41,6 @@ Element::Element(const std::string &id, ElementJunction *upstream, ElementJuncti
     depth(0.0),
     xSectionArea(0.0),
     width(0.0),
-    flow(0.0),
     slope(0.0),
     relativeHumidity(0.0),
     evaporationRate(0.0),
@@ -92,28 +91,18 @@ Element::Element(const std::string &id, ElementJunction *upstream, ElementJuncti
 
   computeTempAdvDeriv  = new ComputeTempAdvDeriv[2]();
   computeTempDispDeriv = new ComputeTempDeriv[2]();
+
+  sideSlopes = new double[2]();
+
 }
 
 Element::~Element()
 {
-  if(soluteConcs)
-  {
-    delete[] soluteConcs;
-    delete[] prevSoluteConcs;
-    delete[] externalSoluteFluxes;
-    delete[] totalSoluteMassBalance;
-    delete[] totalAdvDispSoluteMassBalance;
-    delete[] totalExternalSoluteFluxesMassBalance;
 
-    for(int i = 0; i < numSolutes; i++)
-    {
-      delete[] computeSoluteAdvDeriv[i];
-      delete[] computeSoluteDispDeriv[i];
-    }
 
-    delete[] computeSoluteAdvDeriv;
-    delete[] computeSoluteDispDeriv;
-  }
+  deleteSoluteVariables();
+
+  delete[] sideSlopes;
 
   upstreamJunction->outgoingElements.erase(this);
   downstreamJunction->incomingElements.erase(this);
@@ -127,6 +116,8 @@ void Element::initialize()
   //set upstream and downstream elements
   setUpstreamElement();
   setDownStreamElement();
+
+  slope = max(0.00001, fabs(upstreamJunction->z - downstreamJunction->z) / length);
 
   switch (model->m_advectionMode)
   {
@@ -185,30 +176,19 @@ void Element::initialize()
 
   setDispersionFunctions();
   (*setAdvectionFuctions)(this);
+
+  if(model->m_solveHydraulics)
+  {
+    depth = getHofQ(flow.value);
+    xSectionArea = getAofH(depth);
+  }
 }
 
 void Element::initializeSolutes()
 {
   starting = true;
 
-  if(soluteConcs)
-  {
-    delete[] soluteConcs; soluteConcs = nullptr;
-    delete[] prevSoluteConcs; prevSoluteConcs = nullptr;
-    delete[] externalSoluteFluxes; externalSoluteFluxes = nullptr;
-    delete[] totalSoluteMassBalance; totalSoluteMassBalance = nullptr;
-    delete[] totalAdvDispSoluteMassBalance; totalAdvDispSoluteMassBalance = nullptr;
-    delete[] totalExternalSoluteFluxesMassBalance; totalExternalSoluteFluxesMassBalance = nullptr;
-
-    for(int i = 0; i < numSolutes; i++)
-    {
-      delete[] computeSoluteAdvDeriv[i];
-      delete[] computeSoluteDispDeriv[i];
-    }
-
-    delete[] computeSoluteAdvDeriv;
-    delete[] computeSoluteDispDeriv;
-  }
+  deleteSoluteVariables();
 
   if(model->m_solutes.size() > 0)
   {
@@ -219,7 +199,7 @@ void Element::initializeSolutes()
     totalSoluteMassBalance = new double[numSolutes]();
     totalAdvDispSoluteMassBalance = new double[numSolutes]();
     totalExternalSoluteFluxesMassBalance = new double[numSolutes]();
-
+    sIndex = new int[numSolutes]();
     computeSoluteAdvDeriv  = new ComputeSoluteAdvDeriv*[numSolutes]();
     computeSoluteDispDeriv = new ComputeSoluteDeriv*[numSolutes]();
 
@@ -230,6 +210,104 @@ void Element::initializeSolutes()
     }
   }
 }
+
+double Element::computeDQDt(double dt, double Q[])
+{
+
+  double DQDt = 0.0;
+
+  double div = alpha * beta * pow(flow.value, beta - 1.0);
+
+  if(volume && div)
+  {
+    double A1 = getAofQ(upstreamJunction->inflow.value);
+
+    DQDt += (A1 * upstreamJunction->inflow.value - xSectionArea * flow.value) / (div * volume);
+    DQDt += externalFlows / (div * length);
+  }
+
+  return DQDt;
+}
+
+double Element::getAofH(double H)
+{
+  double area = width * H + 0.5 * sideSlopes[0] * H * H + 0.5 * sideSlopes[1] * H * H; //fix for side slope
+
+  return area;
+}
+
+double Element::getPofH(double H)
+{
+  return width + H * sqrt(1 + sideSlopes[0] * sideSlopes[0]) + H * sqrt(1 + sideSlopes[1] * sideSlopes[1]);
+}
+
+double Element::getHofA(double A)
+{
+  double h = findRoots(depth, A, &Element::getAofH);
+  return h;
+}
+
+double Element::getQofH(double H)
+{
+  double area = getAofH(H);
+  double per = getPofH(H);
+  double flow = pow(area / per, 2.0/3.0) * sqrt(slope) * area / mannings;
+  return flow;
+}
+
+double Element::getAofQ(double Q)
+{
+  double area = getAofH(getHofQ(Q));
+
+  return area;
+}
+
+double Element::getHofQ(double Q)
+{
+  double h = findRoots(depth, Q, &Element::getQofH);
+
+  return h;
+}
+
+double Element::findRoots(double x, double y, GetXofY function, int maxIters, double derivStepSize, double eps)
+{
+  double error = 0;
+  int iters = 0;
+
+  do
+  {
+
+    double fplus = (this->*function)(x + derivStepSize) - y;
+    double fminus = (this->*function)(x - derivStepSize) - y;
+
+    double dfx = (fplus - fminus) /  (2 * derivStepSize);
+
+    double fx =  (this->*function)(x) - y;
+
+    double xn = x - fx / dfx;
+
+    error = fabs(xn - x);
+
+    x = xn;
+
+    iters++;
+
+  } while (error > eps && iters < maxIters);
+
+
+  return x;
+}
+
+void Element::computeHydraulicVariables()
+{
+  beta = 3.0 / 5.0;
+  depth = getHofQ(flow.value);
+  xSectionArea = getAofH(depth);
+  double p = getPofH(depth);
+  alpha = pow(mannings * pow(p, 2.0 / 3.0) / sqrt(slope), 3.0/5.0);
+  volume = xSectionArea * length;
+}
+
 
 double Element::computeDTDt(double dt, double T[])
 {
@@ -261,7 +339,7 @@ double Element::computeDTDt(double dt, double T[])
     }
   }
 
-  return DTDt;
+  return 0.0;
 }
 
 double Element::computeDTDtAdv(double dt, double T[])
@@ -297,7 +375,16 @@ double Element::computeDTDtDispersion(double dt, double T[])
 double Element::computeDTDtDispersionUpstreamJunction(double dt, double T[])
 {
   double DTDt = upstreamLongDispersion * upstreamXSectionArea * rho_cp *
-                (upstreamJunction->temperature.value - T[index]) /
+                (T[upstreamJunction->tIndex] - T[tIndex]) /
+      (length / 2.0);
+
+  return DTDt;
+}
+
+double Element::computeDTDtDispersionUpstreamJunctionBC(double dt, double T[])
+{
+  double DTDt = upstreamLongDispersion * upstreamXSectionArea * rho_cp *
+                (upstreamJunction->temperature.value - T[tIndex]) /
                 (length / 2.0);
 
   return DTDt;
@@ -306,7 +393,7 @@ double Element::computeDTDtDispersionUpstreamJunction(double dt, double T[])
 double Element::computeDTDtDispersionUpstreamNeighbour(double dt, double T[])
 {
   double DTDt = upstreamLongDispersion * upstreamXSectionArea * rho_cp *
-                (T[upstreamElement->index]  - T[index]) /
+                (T[upstreamElement->tIndex]  - T[tIndex]) /
       ((length / 2.0) + (upstreamElement->length / 2.0));
 
   return DTDt;
@@ -315,7 +402,16 @@ double Element::computeDTDtDispersionUpstreamNeighbour(double dt, double T[])
 double Element::computeDTDtDispersionDownstreamJunction(double dt, double T[])
 {
   double DTDt = downstreamLongDispersion * downstreamXSectionArea * rho_cp *
-                (downstreamJunction->temperature.value  - T[index]) /
+                (T[downstreamJunction->tIndex]  - T[tIndex]) /
+      (length / 2.0);
+
+  return DTDt;
+}
+
+double Element::computeDTDtDispersionDownstreamJunctionBC(double dt, double T[])
+{
+  double DTDt = downstreamLongDispersion * downstreamXSectionArea * rho_cp *
+                (downstreamJunction->temperature.value  - T[tIndex]) /
                 (length / 2.0);
 
   return DTDt;
@@ -324,7 +420,7 @@ double Element::computeDTDtDispersionDownstreamJunction(double dt, double T[])
 double Element::computeDTDtDispersionDownstreamNeighbour(double dt, double T[])
 {
   double DTDt = downstreamLongDispersion * downstreamXSectionArea * rho_cp *
-                (T[downstreamElement->index]  - T[index]) /
+                (T[downstreamElement->tIndex]  - T[tIndex]) /
       ((length / 2.0) + (downstreamElement->length / 2.0));
 
   return DTDt;
@@ -424,8 +520,17 @@ double Element::computeDSoluteDtDispersion(double dt, double S[], int soluteInde
 double Element::computeDSoluteDtDispersionUpstreamJunction(double dt, double S[], int soluteIndex)
 {
   double DSoluteDt = upstreamLongDispersion * upstreamXSectionArea *
-                     (upstreamJunction->soluteConcs[soluteIndex].value - S[index]) /
-                     (length / 2.0);
+                     (S[upstreamJunction->sIndex[soluteIndex]] - S[sIndex[soluteIndex]]) /
+      (length / 2.0);
+
+  return DSoluteDt;
+}
+
+double Element::computeDSoluteDtDispersionUpstreamJunctionBC(double dt, double S[], int soluteIndex)
+{
+  double DSoluteDt = upstreamLongDispersion * upstreamXSectionArea *
+                     (upstreamJunction->soluteConcs[soluteIndex].value - S[sIndex[soluteIndex]]) /
+      (length / 2.0);
 
   return DSoluteDt;
 }
@@ -433,7 +538,7 @@ double Element::computeDSoluteDtDispersionUpstreamJunction(double dt, double S[]
 double Element::computeDSoluteDtDispersionUpstreamNeighbour(double dt, double S[], int soluteIndex)
 {
   double DSoluteDt = upstreamLongDispersion * upstreamXSectionArea *
-                     (S[upstreamElement->index]  - S[index]) /
+                     (S[upstreamElement->sIndex[soluteIndex]]  - S[sIndex[soluteIndex]]) /
       ((length / 2.0) + (upstreamElement->length / 2.0));
 
   return DSoluteDt;
@@ -442,8 +547,17 @@ double Element::computeDSoluteDtDispersionUpstreamNeighbour(double dt, double S[
 double Element::computeDSoluteDtDispersionDownstreamJunction(double dt, double S[], int soluteIndex)
 {
   double DSoluteDt = downstreamLongDispersion * downstreamXSectionArea *
-                     (downstreamJunction->soluteConcs[soluteIndex].value  - S[index]) /
-                     (length / 2.0);
+                     (S[downstreamJunction->sIndex[soluteIndex]]  - S[sIndex[soluteIndex]]) /
+      (length / 2.0);
+
+  return DSoluteDt;
+}
+
+double Element::computeDSoluteDtDispersionDownstreamJunctionBC(double dt, double S[], int soluteIndex)
+{
+  double DSoluteDt = downstreamLongDispersion * downstreamXSectionArea *
+                     (downstreamJunction->soluteConcs[soluteIndex].value  - S[sIndex[soluteIndex]]) /
+      (length / 2.0);
 
   return DSoluteDt;
 }
@@ -451,7 +565,7 @@ double Element::computeDSoluteDtDispersionDownstreamJunction(double dt, double S
 double Element::computeDSoluteDtDispersionDownstreamNeighbour(double dt, double S[], int soluteIndex)
 {
   double DSoluteDt = downstreamLongDispersion * downstreamXSectionArea *
-                     (S[downstreamElement->index]  - S[index]) /
+                     (S[downstreamElement->sIndex[soluteIndex]]  - S[sIndex[soluteIndex]]) /
       ((length / 2.0) +  (downstreamElement->length / 2.0));
 
   return DSoluteDt;
@@ -466,6 +580,10 @@ void Element::setDispersionFunctions()
 {
   if(upstreamJunction->temperature.isBC)
   {
+    computeTempDispDeriv[0] = &Element::computeDTDtDispersionUpstreamJunctionBC;
+  }
+  else if(upstreamJunction->tIndex > -1)
+  {
     computeTempDispDeriv[0] = &Element::computeDTDtDispersionUpstreamJunction;
   }
   else if(upstreamElement)
@@ -474,9 +592,9 @@ void Element::setDispersionFunctions()
   }
   else
   {
-    if(flow >= 0)
+    if(flow.value  >= 0)
     {
-      computeTempDispDeriv[0] = &Element::computeDTDtDispersionUpstreamJunction;
+      computeTempDispDeriv[0] = &Element::computeDTDtDispersionUpstreamJunctionBC;
     }
     else
     {
@@ -486,6 +604,10 @@ void Element::setDispersionFunctions()
 
   if(downstreamJunction->temperature.isBC)
   {
+    computeTempDispDeriv[1] = &Element::computeDTDtDispersionDownstreamJunctionBC;
+  }
+  else if(downstreamJunction->tIndex > -1)
+  {
     computeTempDispDeriv[1] = &Element::computeDTDtDispersionDownstreamJunction;
   }
   else if(downstreamElement)
@@ -494,19 +616,23 @@ void Element::setDispersionFunctions()
   }
   else
   {
-    if(flow >= 0)
+    if(flow.value  >= 0)
     {
       computeTempDispDeriv[1] = &Element::computeDTDtDispersionSelf;
     }
     else
     {
-      computeTempDispDeriv[1] = &Element::computeDTDtDispersionDownstreamJunction;
+      computeTempDispDeriv[1] = &Element::computeDTDtDispersionDownstreamJunctionBC;
     }
   }
 
   for(int i = 0; i < numSolutes; i++)
   {
     if(upstreamJunction->soluteConcs[i].isBC)
+    {
+      computeSoluteDispDeriv[i][0] = &Element::computeDSoluteDtDispersionUpstreamJunctionBC;
+    }
+    else if(upstreamJunction->sIndex[i] > -1)
     {
       computeSoluteDispDeriv[i][0] = &Element::computeDSoluteDtDispersionUpstreamJunction;
     }
@@ -516,9 +642,9 @@ void Element::setDispersionFunctions()
     }
     else
     {
-      if(flow >= 0)
+      if(flow.value  >= 0)
       {
-        computeSoluteDispDeriv[i][0] = &Element::computeDSoluteDtDispersionUpstreamJunction;
+        computeSoluteDispDeriv[i][0] = &Element::computeDSoluteDtDispersionUpstreamJunctionBC;
       }
       else
       {
@@ -528,6 +654,10 @@ void Element::setDispersionFunctions()
 
     if(downstreamJunction->soluteConcs[i].isBC)
     {
+      computeSoluteDispDeriv[i][1] = &Element::computeDSoluteDtDispersionDownstreamJunctionBC;
+    }
+    else if(downstreamJunction->sIndex[i] > -1)
+    {
       computeSoluteDispDeriv[i][1] = &Element::computeDSoluteDtDispersionDownstreamJunction;
     }
     else if(downstreamElement)
@@ -536,13 +666,13 @@ void Element::setDispersionFunctions()
     }
     else
     {
-      if(flow >= 0)
+      if(flow.value  >= 0)
       {
         computeSoluteDispDeriv[i][1] = &Element::computeDSoluteDtDispersionSelf;
       }
       else
       {
-        computeSoluteDispDeriv[i][1] = &Element::computeDSoluteDtDispersionDownstreamJunction;
+        computeSoluteDispDeriv[i][1] = &Element::computeDSoluteDtDispersionDownstreamJunctionBC;
       }
     }
   }
@@ -550,7 +680,7 @@ void Element::setDispersionFunctions()
 
 double Element::computeCourantFactor() const
 {
-  return  fabs(flow / xSectionArea / length);
+  return  fabs(flow.value  / xSectionArea / length);
 }
 
 double Element::computeDispersionFactor() const
@@ -572,20 +702,21 @@ void Element::computeDerivedHydraulics()
     dvolume_dt.value = (volume - prev_volume) / model->m_prevTimeStep;
   }
 
-  rho_vol = model->m_waterDensity * volume;
+
   rho_cp  = model->m_waterDensity * model->m_cp;
+  rho_vol = model->m_waterDensity * volume;
   rho_cp_vol = rho_cp * volume;
   top_area = length * width;
 
 
   if(upstreamElement != nullptr)
   {
-    upstreamFlow =  ((upstreamElement->flow * upstreamElementDirection  / (upstreamElement->length * 0.5)) +
-                     (flow / (length * 0.5))) /
+    upstreamFlow =  ((upstreamElement->flow.value  * upstreamElementDirection  / (upstreamElement->length * 0.5)) +
+                     (flow.value  / (length * 0.5))) /
                     ((1.0 / (upstreamElement->length * 0.5)) + (1.0 / (length * 0.5)));
 
-    upstreamVelocity =  (((upstreamElement->flow / upstreamElement->xSectionArea )* upstreamElementDirection  / (upstreamElement->length * 0.5)) +
-                         ((flow / xSectionArea) / (length * 0.5))) /
+    upstreamVelocity =  (((upstreamElement->flow.value  / upstreamElement->xSectionArea )* upstreamElementDirection  / (upstreamElement->length * 0.5)) +
+                         ((flow.value  / xSectionArea) / (length * 0.5))) /
                         ((1.0 / (upstreamElement->length * 0.5)) + (1.0 / (length * 0.5)));
 
     upstreamXSectionArea = ((upstreamElement->xSectionArea / (upstreamElement->length * 0.5)) + (xSectionArea / (length * 0.5))) /
@@ -597,22 +728,20 @@ void Element::computeDerivedHydraulics()
   }
   else
   {
-    upstreamFlow = flow;
+    upstreamFlow = flow.value ;
     upstreamVelocity = upstreamFlow / xSectionArea;
     upstreamXSectionArea = xSectionArea;
     upstreamCourantNumber = upstreamVelocity * model->m_timeStep / (length);
   }
 
-
-
   if(downstreamElement != nullptr)
   {
-    downstreamFlow = ((downstreamElement->flow * downstreamElementDirection  / (downstreamElement->length * 0.5)) +
-                      (flow / (length * 0.5))) /
+    downstreamFlow = ((downstreamElement->flow.value  * downstreamElementDirection  / (downstreamElement->length * 0.5)) +
+                      (flow.value  / (length * 0.5))) /
                      ((1.0 / (downstreamElement->length * 0.5)) + (1.0 / (length * 0.5)));
 
-    downstreamVelocity = (((downstreamElement->flow / downstreamElement->xSectionArea )* downstreamElementDirection  / (downstreamElement->length * 0.5)) +
-                          ((flow / xSectionArea) / (length * 0.5))) /
+    downstreamVelocity = (((downstreamElement->flow.value  / downstreamElement->xSectionArea )* downstreamElementDirection  / (downstreamElement->length * 0.5)) +
+                          ((flow.value  / xSectionArea) / (length * 0.5))) /
                          ((1.0 / (downstreamElement->length * 0.5)) + (1.0 / (length * 0.5)));
 
     downstreamXSectionArea = ((downstreamElement->xSectionArea / (downstreamElement->length * 0.5)) + (xSectionArea / (length * 0.5))) /
@@ -623,12 +752,11 @@ void Element::computeDerivedHydraulics()
   }
   else
   {
-    downstreamFlow = flow;
+    downstreamFlow = flow.value ;
     downstreamVelocity = downstreamFlow / xSectionArea;
     downstreamXSectionArea = xSectionArea;
     downstreamCourantNumber = downstreamVelocity * model->m_timeStep / (length);
   }
-
 
   //  setDispersionFunctions();
   (*setAdvectionFuctions)(this);
@@ -636,7 +764,7 @@ void Element::computeDerivedHydraulics()
 
 void Element::computeLongDispersion()
 {
-  double vel = flow / xSectionArea;
+  double vel = flow.value  / xSectionArea;
 
   slope = max(0.00001, fabs(upstreamJunction->z - downstreamJunction->z) / length);
   double fricVel = sqrt(9.81 * depth * slope);
@@ -649,7 +777,7 @@ void Element::computeLongDispersion()
 
 void Element::computePecletNumbers()
 {
-  pecletNumber = longDispersion.value ? (flow / xSectionArea) * length / longDispersion.value : flow * 10000 / fabs(flow);
+  pecletNumber = longDispersion.value ? (flow.value  / xSectionArea) * length / longDispersion.value : flow.value  * 10000 / fabs(flow.value );
 }
 
 void Element::computeUpstreamPeclet()
@@ -806,17 +934,40 @@ void Element::computeDownstreamFlow()
 {
   if(downstreamElement != nullptr)
   {
-    downstreamFlow = ((downstreamElement->flow * downstreamElementDirection  / (downstreamElement->length * 0.5)) +
-                      (flow / (length * 0.5))) /
+    downstreamFlow = ((downstreamElement->flow.value  * downstreamElementDirection  / (downstreamElement->length * 0.5)) +
+                      (flow.value  / (length * 0.5))) /
                      ((1.0 / (downstreamElement->length * 0.5)) + (1.0 / (length * 0.5)));
 
-    downstreamVelocity = (((downstreamElement->flow / downstreamElement->xSectionArea ) * downstreamElementDirection / (downstreamElement->length * 0.5)) +
-                          ((flow / xSectionArea) / (length * 0.5))) /
+    downstreamVelocity = (((downstreamElement->flow.value  / downstreamElement->xSectionArea ) * downstreamElementDirection / (downstreamElement->length * 0.5)) +
+                          ((flow.value  / xSectionArea) / (length * 0.5))) /
                          ((1.0 / (downstreamElement->length * 0.5)) + (1.0 / (length * 0.5)));
   }
   else
   {
-    downstreamFlow = flow;
+    downstreamFlow = flow.value ;
     downstreamVelocity = downstreamFlow / xSectionArea;
+  }
+}
+
+void Element::deleteSoluteVariables()
+{
+  if(soluteConcs)
+  {
+    delete[] soluteConcs; soluteConcs = nullptr;
+    delete[] prevSoluteConcs; prevSoluteConcs = nullptr;
+    delete[] externalSoluteFluxes; externalSoluteFluxes = nullptr;
+    delete[] totalSoluteMassBalance; totalSoluteMassBalance = nullptr;
+    delete[] totalAdvDispSoluteMassBalance; totalAdvDispSoluteMassBalance = nullptr;
+    delete[] totalExternalSoluteFluxesMassBalance; totalExternalSoluteFluxesMassBalance = nullptr;
+    delete[] sIndex; sIndex = nullptr;
+
+    for(int i = 0; i < numSolutes; i++)
+    {
+      delete[] computeSoluteAdvDeriv[i];
+      delete[] computeSoluteDispDeriv[i];
+    }
+
+    delete[] computeSoluteAdvDeriv; computeSoluteAdvDeriv = nullptr;
+    delete[] computeSoluteDispDeriv; computeSoluteDispDeriv = nullptr;
   }
 }

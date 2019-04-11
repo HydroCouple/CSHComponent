@@ -98,6 +98,8 @@ void SourceBC::applyBoundaryConditions(double dateTime)
             {
               element->externalSoluteFluxes[i] += value * element->soluteConcs[i].value * factor;
             }
+
+            element->externalFlows += value;
           }
         }
         break;
@@ -140,6 +142,9 @@ void SourceBC::applyBoundaryConditions(double dateTime)
             {
               element->externalSoluteFluxes[i] += value * element->soluteConcs[i].value * factor;
             }
+
+            element->externalFlows += value;
+
           }
           break;
         default:

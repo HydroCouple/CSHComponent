@@ -53,8 +53,6 @@ void CSHModel:: update()
 
     computeConvection();
 
-    solveJunctionContinuity(m_timeStep);
-
     solve(m_timeStep);
 
     m_prevDateTime = m_currentDateTime;
@@ -111,6 +109,7 @@ void CSHModel::prepareForNextTimeStep()
     m_totalExternalHeatFluxBalance += element->totalExternalHeatFluxesBalance;
 
     element->prevTemperature.copy(element->temperature);
+    element->prevFlow.copy(element->flow);
 
     m_minTemp = min(m_minTemp , element->temperature.value);
     m_maxTemp = max(m_maxTemp , element->temperature.value);
@@ -141,33 +140,35 @@ void CSHModel::applyInitialConditions()
   m_totalAdvDispHeatBalance = 0.0;
   m_totalExternalHeatFluxBalance = 0.0;
 
+
   std::fill(m_totalSoluteMassBalance.begin(), m_totalSoluteMassBalance.end(), 0.0);
   std::fill(m_totalAdvDispSoluteMassBalance.begin(), m_totalAdvDispSoluteMassBalance.end(), 0.0);
   std::fill(m_totalExternalSoluteFluxMassBalance.begin(), m_totalExternalSoluteFluxMassBalance.end(), 0.0);
 
-  // Interpolate nodal temperatures and solute concentrations
-  //#ifdef USE_OPENMP
-  //#pragma omp parallel for
-  //#endif
-  //  for(int i = 0 ; i < (int)m_elementJunctions.size(); i++)
-  //  {
-  //    ElementJunction *elementJunction = m_elementJunctions[i];
-
-  //    if(!elementJunction->temperature.isBC && elementJunction->outgoingElements.size() + elementJunction->incomingElements.size() > 1)
-  //    {
-  //      elementJunction->interpTemp();
-  //    }
-
-  //    for(size_t j = 0; j < m_solutes.size(); j++)
-  //    {
-  //      if(!elementJunction->soluteConcs[j].isBC  && elementJunction->outgoingElements.size() + elementJunction->incomingElements.size() > 1)
-  //      {
-  //        elementJunction->interpSoluteConcs(j);
-  //      }
-  //    }
-  //  }
 
   applyBoundaryConditions(m_currentDateTime);
+
+  // Interpolate nodal temperatures and solute concentrations
+#ifdef USE_OPENMP
+#pragma omp parallel for
+#endif
+  for(int i = 0 ; i < (int)m_elementJunctions.size(); i++)
+  {
+    ElementJunction *elementJunction = m_elementJunctions[i];
+
+    if(!elementJunction->temperature.isBC)
+    {
+      elementJunction->interpTemp();
+    }
+
+    for(size_t j = 0; j < m_solutes.size(); j++)
+    {
+      if(!elementJunction->soluteConcs[j].isBC)
+      {
+        elementJunction->interpSoluteConcs(j);
+      }
+    }
+  }
 
   //Write initial output
   writeOutput();
@@ -190,6 +191,7 @@ void CSHModel::applyBoundaryConditions(double dateTime)
       Element *element = m_elements[i];
       element->externalHeatFluxes = 0.0;
       element->radiationFluxes = 0.0;
+      element->externalFlows = 0.0;
       element->externalSoluteFluxes[m_numSolutes] = element->volume / 86400.0;
 
       for(int j = 0; j < m_numSolutes; j++)
@@ -209,6 +211,7 @@ void CSHModel::applyBoundaryConditions(double dateTime)
       Element *element = m_elements[i];
       element->externalHeatFluxes = 0.0;
       element->radiationFluxes = 0.0;
+      element->externalFlows = 0.0;
 
       for(size_t j = 0; j < m_solutes.size(); j++)
       {
@@ -302,6 +305,23 @@ void CSHModel::computeDerivedHydraulics()
     element->computeDerivedHydraulics();
   }
 
+  if(m_solveHydraulics)
+  {
+#ifdef USE_OPENMP
+#pragma omp parallel for
+#endif
+    for(int i = 0 ; i < (int)m_elementJunctions.size(); i++)
+    {
+      m_elementJunctions[i]->computeDerivedHydraulics();
+    }
+  }
+  else
+  {
+    for(int i = 0 ; i < (int)m_eligibleJunctions.size(); i++)
+    {
+      m_eligibleJunctions[i]->computeDerivedHydraulics();
+    }
+  }
 }
 
 void CSHModel::computeEvaporation()
@@ -369,6 +389,21 @@ void CSHModel::computeLongDispersion()
 
 void CSHModel::solve(double timeStep)
 {
+
+  if(m_solveHydraulics)
+  {
+#ifdef USE_OPENMP
+#pragma omp parallel for
+#endif
+    for(int i = 0 ; i < (int)m_elements.size(); i++)
+    {
+      Element *element = m_elements[i];
+
+      m_solverCurrentValues[element->hIndex] = element->flow.value;
+      m_solverOutputValues[element->hIndex] = element->flow.value;
+    }
+  }
+
   //Set initial input and output values to current values.
 #ifdef USE_OPENMP
 #pragma omp parallel for
@@ -376,14 +411,43 @@ void CSHModel::solve(double timeStep)
   for(int i = 0 ; i < (int)m_elements.size(); i++)
   {
     Element *element = m_elements[i];
-    m_solverCurrentValues[element->index] = element->temperature.value;
-    m_solverOutputValues[element->index] = element->temperature.value;
+
+    m_solverCurrentValues[element->tIndex] = element->temperature.value;
+    m_solverOutputValues[element->tIndex] = element->temperature.value;
 
     for(size_t j = 0; j < m_solutes.size(); j++)
     {
-      int soluteIndex = element->index + m_soluteIndexes[j];
-      m_solverCurrentValues[soluteIndex] = element->soluteConcs[j].value;
-      m_solverOutputValues[soluteIndex] = element->soluteConcs[j].value;
+      int sIndex = element->sIndex[j];
+      m_solverCurrentValues[sIndex] = element->soluteConcs[j].value;
+      m_solverOutputValues[sIndex] = element->soluteConcs[j].value;
+    }
+  }
+
+#ifdef USE_OPENMP
+#pragma omp parallel for
+#endif
+  for(int i = 0 ; i < (int)m_eligibleJunctions.size(); i++)
+  {
+    ElementJunction *elementJunction = m_eligibleJunctions[i];
+
+    if(elementJunction->junctionType == ElementJunction::MultiElement)
+    {
+      if(elementJunction->tIndex > -1)
+      {
+        m_solverCurrentValues[elementJunction->tIndex] = elementJunction->temperature.value;
+        m_solverOutputValues[elementJunction->tIndex] = elementJunction->temperature.value;
+      }
+
+      for(size_t j = 0; j < m_solutes.size(); j++)
+      {
+        int sIndex = elementJunction->sIndex[j];
+
+        if(sIndex > -1)
+        {
+          m_solverCurrentValues[sIndex] = elementJunction->soluteConcs[j].value;
+          m_solverOutputValues[sIndex] = elementJunction->soluteConcs[j].value;
+        }
+      }
     }
   }
 
@@ -399,17 +463,57 @@ void CSHModel::solve(double timeStep)
   else
   {
 
+    if(m_solveHydraulics)
+    {
+#ifdef USE_OPENMP
+#pragma omp parallel for
+#endif
+      for(int i = 0 ; i < (int)m_elements.size(); i++)
+      {
+        Element *element = m_elements[i];
+        element->flow.value = m_solverOutputValues[element->hIndex];
+        element->computeHydraulicVariables();
+      }
+    }
+
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
     for(int i = 0 ; i < (int)m_elements.size(); i++)
     {
       Element *element = m_elements[i];
-      element->temperature.value = m_solverOutputValues[element->index];
+      element->temperature.value = m_solverOutputValues[element->tIndex];
 
       for(size_t j = 0; j < m_solutes.size(); j++)
       {
-        element->soluteConcs[j].value = m_solverOutputValues[element->index + m_soluteIndexes[j]];
+        int sIndex = element->sIndex[j];
+        element->soluteConcs[j].value = m_solverOutputValues[sIndex];
+      }
+    }
+
+#ifdef USE_OPENMP
+#pragma omp parallel for
+#endif
+    for(int i = 0 ; i < (int)m_eligibleJunctions.size(); i++)
+    {
+      ElementJunction *elementJunction = m_eligibleJunctions[i];
+
+      if(elementJunction->junctionType == ElementJunction::MultiElement)
+      {
+        if(elementJunction->tIndex > -1)
+        {
+          elementJunction->temperature.value = m_solverOutputValues[elementJunction->tIndex];
+        }
+
+        for(size_t j = 0; j < m_solutes.size(); j++)
+        {
+          int sIndex = elementJunction->sIndex[j];
+
+          if(sIndex > -1)
+          {
+            elementJunction->soluteConcs[j].value = m_solverOutputValues[sIndex];
+          }
+        }
       }
     }
   }
@@ -420,42 +524,80 @@ void CSHModel::computeDYDt(double t, double y[], double dydt[], void* userData)
   SolverUserData *solverUserData = (SolverUserData*) userData;
   CSHModel *modelInstance = solverUserData->model;
 
+
+
+  if(modelInstance->m_solveHydraulics)
+  {
+
+    for(int i = 0; i < (int)modelInstance->m_eligibleJunctions.size(); i++)
+    {
+      ElementJunction *elementJunction = modelInstance->m_eligibleJunctions[i];
+      elementJunction->computeInflow(y);
+    }
+
+#ifdef USE_OPENMP
+#pragma omp parallel for
+#endif
+    for(int i = 0 ; i < (int)modelInstance->m_elements.size(); i++)
+    {
+      Element *element = modelInstance->m_elements[i];
+      dydt[element->hIndex] = element->computeDQDt(t,y);
+    }
+  }
+
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
   for(int i = 0 ; i < (int)modelInstance->m_elements.size(); i++)
   {
     Element *element = modelInstance->m_elements[i];
-    dydt[element->index] = element->computeDTDt(t,y);
+    dydt[element->tIndex] = element->computeDTDt(t,y);
 
     for(size_t j = 0; j < modelInstance->m_solutes.size(); j++)
     {
-      int soluteIndex = modelInstance->m_soluteIndexes[j];
-      dydt[element->index + soluteIndex] = element->computeDSoluteDt(t, &y[soluteIndex], j);
+      dydt[element->sIndex[j]] = element->computeDSoluteDt(t, y, j);
+    }
+  }
+
+#ifdef USE_OPENMP
+#pragma omp parallel for
+#endif
+  for(int i = 0 ; i < (int)modelInstance->m_eligibleJunctions.size(); i++)
+  {
+    ElementJunction *elementJunction = modelInstance->m_eligibleJunctions[i];
+
+    if(elementJunction->junctionType == ElementJunction::MultiElement)
+    {
+      dydt[elementJunction->tIndex] = elementJunction->computeDTDt(t,y);
+
+      for(size_t j = 0; j < modelInstance->m_solutes.size(); j++)
+      {
+        dydt[elementJunction->sIndex[j]] = elementJunction->computeDSoluteDt(t, y, j);
+      }
     }
   }
 }
 
 void CSHModel::solveJunctionContinuity(double timeStep)
 {
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-  for(int i = 0 ; i < (int)m_elementJunctions.size(); i++)
-  {
-    ElementJunction *elementJunction = m_elementJunctions[i];
+  //#ifdef USE_OPENMP
+  //#pragma omp parallel for
+  //#endif
+  //  for(int i = 0 ; i < (int)m_elementJunctions.size(); i++)
+  //  {
+  //    ElementJunction *elementJunction = m_elementJunctions[i];
 
-    if(elementJunction->heatContinuityIndex > -1)
-    {
-      elementJunction->solveHeatContinuity(timeStep);
-    }
+  //    if(elementJunction->tIndex > -1)
+  //    {
+  //      elementJunction->solveHeatContinuity(timeStep);
+  //    }
 
-    for(size_t j = 0 ; j < m_solutes.size(); j++)
-    {
-      if(elementJunction->soluteContinuityIndexes[j] > -1)
-      {
-        elementJunction->solveSoluteContinuity(j, timeStep);
-      }
-    }
-  }
+  //    for(size_t j = 0 ; j < m_solutes.size(); j++)
+  //    {
+  //      if(elementJunction->soluteContinuityIndexes[j] > -1)
+  //      {
+  //        elementJunction->solveSoluteContinuity(j, timeStep);
+  //      }
+  //    }
+  //  }
 }
