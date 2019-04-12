@@ -1939,7 +1939,7 @@ bool CSHModel::readInputFileBoundaryConditionsTag(const QString &line, QString &
       }
       else if (!QString::compare(type, "TIMESERIES", Qt::CaseInsensitive))
       {
-        int variableIndex = -2;
+        int variableIndex = -3;
 
         if (!QString::compare(variable, "TEMPERATURE", Qt::CaseInsensitive))
         {

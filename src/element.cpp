@@ -233,7 +233,7 @@ double Element::computeDADt(double dt, double A[])
     dvolume_dt.value = (volume - prev_volume) / model->m_timeStep;
 
     DADt += (A1 * upstreamJunction->inflow.value - xSectionArea * flow.value) / volume;
-
+//    DADt -=  xSectionArea * dvolume_dt.value / volume;
     DADt += externalFlows / length;
   }
 
@@ -334,7 +334,7 @@ double Element::computeDTDt(double dt, double T[])
 {
   double DTDt = 0.0;
 
-  if(volume > 1e-10)
+  if(volume > 1e-18)
   {
     //Compute advection
     DTDt += computeDTDtAdv(dt, T);
@@ -360,7 +360,7 @@ double Element::computeDTDt(double dt, double T[])
     }
   }
 
-  return 0.0;
+  return DTDt;
 }
 
 double Element::computeDTDtAdv(double dt, double T[])
@@ -482,7 +482,7 @@ double Element::computeDSoluteDt(double dt, double S[], int soluteIndex)
 {
   double DSoluteDt = 0;
 
-  if(volume > 1e-1)
+  if(volume > 1e-18)
   {
     //Compute advection
     DSoluteDt += computeDSoluteDtAdv(dt, S, soluteIndex);
@@ -789,7 +789,7 @@ void Element::computeLongDispersion()
   slope = max(0.00001, fabs(upstreamJunction->z - downstreamJunction->z) / length);
   double fricVel = sqrt(9.81 * depth * slope);
   double dispFischer = model->m_computeDispersion  * (0.011 * vel * vel * width * width) / (depth * fricVel);
-  double dispNumerical =model->m_computeDispersion * fabs(vel * length / 2.0);
+  double dispNumerical = model->m_computeDispersion * fabs(vel * length / 2.0);
 
   longDispersion.value = dispNumerical <= dispFischer ? dispFischer - dispNumerical : dispNumerical;
 //  longDispersion.value = dispFischer;
@@ -808,7 +808,7 @@ void Element::computeUpstreamPeclet()
     upstreamLongDispersion =  ((upstreamElement->longDispersion.value / (upstreamElement->length * 0.5)) + (longDispersion.value / (length * 0.5))) /
                               ((1.0 / (upstreamElement->length * 0.5)) + (1.0 / (length * 0.5)));
 
-    double dispNum = fabs(upstreamVelocity) * (length / 2.0 + upstreamElement->length / 2.0) / 2.0;
+    double dispNum =   model->m_computeDispersion * fabs(upstreamVelocity) * (length / 2.0 + upstreamElement->length / 2.0) / 2.0;
 
     upstreamLongDispersion = dispNum < upstreamLongDispersion ? upstreamLongDispersion - dispNum : dispNum;
 
@@ -819,7 +819,7 @@ void Element::computeUpstreamPeclet()
   {
     upstreamLongDispersion = longDispersion.value;
 
-    double dispNum = fabs(upstreamVelocity) * length / 2.0;
+    double dispNum =  model->m_computeDispersion * fabs(upstreamVelocity) * length / 2.0;
 
     upstreamLongDispersion = dispNum < upstreamLongDispersion ? upstreamLongDispersion - dispNum : dispNum;
 
@@ -836,7 +836,7 @@ void Element::computeDownstreamPeclet()
                                ((1.0 / (downstreamElement->length * 0.5)) + (1.0 / (length * 0.5)));
 
 
-    double dispNum = fabs(downstreamVelocity) * (length / 2.0 + downstreamElement->length / 2.0) / 2.0;
+    double dispNum = model->m_computeDispersion *  fabs(downstreamVelocity) * (length / 2.0 + downstreamElement->length / 2.0) / 2.0;
 
     downstreamLongDispersion = dispNum < downstreamLongDispersion ? downstreamLongDispersion - dispNum : dispNum;
 
@@ -848,9 +848,9 @@ void Element::computeDownstreamPeclet()
   {
     downstreamLongDispersion = longDispersion.value;
 
-    double dispNum = fabs(downstreamVelocity) * length  / 2.0;
+    double dispNum = model->m_computeDispersion * fabs(downstreamVelocity) * length  / 2.0;
 
-    downstreamLongDispersion = dispNum < downstreamLongDispersion ? downstreamLongDispersion - dispNum : dispNum;
+    downstreamLongDispersion =  dispNum < downstreamLongDispersion ? downstreamLongDispersion - dispNum : dispNum;
 
     downstreamPecletNumber = pecletNumber;
   }
