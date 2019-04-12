@@ -125,7 +125,7 @@ double ElementAdvUpwind::inFluxUpJunction(Element *element, double dt, double S[
 
 double ElementAdvUpwind::inFluxUpJunctionBC(Element *element, double dt, double S[], int soluteIndex)
 {
-  return element->flow.value * element->upstreamJunction->soluteConcs[soluteIndex].value;
+  return element->upstreamJunction->inflow.value * element->upstreamJunction->soluteConcs[soluteIndex].value;
 }
 
 double ElementAdvUpwind::inFluxUpNeighbour(Element *element, double dt, double S[], int soluteIndex)

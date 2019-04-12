@@ -170,6 +170,7 @@ void CSHModel::applyInitialConditions()
     }
   }
 
+
   //Write initial output
   writeOutput();
 
@@ -192,7 +193,7 @@ void CSHModel::applyBoundaryConditions(double dateTime)
       element->externalHeatFluxes = 0.0;
       element->radiationFluxes = 0.0;
       element->externalFlows = 0.0;
-      element->externalSoluteFluxes[m_numSolutes] = element->volume / 86400.0;
+      element->externalSoluteFluxes[m_numSolutes] = element-> volume / 86400.0;
 
       for(int j = 0; j < m_numSolutes; j++)
       {
@@ -399,8 +400,8 @@ void CSHModel::solve(double timeStep)
     {
       Element *element = m_elements[i];
 
-      m_solverCurrentValues[element->hIndex] = element->flow.value;
-      m_solverOutputValues[element->hIndex] = element->flow.value;
+      m_solverCurrentValues[element->hIndex] = element->xSectionArea;
+      m_solverOutputValues[element->hIndex] = element->xSectionArea;
     }
   }
 
@@ -471,7 +472,7 @@ void CSHModel::solve(double timeStep)
       for(int i = 0 ; i < (int)m_elements.size(); i++)
       {
         Element *element = m_elements[i];
-        element->flow.value = m_solverOutputValues[element->hIndex];
+        element->xSectionArea = m_solverOutputValues[element->hIndex];
         element->computeHydraulicVariables();
       }
     }
@@ -524,16 +525,14 @@ void CSHModel::computeDYDt(double t, double y[], double dydt[], void* userData)
   SolverUserData *solverUserData = (SolverUserData*) userData;
   CSHModel *modelInstance = solverUserData->model;
 
-
-
   if(modelInstance->m_solveHydraulics)
   {
 
-    for(int i = 0; i < (int)modelInstance->m_eligibleJunctions.size(); i++)
-    {
-      ElementJunction *elementJunction = modelInstance->m_eligibleJunctions[i];
-      elementJunction->computeInflow(y);
-    }
+    //    for(int i = 0; i < (int)modelInstance->m_elementJunctions.size(); i++)
+    //    {
+    //      ElementJunction *elementJunction = modelInstance->m_elementJunctions[i];
+    //      elementJunction->computeInflow(y);
+    //    }
 
 #ifdef USE_OPENMP
 #pragma omp parallel for
@@ -541,7 +540,7 @@ void CSHModel::computeDYDt(double t, double y[], double dydt[], void* userData)
     for(int i = 0 ; i < (int)modelInstance->m_elements.size(); i++)
     {
       Element *element = modelInstance->m_elements[i];
-      dydt[element->hIndex] = element->computeDQDt(t,y);
+      dydt[element->hIndex] = element->computeDADt(t,y);
     }
   }
 

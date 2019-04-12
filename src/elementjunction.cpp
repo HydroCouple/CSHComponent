@@ -312,15 +312,3 @@ void ElementJunction::computeDerivedHydraulics()
   }
 }
 
-void ElementJunction::computeInflow(double Q[])
-{
-  if(!inflow.isBC)
-  {
-    inflow.value = 0;
-
-    for(Element *element : this->incomingElements)
-    {
-      inflow.value += Q[element->hIndex];
-    }
-  }
-}

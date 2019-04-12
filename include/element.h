@@ -204,9 +204,10 @@ struct CSHCOMPONENT_EXPORT Element
     */
    double width;
 
-   double alpha;
-
-   double beta;
+   /*!
+    * \brief bottomWidth
+    */
+   double bottomWidth;
 
    /*!
     * \brief flow (m^3/s)
@@ -228,10 +229,19 @@ struct CSHCOMPONENT_EXPORT Element
     */
    double slope;
 
+   /*!
+    * \brief xsectionType
+    */
    XSectType xsectionType = RECT;
 
+   /*!
+    * \brief mannings
+    */
    double mannings = 0.039896;
 
+   /*!
+    * \brief sideSlopes
+    */
    double *sideSlopes;
 
    /*!
@@ -411,11 +421,13 @@ struct CSHCOMPONENT_EXPORT Element
     * \param A
     * \return
     */
-   double computeDQDt(double dt, double Q[]);
+   double computeDADt(double dt, double A[]);
 
    double getAofH(double H);
 
    double getPofH(double H);
+
+   double getWofH(double H);
 
    double getHofA(double A);
 

@@ -1722,7 +1722,7 @@ bool CSHModel::readInputFileElementsTag(const QString &line, QString &errorMessa
         element->length = length;
         element->depth = depth;
         element->xSectionArea = xsectionArea;
-        element->width = width;
+        element->width = element->bottomWidth = width;
         element->slope = slope;
         element->longDispersion.value = disperseCoeff;
         element->temperature.value = temp;
@@ -1809,7 +1809,7 @@ bool CSHModel::readInputFileElementHydraulicVariablesTag(const QString &line, QS
 
       if (manOk && bottomWidthOk && slope1Ok && slope2Ok)
       {
-        element->width = bottomWidth;
+        element->bottomWidth = bottomWidth;
         element->mannings = man;
         element->sideSlopes[0] = slope1;
         element->sideSlopes[1] = slope2;

@@ -93,7 +93,7 @@ Element::Element(const std::string &id, ElementJunction *upstream, ElementJuncti
   computeTempDispDeriv = new ComputeTempDeriv[2]();
 
   sideSlopes = new double[2]();
-
+  externalFlows = 0.0;
 }
 
 Element::~Element()
@@ -161,11 +161,16 @@ void Element::initialize()
   upstreamLongDispersion = 0.0;
   downstreamLongDispersion = 0.0;
   volume = prev_volume = 0.0;
+  externalFlows = 0.0;
 
   starting = true;
 
   dvolume_dt.isBC = false;
   dvolume_dt.value = 0.0;
+
+  xSectionArea = getAofH(depth);
+  width = getWofH(depth);
+  volume = xSectionArea * length;
 
   for(int i = 0; i < numSolutes; i++)
   {
@@ -211,39 +216,58 @@ void Element::initializeSolutes()
   }
 }
 
-double Element::computeDQDt(double dt, double Q[])
+double Element::computeDADt(double dt, double A[])
 {
 
-  double DQDt = 0.0;
+  double DADt = 0.0;
 
-  double div = alpha * beta * pow(flow.value, beta - 1.0);
-
-  if(volume && div)
+  if(volume)
   {
     double A1 = getAofQ(upstreamJunction->inflow.value);
+    xSectionArea = A[hIndex];
 
-    DQDt += (A1 * upstreamJunction->inflow.value - xSectionArea * flow.value) / (div * volume);
-    DQDt += externalFlows / (div * length);
+    depth = getHofA(xSectionArea);
+    flow.value = getQofH(depth);
+    width  = getWofH(depth);
+    volume = xSectionArea * length;
+    dvolume_dt.value = (volume - prev_volume) / model->m_timeStep;
+
+    DADt += (A1 * upstreamJunction->inflow.value - xSectionArea * flow.value) / volume;
+
+    DADt += externalFlows / length;
   }
 
-  return DQDt;
+
+
+  return DADt;
 }
 
 double Element::getAofH(double H)
 {
-  double area = width * H + 0.5 * sideSlopes[0] * H * H + 0.5 * sideSlopes[1] * H * H; //fix for side slope
+  double area = H * (bottomWidth + 0.5 * sideSlopes[0] * H + 0.5 * sideSlopes[1] * H); //fix for side slope
+//  double area = H * bottomWidth; //fix for side slope
 
   return area;
 }
 
 double Element::getPofH(double H)
 {
-  return width + H * sqrt(1 + sideSlopes[0] * sideSlopes[0]) + H * sqrt(1 + sideSlopes[1] * sideSlopes[1]);
+  double per = bottomWidth + H * sqrt(1 + sideSlopes[0] * sideSlopes[0]) + H * sqrt(1 + sideSlopes[1] * sideSlopes[1]);
+//  double per = bottomWidth + H;
+  return per;
+}
+
+double Element::getWofH(double H)
+{
+  double w = bottomWidth + sideSlopes[0] * H + sideSlopes[1] * H;
+//  double w = bottomWidth;
+  return w;
 }
 
 double Element::getHofA(double A)
 {
   double h = findRoots(depth, A, &Element::getAofH);
+//  double h = A / bottomWidth;
   return h;
 }
 
@@ -292,7 +316,7 @@ double Element::findRoots(double x, double y, GetXofY function, int maxIters, do
 
     iters++;
 
-  } while (error > eps && iters < maxIters);
+  } while (error > eps && iters > 1 && iters < maxIters);
 
 
   return x;
@@ -300,14 +324,11 @@ double Element::findRoots(double x, double y, GetXofY function, int maxIters, do
 
 void Element::computeHydraulicVariables()
 {
-  beta = 3.0 / 5.0;
-  depth = getHofQ(flow.value);
-  xSectionArea = getAofH(depth);
-  double p = getPofH(depth);
-  alpha = pow(mannings * pow(p, 2.0 / 3.0) / sqrt(slope), 3.0/5.0);
+  depth = getHofA(xSectionArea);
+  flow.value = getQofH(depth);
+  width  = getWofH(depth);
   volume = xSectionArea * length;
 }
-
 
 double Element::computeDTDt(double dt, double T[])
 {
@@ -702,7 +723,6 @@ void Element::computeDerivedHydraulics()
     dvolume_dt.value = (volume - prev_volume) / model->m_prevTimeStep;
   }
 
-
   rho_cp  = model->m_waterDensity * model->m_cp;
   rho_vol = model->m_waterDensity * volume;
   rho_cp_vol = rho_cp * volume;
@@ -769,10 +789,10 @@ void Element::computeLongDispersion()
   slope = max(0.00001, fabs(upstreamJunction->z - downstreamJunction->z) / length);
   double fricVel = sqrt(9.81 * depth * slope);
   double dispFischer = model->m_computeDispersion  * (0.011 * vel * vel * width * width) / (depth * fricVel);
-  double dispNumerical = fabs(vel * length / 2.0);
+  double dispNumerical =model->m_computeDispersion * fabs(vel * length / 2.0);
 
-  //  longDispersion.value = dispNumerical <= dispFischer ? dispFischer - dispNumerical : dispNumerical;
-  longDispersion.value = dispFischer;
+  longDispersion.value = dispNumerical <= dispFischer ? dispFischer - dispNumerical : dispNumerical;
+//  longDispersion.value = dispFischer;
 }
 
 void Element::computePecletNumbers()
