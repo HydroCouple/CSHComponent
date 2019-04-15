@@ -110,6 +110,9 @@ void CSHModel::prepareForNextTimeStep()
 
     element->prevTemperature.copy(element->temperature);
     element->prevFlow.copy(element->flow);
+    element->dvolume_dt.value = (element->volume - element->prev_volume) / m_timeStep;
+    element->prev_volume = element->volume;
+
 
     m_minTemp = min(m_minTemp , element->temperature.value);
     m_maxTemp = max(m_maxTemp , element->temperature.value);
@@ -533,6 +536,15 @@ void CSHModel::computeDYDt(double t, double y[], double dydt[], void* userData)
     //      ElementJunction *elementJunction = modelInstance->m_elementJunctions[i];
     //      elementJunction->computeInflow(y);
     //    }
+
+#ifdef USE_OPENMP
+#pragma omp parallel for
+#endif
+    for(int i = 0 ; i < (int)modelInstance->m_elements.size(); i++)
+    {
+      Element *element = modelInstance->m_elements[i];
+      element->calculateQfromA(y);
+    }
 
 #ifdef USE_OPENMP
 #pragma omp parallel for

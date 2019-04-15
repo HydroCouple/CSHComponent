@@ -556,6 +556,12 @@ bool CSHModel::initializeNetCDFOutputFile(list<string> &errors)
     temperatureVar.putAtt("units", "°C");
     m_outNetCDFVariables["temperature"] = temperatureVar;
 
+    ThreadSafeNcVar volumeTimeDerivativeVar =  m_outputNetCDF->addVar("volume_time_derivative", "float",
+                                                             std::vector<std::string>({"time", "elements"}));
+    volumeTimeDerivativeVar.putAtt("long_name", "Volume Time Derivative");
+    volumeTimeDerivativeVar.putAtt("units", "m^3/s");
+    m_outNetCDFVariables["volume_time_derivative"] = volumeTimeDerivativeVar;
+
     ThreadSafeNcVar waterAgeVar =  m_outputNetCDF->addVar("water_age", "float",
                                                           std::vector<std::string>({"time", "elements"}));
     waterAgeVar.putAtt("long_name", "Water Age");
@@ -2502,7 +2508,6 @@ void CSHModel::writeCSVOutput()
 void CSHModel::writeNetCDFOutput()
 {
 #ifdef USE_NETCDF
-
   if (m_outputNetCDF)
   {
 
@@ -2520,6 +2525,7 @@ void CSHModel::writeNetCDFOutput()
     float *xsectArea = new float[m_elements.size()];
     float *dispersion = new float[m_elements.size()];
     float *temperature = new float[m_elements.size()];
+    float *dvolumedt = new float[m_elements.size()];
     float *waterAge = new float[m_elements.size()]();
     float *elementEvapHeatFlux = new float[m_elements.size()];
     float *elementConvHeatFlux = new float[m_elements.size()];
@@ -2570,6 +2576,7 @@ void CSHModel::writeNetCDFOutput()
       xsectArea[i] = element->xSectionArea;
       dispersion[i] = element->longDispersion.value;
       temperature[i] = element->temperature.value;
+      dvolumedt[i] = element->dvolume_dt.value;
       elementEvapHeatFlux[i] = element->evaporationHeatFlux;
       elementConvHeatFlux[i] = element->convectionHeatFlux;
       elementRadiationFlux[i] = element->radiationFluxes;
@@ -2608,6 +2615,8 @@ void CSHModel::writeNetCDFOutput()
     m_outNetCDFVariables["dispersion"].putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), dispersion);
 
     m_outNetCDFVariables["temperature"].putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), temperature);
+
+    m_outNetCDFVariables["volume_time_derivative"].putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), dvolumedt);
 
     m_outNetCDFVariables["element_evap_heat_flux"].putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementEvapHeatFlux);
 
@@ -2678,6 +2687,7 @@ void CSHModel::writeNetCDFOutput()
     delete[] xsectArea;
     delete[] dispersion;
     delete[] temperature;
+    delete[] dvolumedt;
     delete[] waterAge;
     delete[] elementEvapHeatFlux;
     delete[] elementConvHeatFlux;

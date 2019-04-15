@@ -423,6 +423,8 @@ struct CSHCOMPONENT_EXPORT Element
     */
    double computeDADt(double dt, double A[]);
 
+   void calculateQfromA(double A[]);
+
    double getAofH(double H);
 
    double getPofH(double H);

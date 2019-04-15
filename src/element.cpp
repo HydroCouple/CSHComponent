@@ -223,29 +223,40 @@ double Element::computeDADt(double dt, double A[])
 
   if(volume)
   {
-    double A1 = getAofQ(upstreamJunction->inflow.value);
-    xSectionArea = A[hIndex];
+    double uflow = 0;
 
-    depth = getHofA(xSectionArea);
-    flow.value = getQofH(depth);
-    width  = getWofH(depth);
-    volume = xSectionArea * length;
-    dvolume_dt.value = (volume - prev_volume) / model->m_timeStep;
+    if(upstreamElement)
+    {
+      uflow = upstreamElement->flow.value;
+    }
+    else
+    {
+      uflow = upstreamJunction->inflow.value;
+    }
 
-    DADt += (A1 * upstreamJunction->inflow.value - xSectionArea * flow.value) / volume;
-//    DADt -=  xSectionArea * dvolume_dt.value / volume;
+    double A2 = A[hIndex];
+
+    DADt += (A2 * uflow - A2 * flow.value) / volume;
     DADt += externalFlows / length;
   }
 
-
-
   return DADt;
+}
+
+void Element::calculateQfromA(double A[])
+{
+  xSectionArea = A[hIndex];
+  depth = getHofA(xSectionArea);
+  flow.value = getQofH(depth);
+  width  = getWofH(depth);
+  volume =  xSectionArea * length;
+  //  dvolume_dt.value = (volume - prev_volume) / model->m_timeStep;
 }
 
 double Element::getAofH(double H)
 {
   double area = H * (bottomWidth + 0.5 * sideSlopes[0] * H + 0.5 * sideSlopes[1] * H); //fix for side slope
-//  double area = H * bottomWidth; //fix for side slope
+  //  double area = H * bottomWidth; //fix for side slope
 
   return area;
 }
@@ -253,21 +264,21 @@ double Element::getAofH(double H)
 double Element::getPofH(double H)
 {
   double per = bottomWidth + H * sqrt(1 + sideSlopes[0] * sideSlopes[0]) + H * sqrt(1 + sideSlopes[1] * sideSlopes[1]);
-//  double per = bottomWidth + H;
+  //  double per = bottomWidth + H;
   return per;
 }
 
 double Element::getWofH(double H)
 {
   double w = bottomWidth + sideSlopes[0] * H + sideSlopes[1] * H;
-//  double w = bottomWidth;
+  //  double w = bottomWidth;
   return w;
 }
 
 double Element::getHofA(double A)
 {
   double h = findRoots(depth, A, &Element::getAofH);
-//  double h = A / bottomWidth;
+  //  double h = A / bottomWidth;
   return h;
 }
 
@@ -356,7 +367,7 @@ double Element::computeDTDt(double dt, double T[])
 
     //Product rule subtract volume derivative
     {
-      DTDt -= temperature.value * dvolume_dt.value / volume;
+      DTDt -= T[tIndex] * dvolume_dt.value / volume;
     }
   }
 
@@ -495,7 +506,7 @@ double Element::computeDSoluteDt(double dt, double S[], int soluteIndex)
 
     //subtract chain rule volume derivative
     {
-      DSoluteDt -= (soluteConcs[soluteIndex].value * dvolume_dt.value) / volume;
+      DSoluteDt -= (S[sIndex[soluteIndex]] * dvolume_dt.value) / volume;
     }
 
     //Add external sources
@@ -711,18 +722,7 @@ double Element::computeDispersionFactor() const
 
 void Element::computeDerivedHydraulics()
 {
-  if(starting)
-  {
-    prev_volume = volume  = xSectionArea * length;
-    starting = false;
-  }
-  else if(dvolume_dt.isBC == false)
-  {
-    prev_volume = volume;
-    volume  = xSectionArea * length;
-    dvolume_dt.value = (volume - prev_volume) / model->m_prevTimeStep;
-  }
-
+  volume  = xSectionArea * length;
   rho_cp  = model->m_waterDensity * model->m_cp;
   rho_vol = model->m_waterDensity * volume;
   rho_cp_vol = rho_cp * volume;
@@ -792,7 +792,7 @@ void Element::computeLongDispersion()
   double dispNumerical = model->m_computeDispersion * fabs(vel * length / 2.0);
 
   longDispersion.value = dispNumerical <= dispFischer ? dispFischer - dispNumerical : dispNumerical;
-//  longDispersion.value = dispFischer;
+  //  longDispersion.value = dispFischer;
 }
 
 void Element::computePecletNumbers()

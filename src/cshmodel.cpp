@@ -554,13 +554,75 @@ bool CSHModel::initializeElements(std::list<string> &errors)
   {
     Element *element = m_elements[i];
     element->tIndex = m_solverSize; m_solverSize++;
+    element->initialize();
+  }
 
-    for(size_t j = 0 ; j < m_solutes.size(); j++)
+
+  for(size_t i = 0 ; i < m_elementJunctions.size()  ; i++)
+  {
+    ElementJunction *elementJunction = m_elementJunctions[i];
+
+    if(elementJunction->junctionType == ElementJunction::MultiElement)
     {
+      if(!elementJunction->temperature.isBC)
+      {
+        elementJunction->tIndex = m_solverSize; m_solverSize++;
+      }
+      else
+      {
+        elementJunction->tIndex = -1;
+      }
+    }
+  }
+
+  for(size_t j = 0 ; j < m_solutes.size(); j++)
+  {
+    for(int i = 0 ; i < (int)m_elements.size()  ; i++)
+    {
+      Element *element = m_elements[i];
       element->sIndex[j] = m_solverSize; m_solverSize++;
     }
 
-    element->initialize();
+    for(size_t i = 0 ; i < m_elementJunctions.size()  ; i++)
+    {
+      ElementJunction *elementJunction = m_elementJunctions[i];
+
+      if(elementJunction->junctionType == ElementJunction::MultiElement)
+      {
+        if(!elementJunction->soluteConcs[j].isBC)
+        {
+          //If more than one junction solve continuity
+          elementJunction->sIndex[j] = m_solverSize; m_solverSize++;;
+        }
+        else
+        {
+          elementJunction->sIndex[j] = -1;
+        }
+      }
+    }
+  }
+
+  m_eligibleJunctions.clear();
+
+  for(size_t i = 0 ; i < m_elementJunctions.size()  ; i++)
+  {
+    ElementJunction *elementJunction = m_elementJunctions[i];
+
+    if(elementJunction->tIndex > -1)
+    {
+      m_elementJunctions.push_back(elementJunction);
+    }
+    else
+    {
+      for(size_t j = 0; j < m_solutes.size(); j++)
+      {
+        if(elementJunction->sIndex[j] > -1)
+        {
+          m_eligibleJunctions.push_back(elementJunction);
+          break;
+        }
+      }
+    }
   }
 
   for(int i = 0 ; i < (int)m_elements.size()  ; i++)
@@ -570,46 +632,6 @@ bool CSHModel::initializeElements(std::list<string> &errors)
 
   m_eligibleJunctions.clear();
 
-  for(size_t i = 0 ; i < m_elementJunctions.size()  ; i++)
-  {
-    ElementJunction *elementJunction = m_elementJunctions[i];
-
-    if(elementJunction->junctionType == ElementJunction::MultiElement)
-    {
-      bool found  = false;
-
-      if(!elementJunction->temperature.isBC)
-      {
-        elementJunction->tIndex = m_solverSize; m_solverSize++;
-        found  = true;
-      }
-      else
-      {
-        elementJunction->tIndex = -1;
-      }
-
-      //Set solute indexes
-      for(size_t j = 0 ; j < m_solutes.size(); j++)
-      {
-        if(!elementJunction->soluteConcs[j].isBC)
-        {
-          //If more than one junction solve continuity
-          elementJunction->sIndex[j] = m_solverSize; m_solverSize++;;
-          found  = true;
-        }
-        else
-        {
-          elementJunction->sIndex[j] = -1;
-        }
-      }
-
-      if(found)
-      {
-        m_eligibleJunctions.push_back(elementJunction);
-      }
-    }
-
-  }
 
   return true;
 }
