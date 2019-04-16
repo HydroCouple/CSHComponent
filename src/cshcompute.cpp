@@ -110,9 +110,6 @@ void CSHModel::prepareForNextTimeStep()
 
     element->prevTemperature.copy(element->temperature);
     element->prevFlow.copy(element->flow);
-    element->dvolume_dt.value = (element->volume - element->prev_volume) / m_timeStep;
-    element->prev_volume = element->volume;
-
 
     m_minTemp = min(m_minTemp , element->temperature.value);
     m_maxTemp = max(m_maxTemp , element->temperature.value);
@@ -128,6 +125,25 @@ void CSHModel::prepareForNextTimeStep()
 
       m_minSolute[j] = min(m_minSolute[j] , element->soluteConcs[j].value);
       m_maxSolute[j] = max(m_maxSolute[j] , element->soluteConcs[j].value);
+    }
+  }
+
+  if(m_prevDateTime == m_startDateTime)
+  {
+    for(size_t i = 0 ; i < m_elements.size(); i++)
+    {
+      Element *element = m_elements[i];
+      element->dvolume_dt.value = 0;
+      element->prev_volume = element->volume;
+    }
+  }
+  else
+  {
+    for(size_t i = 0 ; i < m_elements.size(); i++)
+    {
+      Element *element = m_elements[i];
+      element->dvolume_dt.value = (element->volume - element->prev_volume) / m_timeStep;
+      element->prev_volume = element->volume;
     }
   }
 }

@@ -187,7 +187,7 @@ bool CSHModel::initializeInputFiles(list<string> &errors)
           bool readSuccess = true;
           QString error = "";
 
-          auto it = m_inputFileFlags.find(line.toStdString());
+          auto it = m_inputFileFlags.find(line.toUpper().toStdString());
 
           if (it != m_inputFileFlags.cend())
           {

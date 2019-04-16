@@ -245,19 +245,16 @@ double Element::computeDADt(double dt, double A[])
 
 void Element::calculateQfromA(double A[])
 {
-  xSectionArea = A[hIndex];
-  depth = getHofA(xSectionArea);
-  flow.value = getQofH(depth);
-  width  = getWofH(depth);
-  volume =  xSectionArea * length;
-  //  dvolume_dt.value = (volume - prev_volume) / model->m_timeStep;
+  //  xSectionArea = A[hIndex];
+  //  depth = getHofA(xSectionArea);
+  //  flow.value = getQofH(depth);
+  //  width  = getWofH(depth);
+  //  volume =  xSectionArea * length;
 }
 
 double Element::getAofH(double H)
 {
-  double area = H * (bottomWidth + 0.5 * sideSlopes[0] * H + 0.5 * sideSlopes[1] * H); //fix for side slope
-  //  double area = H * bottomWidth; //fix for side slope
-
+  double area = H * (bottomWidth + 0.5 * sideSlopes[0] * H + 0.5 * sideSlopes[1] * H);
   return area;
 }
 
@@ -277,8 +274,19 @@ double Element::getWofH(double H)
 
 double Element::getHofA(double A)
 {
-  double h = findRoots(depth, A, &Element::getAofH);
-  //  double h = A / bottomWidth;
+  double h = 0;
+
+  double sumSlopes = sideSlopes[0] + sideSlopes[1];
+
+  if(sumSlopes > 0)
+  {
+    h  = (sqrt(2.0 * A * sumSlopes + bottomWidth * bottomWidth) - bottomWidth) / (sumSlopes);
+  }
+  else
+  {
+    h = A / bottomWidth;
+  }
+
   return h;
 }
 
@@ -339,6 +347,11 @@ void Element::computeHydraulicVariables()
   flow.value = getQofH(depth);
   width  = getWofH(depth);
   volume = xSectionArea * length;
+
+  if(!starting)
+  {
+    dvolume_dt.value = (volume - prev_volume) / model->m_prevTimeStep;
+  }
 }
 
 double Element::computeDTDt(double dt, double T[])
@@ -722,6 +735,12 @@ double Element::computeDispersionFactor() const
 
 void Element::computeDerivedHydraulics()
 {
+
+  if(starting)
+  {
+    starting = false;
+  }
+
   volume  = xSectionArea * length;
   rho_cp  = model->m_waterDensity * model->m_cp;
   rho_vol = model->m_waterDensity * volume;
