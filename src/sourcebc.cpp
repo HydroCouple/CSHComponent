@@ -91,15 +91,18 @@ void SourceBC::applyBoundaryConditions(double dateTime)
             Element *element = m_profile[i];
             double factor = m_factors[element];
 
-            element->externalHeatFluxes += m_model->m_cp * m_model->m_waterDensity * value *
-                                           element->temperature.value * factor;
-
-            for(size_t i = 0; i < m_model->m_solutes.size(); i++)
+            if(value < 0)
             {
-              element->externalSoluteFluxes[i] += value * element->soluteConcs[i].value * factor;
+                element->externalHeatFluxes += m_model->m_cp * m_model->m_waterDensity * value *
+                                               element->temperature.value * factor;
+
+                for(size_t i = 0; i < m_model->m_solutes.size(); i++)
+                {
+                  element->externalSoluteFluxes[i] += value * element->soluteConcs[i].value * factor;
+                }
             }
 
-            element->externalFlows += value;
+            element->externalFlows += value * factor;
           }
         }
         break;
@@ -135,15 +138,18 @@ void SourceBC::applyBoundaryConditions(double dateTime)
 
             double factor = m_factors[element];
 
-            element->externalHeatFluxes += m_model->m_cp * m_model->m_waterDensity * value *
-                                           element->temperature.value * factor;
-
-            for(size_t i = 0; i < m_model->m_solutes.size(); i++)
+            if(value < 0)
             {
-              element->externalSoluteFluxes[i] += value * element->soluteConcs[i].value * factor;
+                element->externalHeatFluxes += m_model->m_cp * m_model->m_waterDensity * value *
+                                               element->temperature.value * factor;
+
+                for(size_t i = 0; i < m_model->m_solutes.size(); i++)
+                {
+                  element->externalSoluteFluxes[i] += value * element->soluteConcs[i].value * factor;
+                }
             }
 
-            element->externalFlows += value;
+            element->externalFlows += value * factor;
 
           }
           break;
