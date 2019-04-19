@@ -469,7 +469,7 @@ void CSHComponent::createFlowInput()
                                  ElementInput::Flow,
                                  this);
 
-  m_flowInput->setCaption("Element Flow Input (m^3/s)");
+  m_flowInput->setCaption("Element Flow (m^3/s)");
 
   QList<QSharedPointer<HCGeometry>> geometries;
 
@@ -500,7 +500,7 @@ void CSHComponent::createXSectionAreaInput()
                                          ElementInput::XSectionArea,
                                          this);
 
-  m_xSectionAreaInput->setCaption("Element Cross-Section Area (m^2)");
+  m_xSectionAreaInput->setCaption("Element Cross-Section Area(m^2)");
 
   QList<QSharedPointer<HCGeometry>> geometries;
 
@@ -747,6 +747,10 @@ void CSHComponent::createWaterAgeFluxInput()
 void CSHComponent::createOutputs()
 {
   createTemperatureOutput();
+  createFlowOutput();
+  createXSectionAreaOutput();
+  createDepthOutput();
+  createTopWidthOutput();
 
   for(int i = 0; i < m_modelInstance->numSolutes() ; i++)
   {
@@ -851,4 +855,128 @@ void CSHComponent::createWaterAgeFluxOutput()
 
     addOutput(soluteOutput);
   }
+}
+
+void CSHComponent::createFlowOutput()
+{
+  Quantity *flowQuantity = Quantity::flowInCMS(this);
+
+  ElementOutput *flowOutput = new ElementOutput("ElementFlowOutput",
+                                   m_timeDimension,
+                                 m_geometryDimension,
+                                 flowQuantity,
+                                 ElementOutput::Flow,
+                                 this);
+
+  flowOutput->setCaption("Element Flow (m^3/s)");
+
+  QList<QSharedPointer<HCGeometry>> geometries;
+
+  for(const QSharedPointer<HCGeometry> &lineString : m_elementGeometries)
+  {
+    geometries.append(lineString);
+  }
+
+  flowOutput->addGeometries(geometries);
+
+  SDKTemporal::DateTime *dt1 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime()- 1.0/1000000.0, flowOutput);
+  SDKTemporal::DateTime *dt2 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime(), flowOutput);
+
+  flowOutput->addTime(dt1);
+  flowOutput->addTime(dt2);
+
+  addOutput(flowOutput);
+}
+
+void CSHComponent::createXSectionAreaOutput()
+{
+  Quantity *xSectionQuantity = Quantity::areaInSquareMeters(this);
+
+  ElementOutput *xSectionAreaOutput = new ElementOutput("ElementXSectionAreaOutput",
+                                         m_timeDimension,
+                                         m_geometryDimension,
+                                         xSectionQuantity,
+                                         ElementOutput::XSectionArea,
+                                         this);
+
+  xSectionAreaOutput->setCaption("Element Cross-Section Area (m^2)");
+
+  QList<QSharedPointer<HCGeometry>> geometries;
+
+  for(const QSharedPointer<HCGeometry> &lineString : m_elementGeometries)
+  {
+    geometries.append(lineString);
+  }
+
+  xSectionAreaOutput->addGeometries(geometries);
+
+  SDKTemporal::DateTime *dt1 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime()- 1.0/1000000.0, xSectionAreaOutput);
+  SDKTemporal::DateTime *dt2 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime(), xSectionAreaOutput);
+
+  xSectionAreaOutput->addTime(dt1);
+  xSectionAreaOutput->addTime(dt2);
+
+  addOutput(xSectionAreaOutput);
+}
+
+void CSHComponent::createDepthOutput()
+{
+  Quantity *depthQuantity = Quantity::lengthInMeters(this);
+
+  ElementOutput *depthOutput = new ElementOutput("ElementDepthOutput",
+                                  m_timeDimension,
+                                  m_geometryDimension,
+                                  depthQuantity,
+                                  ElementOutput::Depth,
+                                  this);
+
+  depthOutput->setCaption("Element Depth (m)");
+
+  QList<QSharedPointer<HCGeometry>> geometries;
+
+  for(const QSharedPointer<HCGeometry> &lineString : m_elementGeometries)
+  {
+    geometries.append(lineString);
+  }
+
+  depthOutput->addGeometries(geometries);
+
+  SDKTemporal::DateTime *dt1 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime()- 1.0/1000000.0, depthOutput);
+  SDKTemporal::DateTime *dt2 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime(), depthOutput);
+
+  depthOutput->addTime(dt1);
+  depthOutput->addTime(dt2);
+
+  addOutput(depthOutput);
+}
+
+void CSHComponent::createTopWidthOutput()
+{
+  Quantity *widthQuantity = Quantity::lengthInMeters(this);
+
+  ElementOutput *topWidthOutput = new ElementOutput("ElementTopWidthOutput",
+                                     m_timeDimension,
+                                     m_geometryDimension,
+                                     widthQuantity,
+                                     ElementOutput::TopWidth,
+                                     this);
+
+  topWidthOutput->setCaption("Element Top Width (m)");
+
+  QList<QSharedPointer<HCGeometry>> geometries;
+
+  for(const QSharedPointer<HCGeometry> &lineString : m_elementGeometries)
+  {
+    geometries.append(lineString);
+  }
+
+  topWidthOutput->addGeometries(geometries);
+
+  SDKTemporal::DateTime *dt1 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime()- 1.0/1000000.0, topWidthOutput);
+  SDKTemporal::DateTime *dt2 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime(), topWidthOutput);
+
+  topWidthOutput->addTime(dt1);
+  topWidthOutput->addTime(dt2);
+
+  addOutput(topWidthOutput);
 }

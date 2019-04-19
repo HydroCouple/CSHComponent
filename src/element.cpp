@@ -245,11 +245,11 @@ double Element::computeDADt(double dt, double A[])
 
 void Element::calculateQfromA(double A[])
 {
-  //  xSectionArea = A[hIndex];
-  //  depth = getHofA(xSectionArea);
-  //  flow.value = getQofH(depth);
-  //  width  = getWofH(depth);
-  //  volume =  xSectionArea * length;
+  xSectionArea = A[hIndex];
+  depth = getHofA(xSectionArea);
+  flow.value = getQofH(depth);
+  width  = getWofH(depth);
+  volume =  xSectionArea * length;
 }
 
 double Element::getAofH(double H)

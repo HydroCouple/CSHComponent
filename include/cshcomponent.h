@@ -215,6 +215,26 @@ class CSHCOMPONENT_EXPORT CSHComponent : public AbstractTimeModelComponent,
      */
     void createWaterAgeFluxOutput();
 
+    /*!
+     * \brief createFlowOutput
+     */
+    void createFlowOutput();
+
+    /*!
+     * \brief createXSectionAreaOutput
+     */
+    void createXSectionAreaOutput();
+
+    /*!
+     * \brief createDepthOutput
+     */
+    void createDepthOutput();
+
+    /*!
+     * \brief createTopWidthOutput
+     */
+    void createTopWidthOutput();
+
   private:
 
     IdBasedArgumentString *m_inputFilesArgument;
