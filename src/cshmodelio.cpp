@@ -526,6 +526,12 @@ bool CSHModel::initializeNetCDFOutputFile(list<string> &errors)
     flowVar.putAtt("units", "m^3/s");
     m_outNetCDFVariables["flow"] = flowVar;
 
+    ThreadSafeNcVar velocityVar =  m_outputNetCDF->addVar("velocity", "float",
+                                                      std::vector<std::string>({"time", "elements"}));
+    velocityVar.putAtt("long_name", "Velocity");
+    velocityVar.putAtt("units", "m/s");
+    m_outNetCDFVariables["velocity"] = velocityVar;
+
     ThreadSafeNcVar depthVar =  m_outputNetCDF->addVar("depth", "float",
                                                        std::vector<std::string>({"time", "elements"}));
     depthVar.putAtt("long_name", "Flow Depth");
@@ -2520,6 +2526,7 @@ void CSHModel::writeNetCDFOutput()
 
 
     float *flow = new float[m_elements.size()];
+    float *velocity = new float[m_elements.size()];
     float *depth = new float[m_elements.size()];
     float *width = new float[m_elements.size()];
     float *xsectArea = new float[m_elements.size()];
@@ -2570,7 +2577,8 @@ void CSHModel::writeNetCDFOutput()
     for (int i = 0; i < (int)m_elements.size(); i++)
     {
       Element *element = m_elements[i];
-      flow[i] = element->flow.value ;
+      flow[i] = element->flow.value;
+      velocity[i] = element->flow.value/element->xSectionArea ;
       depth[i] = element->depth;
       width[i] = element->width;
       xsectArea[i] = element->xSectionArea;
@@ -2605,6 +2613,8 @@ void CSHModel::writeNetCDFOutput()
     }
 
     m_outNetCDFVariables["flow"].putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), flow);
+
+    m_outNetCDFVariables["velocity"].putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), velocity);
 
     m_outNetCDFVariables["depth"].putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), depth);
 
@@ -2682,6 +2692,7 @@ void CSHModel::writeNetCDFOutput()
     }
 
     delete[] flow;
+    delete[] velocity;
     delete[] depth;
     delete[] width;
     delete[] xsectArea;
