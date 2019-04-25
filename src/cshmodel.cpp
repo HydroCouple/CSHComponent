@@ -630,8 +630,6 @@ bool CSHModel::initializeElements(std::list<string> &errors)
     calculateDistanceFromUpstreamJunction(m_elements[i]);
   }
 
-  m_eligibleJunctions.clear();
-
 
   return true;
 }

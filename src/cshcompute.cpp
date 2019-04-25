@@ -139,11 +139,23 @@ void CSHModel::prepareForNextTimeStep()
   }
   else
   {
-    for(size_t i = 0 ; i < m_elements.size(); i++)
+    if(m_solveHydraulics)
     {
-      Element *element = m_elements[i];
-      element->dvolume_dt.value = (element->volume - element->prev_volume) / m_timeStep;
-      element->prev_volume = element->volume;
+      for(size_t i = 0 ; i < m_elements.size(); i++)
+      {
+        Element *element = m_elements[i];
+        element->dvolume_dt.value = (element->volume - element->prev_volume) / m_timeStep;
+        element->prev_volume = element->volume;
+      }
+    }
+    else
+    {
+      for(size_t i = 0 ; i < m_elements.size(); i++)
+      {
+        Element *element = m_elements[i];
+        element->dvolume_dt.value = (element->volume - element->prev_volume) / m_prevTimeStep;
+        element->prev_volume = element->volume;
+      }
     }
   }
 }
