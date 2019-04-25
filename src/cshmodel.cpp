@@ -610,7 +610,7 @@ bool CSHModel::initializeElements(std::list<string> &errors)
 
     if(elementJunction->tIndex > -1)
     {
-      m_elementJunctions.push_back(elementJunction);
+      m_eligibleJunctions.push_back(elementJunction);
     }
     else
     {
