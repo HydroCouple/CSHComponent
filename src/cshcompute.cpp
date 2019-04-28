@@ -128,7 +128,7 @@ void CSHModel::prepareForNextTimeStep()
     }
   }
 
-  if(m_prevDateTime == m_startDateTime)
+  if(m_prevDateTime <= m_startDateTime)
   {
     for(size_t i = 0 ; i < m_elements.size(); i++)
     {
@@ -344,7 +344,9 @@ void CSHModel::computeDerivedHydraulics()
 #endif
     for(int i = 0 ; i < (int)m_elementJunctions.size(); i++)
     {
-      m_elementJunctions[i]->computeDerivedHydraulics();
+      ElementJunction *elementJunction = m_elementJunctions[i];
+      elementJunction->computeDerivedHydraulics();
+      elementJunction->computeInflow();
     }
   }
   else
@@ -559,12 +561,6 @@ void CSHModel::computeDYDt(double t, double y[], double dydt[], void* userData)
   if(modelInstance->m_solveHydraulics)
   {
 
-    //    for(int i = 0; i < (int)modelInstance->m_elementJunctions.size(); i++)
-    //    {
-    //      ElementJunction *elementJunction = modelInstance->m_elementJunctions[i];
-    //      elementJunction->computeInflow(y);
-    //    }
-
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
@@ -573,6 +569,13 @@ void CSHModel::computeDYDt(double t, double y[], double dydt[], void* userData)
       Element *element = modelInstance->m_elements[i];
       element->calculateQfromA(y);
     }
+
+    for(int i = 0; i < (int)modelInstance->m_elementJunctions.size(); i++)
+    {
+      ElementJunction *elementJunction = modelInstance->m_elementJunctions[i];
+      elementJunction->computeInflow();
+    }
+
 
 #ifdef USE_OPENMP
 #pragma omp parallel for

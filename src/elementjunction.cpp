@@ -301,6 +301,11 @@ void ElementJunction::computeDerivedHydraulics()
     dvolume_dt = (volume - prev_volume) / model->m_prevTimeStep;
   }
 
+
+}
+
+void ElementJunction::computeInflow()
+{
   if(!inflow.isBC)
   {
     inflow.value = 0;

@@ -208,7 +208,11 @@ struct CSHCOMPONENT_EXPORT ElementJunction
      */
     void computeDerivedHydraulics();
 
-
+    /*!
+     * \brief computeInflow
+     * \param y
+     */
+    void computeInflow();
 
 };
 

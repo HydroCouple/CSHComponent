@@ -33,7 +33,7 @@ class CSHCOMPONENT_EXPORT CSHComponentInfo : public AbstractModelComponentInfo
 
     CSHComponentInfo(QObject *parent = nullptr);
 
-    virtual ~CSHComponentInfo();
+    virtual ~CSHComponentInfo() override;
 
     HydroCouple::IModelComponent* createComponentInstance() override;
 };

@@ -99,7 +99,6 @@ Element::Element(const std::string &id, ElementJunction *upstream, ElementJuncti
 Element::~Element()
 {
 
-
   deleteSoluteVariables();
 
   delete[] sideSlopes;
@@ -221,7 +220,7 @@ double Element::computeDADt(double dt, double A[])
 
   double DADt = 0.0;
 
-  if(volume)
+  if(volume > 1e-18)
   {
     double uflow = 0;
 
@@ -348,10 +347,10 @@ void Element::computeHydraulicVariables()
   width  = getWofH(depth);
   volume = xSectionArea * length;
 
-  if(!starting)
-  {
-    dvolume_dt.value = (volume - prev_volume) / model->m_prevTimeStep;
-  }
+//  if(!starting)
+//  {
+//    dvolume_dt.value = (volume - prev_volume) / model->m_prevTimeStep;
+//  }
 }
 
 double Element::computeDTDt(double dt, double T[])

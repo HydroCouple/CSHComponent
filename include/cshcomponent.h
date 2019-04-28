@@ -54,7 +54,7 @@ class CSHCOMPONENT_EXPORT CSHComponent : public AbstractTimeModelComponent,
     /*!
      * \brief ~CSHComponent destructor
      */
-    virtual ~CSHComponent();
+    virtual ~CSHComponent() override;
 
     /*!
      * \brief validate validates this component model instance
