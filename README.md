@@ -1,5 +1,5 @@
 # CSHComponent
-[![AUR](https://img.shields.io/aur/license/yaourt.svg)](https://github.com/HydroCouple/CSHComponent/blob/master/LICENSE)
+[![AUR](https://img.shields.io/badge/license-GPL-blue.svg)](https://github.com/HydroCouple/CSHComponent/blob/master/LICENSE)
 
 A one-dimensional stream heat and solute transport model.
 
@@ -95,3 +95,5 @@ The CSHComponent can be initialized from an input file described in the document
 
 ## Publications
 ---------------------------------------
+
+* Buahin, C. A., Horsburgh, J. S. and Neilson, B. T.: Parallel multi-objective calibration of a component-based river temperature model, Environmental Modelling & Software, 116, 57–71, doi:10.1016/j.envsoft.2019.02.012, 2019.

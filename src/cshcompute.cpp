@@ -53,6 +53,8 @@ void CSHModel:: update()
 
     computeConvection();
 
+    computeFluidFrictionHeat();
+
     solve(m_timeStep);
 
     m_prevDateTime = m_currentDateTime;
@@ -365,11 +367,11 @@ void CSHModel::computeEvaporation()
 #ifdef USE_OPENMP
 #pragma omp parallel for
 #endif
-    for(int i = 0 ; i < (int)m_elements.size(); i++)
+    for(int i = 0 ; i < static_cast<int>(m_elements.size()); i++)
     {
       Element *element = m_elements[i];
       element->computeEvaporation();
-      element->computeConvection();
+//      element->computeConvection();
     }
   }
 }
@@ -384,8 +386,23 @@ void CSHModel::computeConvection()
     for(int i = 0 ; i < (int)m_elements.size(); i++)
     {
       Element *element = m_elements[i];
-      element->computeEvaporation();
+//      element->computeEvaporation();
       element->computeConvection();
+    }
+  }
+}
+
+void CSHModel::computeFluidFrictionHeat()
+{
+  if(m_computeFluidFrictionHeat)
+  {
+#ifdef USE_OPENMP
+#pragma omp parallel for
+#endif
+    for(int i = 0 ; i < (int)m_elements.size(); i++)
+    {
+      Element *element = m_elements[i];
+      element->computeFluidFrictionHeat();
     }
   }
 }

@@ -645,6 +645,14 @@ bool CSHModel::initializeNetCDFOutputFile(list<string> &errors)
     m_outNetCDFVariables["element_conv_heat_flux"] = elementConvHeatFluxVar;
 
 
+    ThreadSafeNcVar elementFrictionHeatFluxVar =  m_outputNetCDF->addVar("element_fluid_friction_heat_flux", "float",
+                                                                     std::vector<std::string>({"time", "elements"}));
+
+    elementFrictionHeatFluxVar.putAtt("long_name", "Element Fluid Friction Heat Flux");
+    elementFrictionHeatFluxVar.putAtt("units", "W/m^2");
+    m_outNetCDFVariables["element_fluid_friction_heat_flux"] = elementFrictionHeatFluxVar;
+
+
     ThreadSafeNcVar elementRadiationFluxVar =  m_outputNetCDF->addVar("element_radiation_flux", "float",
                                                                       std::vector<std::string>({"time", "elements"}));
 
@@ -1569,6 +1577,27 @@ bool CSHModel::readInputFileOptionTag(const QString &line, QString &errorMessage
           if (foundError)
           {
             errorMessage = "Solve hydraulics tag";
+            return false;
+          }
+        }
+        break;
+      case 34:
+        {
+          bool foundError = false;
+
+          if (options.size() == 2)
+          {
+            m_computeFluidFrictionHeat = QString::compare(options[1], "No", Qt::CaseInsensitive);
+          }
+          else
+          {
+            foundError = true;
+          }
+
+
+          if (foundError)
+          {
+            errorMessage = "Solve fluid friction heat tag";
             return false;
           }
         }
@@ -2536,6 +2565,7 @@ void CSHModel::writeNetCDFOutput()
     float *waterAge = new float[m_elements.size()]();
     float *elementEvapHeatFlux = new float[m_elements.size()];
     float *elementConvHeatFlux = new float[m_elements.size()];
+    float *elementFluidFrictionHeatFlux = new float[m_elements.size()];
     float *elementRadiationFlux = new float[m_elements.size()];
     float *elementHeatFlux = new float[m_elements.size()];
     float *elementAirTemp =  new float[m_elements.size()];
@@ -2587,6 +2617,7 @@ void CSHModel::writeNetCDFOutput()
       dvolumedt[i] = element->dvolume_dt.value;
       elementEvapHeatFlux[i] = element->evaporationHeatFlux;
       elementConvHeatFlux[i] = element->convectionHeatFlux;
+      elementFluidFrictionHeatFlux[i] = element->fluidFrictionHeatFlux;
       elementRadiationFlux[i] = element->radiationFluxes;
       elementHeatFlux[i] = element->externalHeatFluxes;
       totalElementHeatBalance[i] = element->totalHeatBalance;
@@ -2631,6 +2662,8 @@ void CSHModel::writeNetCDFOutput()
     m_outNetCDFVariables["element_evap_heat_flux"].putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementEvapHeatFlux);
 
     m_outNetCDFVariables["element_conv_heat_flux"].putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementConvHeatFlux);
+
+    m_outNetCDFVariables["element_fluid_friction_heat_flux"].putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementFluidFrictionHeatFlux);
 
     m_outNetCDFVariables["element_radiation_flux"].putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, m_elements.size()}), elementRadiationFlux);
 
@@ -2702,6 +2735,7 @@ void CSHModel::writeNetCDFOutput()
     delete[] waterAge;
     delete[] elementEvapHeatFlux;
     delete[] elementConvHeatFlux;
+    delete[] elementFluidFrictionHeatFlux;
     delete[] elementRadiationFlux;
     delete[] elementHeatFlux;
     delete[] totalElementHeatBalance;
@@ -2831,6 +2865,7 @@ const unordered_map<string, int> CSHModel::m_optionsFlags({
                                                             {"SOLVER_REL_TOL", 31},
                                                             {"LINEAR_SOLVER", 32},
                                                             {"SOLVE_HYDRAULICS", 33},
+                                                            {"FLUID_FRICTION_HEAT", 34},
                                                           });
 
 const unordered_map<string, int> CSHModel::m_advectionFlags({

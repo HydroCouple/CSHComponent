@@ -310,6 +310,11 @@ struct CSHCOMPONENT_EXPORT Element
    double radiationFluxes;
 
    /*!
+    * \brief fluidFrictionHeatFlux
+    */
+   double fluidFrictionHeatFlux;
+
+   /*!
     * \brief externalSoluteFluxes of the form (kg/s)
     */
    double *externalSoluteFluxes;
@@ -538,6 +543,11 @@ struct CSHCOMPONENT_EXPORT Element
     * \return
     */
    void computeConvection();
+
+   /*!
+    * \brief computeFluidFrictionHeat
+    */
+   void computeFluidFrictionHeat();
 
    /*!
     * \brief computeDSoluteDt

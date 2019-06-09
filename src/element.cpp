@@ -161,6 +161,7 @@ void Element::initialize()
   downstreamLongDispersion = 0.0;
   volume = prev_volume = 0.0;
   externalFlows = 0.0;
+  fluidFrictionHeatFlux = 0.0;
 
   starting = true;
 
@@ -347,10 +348,10 @@ void Element::computeHydraulicVariables()
   width  = getWofH(depth);
   volume = xSectionArea * length;
 
-//  if(!starting)
-//  {
-//    dvolume_dt.value = (volume - prev_volume) / model->m_prevTimeStep;
-//  }
+  //  if(!starting)
+  //  {
+  //    dvolume_dt.value = (volume - prev_volume) / model->m_prevTimeStep;
+  //  }
 }
 
 double Element::computeDTDt(double dt, double T[])
@@ -371,11 +372,14 @@ double Element::computeDTDt(double dt, double T[])
       DTDt += externalHeatFluxes / rho_cp_vol;
     }
 
-    //Evaporation and convection
+    //Evaporation, convection, fluid friction
     {
       DTDt += evaporationHeatFlux * top_area / rho_cp_vol;
       DTDt += convectionHeatFlux * top_area / rho_cp_vol;
+      DTDt +=  fluidFrictionHeatFlux * top_area / rho_cp_vol;
     }
+
+
 
     //Product rule subtract volume derivative
     {
@@ -499,6 +503,12 @@ void Element::computeConvection()
   double Le = 1000.0 * (2499.0 - 2.36 * temperature.value);
   windFunction = model->m_evapWindFuncCoeffA + model->m_evapWindFuncCoeffB * fabs(windSpeed);
   convectionHeatFlux = - model->m_waterDensity * Le * windFunction * model->m_bowensCoeff * model->m_pressureRatio * (temperature.value - airTemperature);
+}
+
+void Element::computeFluidFrictionHeat()
+{
+  if(slope > 0.0)
+    fluidFrictionHeatFlux = 9805.0 * flow.value / (width * slope);
 }
 
 double Element::computeDSoluteDt(double dt, double S[], int soluteIndex)

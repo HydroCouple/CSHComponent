@@ -225,6 +225,11 @@ class CSHCOMPONENT_EXPORT CSHModel : public QObject
     void computeConvection();
 
     /*!
+     * \brief computeFluidFrictionHeat
+     */
+    void computeFluidFrictionHeat();
+
+    /*!
      * \brief computeLongDispersion
      * \return
      */
@@ -790,7 +795,8 @@ class CSHCOMPONENT_EXPORT CSHModel : public QObject
     m_useEvaporation,
     m_useConvection,
     m_simulateWaterAge = false,
-    m_solveHydraulics = false;
+    m_solveHydraulics = false,
+    m_computeFluidFrictionHeat = false;
 
     std::unordered_map<std::string, QSharedPointer<TimeSeries>> m_timeSeries;
 
