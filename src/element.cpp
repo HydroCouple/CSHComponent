@@ -507,8 +507,7 @@ void Element::computeConvection()
 
 void Element::computeFluidFrictionHeat()
 {
-  if(slope > 0.0)
-    fluidFrictionHeatFlux = 9805.0 * flow.value / (width * slope);
+  fluidFrictionHeatFlux = 9805.0 * flow.value * slope / width;
 }
 
 double Element::computeDSoluteDt(double dt, double S[], int soluteIndex)
