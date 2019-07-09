@@ -68,7 +68,7 @@ void SourceBC::applyBoundaryConditions(double dateTime)
 {
   double value = 0;
 
-  if(m_timeSeries->numColumns() == (int)m_profile.size())
+  if(m_timeSeries->numColumns() == static_cast<int>(m_profile.size()))
   {
 
     switch (m_variableType)
@@ -76,7 +76,7 @@ void SourceBC::applyBoundaryConditions(double dateTime)
       case HeatSource:
         for(size_t i = 0; i < m_profile.size(); i++)
         {
-          if(m_timeSeries->interpolate(dateTime, i, m_dataCursor, value))
+          if(m_timeSeries->interpolate(dateTime, static_cast<int>(i), m_dataCursor, value))
           {
             Element *element = m_profile[i];
             element->externalHeatFluxes += value * m_factors[element];
@@ -86,7 +86,7 @@ void SourceBC::applyBoundaryConditions(double dateTime)
       case FlowSource:
         for(size_t i = 0; i < m_profile.size(); i++)
         {
-          if(m_timeSeries->interpolate(dateTime, i, m_dataCursor, value))
+          if(m_timeSeries->interpolate(dateTime, static_cast<int>(i), m_dataCursor, value))
           {
             Element *element = m_profile[i];
             double factor = m_factors[element];
@@ -109,7 +109,7 @@ void SourceBC::applyBoundaryConditions(double dateTime)
       default:
         for(size_t i = 0; i < m_profile.size(); i++)
         {
-          if(m_timeSeries->interpolate(dateTime, i, m_dataCursor, value))
+          if(m_timeSeries->interpolate(dateTime, static_cast<int>(i), m_dataCursor, value))
           {
             Element *element = m_profile[i];
             element->externalSoluteFluxes[m_soluteIndex] += value * m_factors[element];

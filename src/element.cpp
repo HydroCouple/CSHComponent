@@ -237,7 +237,7 @@ double Element::computeDADt(double dt, double A[])
     double A2 = A[hIndex];
 
     DADt += (A2 * uflow - A2 * flow.value) / volume;
-    DADt += externalFlows / length;
+    DADt += externalFlows * A2 / volume;
   }
 
   return DADt;
@@ -261,14 +261,12 @@ double Element::getAofH(double H)
 double Element::getPofH(double H)
 {
   double per = bottomWidth + H * sqrt(1 + sideSlopes[0] * sideSlopes[0]) + H * sqrt(1 + sideSlopes[1] * sideSlopes[1]);
-  //  double per = bottomWidth + H;
   return per;
 }
 
 double Element::getWofH(double H)
 {
   double w = bottomWidth + sideSlopes[0] * H + sideSlopes[1] * H;
-  //  double w = bottomWidth;
   return w;
 }
 
@@ -358,7 +356,7 @@ double Element::computeDTDt(double dt, double T[])
 {
   double DTDt = 0.0;
 
-  if(volume > 1e-18)
+  if(volume > 1e-12)
   {
     //Compute advection
     DTDt += computeDTDtAdv(dt, T);
@@ -378,8 +376,6 @@ double Element::computeDTDt(double dt, double T[])
       DTDt += convectionHeatFlux * top_area / rho_cp_vol;
       DTDt +=  fluidFrictionHeatFlux * top_area / rho_cp_vol;
     }
-
-
 
     //Product rule subtract volume derivative
     {

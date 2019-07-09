@@ -55,7 +55,7 @@ void RadiativeFluxBC::applyBoundaryConditions(double dateTime)
 
   double value = 0;
 
-  if(m_timeSeries->numColumns() == (int)m_profile.size())
+  if(m_timeSeries->numColumns() == static_cast<int>(m_profile.size()))
   {
     for(size_t i = 0; i < m_profile.size(); i++)
     {
@@ -69,7 +69,7 @@ void RadiativeFluxBC::applyBoundaryConditions(double dateTime)
   {
     for(size_t i = 0; i < m_profile.size(); i++)
     {
-      if(m_timeSeries->interpolate(dateTime, i, m_dataCursor, value))
+      if(m_timeSeries->interpolate(dateTime, 0, m_dataCursor, value))
       {
         m_profile[i]->radiationFluxes += value;
       }
