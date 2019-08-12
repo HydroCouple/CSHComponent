@@ -55,6 +55,7 @@ struct CSHCOMPONENT_EXPORT SolverUserData
 };
 
 typedef void (*RetrieveCouplingData)(CSHModel *model, double dateTime);
+typedef void (*WriteVariableToNetCDF)(size_t currentTime, ThreadSafeNcVar &variable, const std::vector<Element*>& elements);
 
 class CSHCOMPONENT_EXPORT CSHModel : public QObject
 {
@@ -698,6 +699,14 @@ class CSHCOMPONENT_EXPORT CSHModel : public QObject
     bool readInputFileTimeSeriesTag(const QString &line, QString &errorMessage);
 
     /*!
+     * \brief readOutputVariableOnOff
+     * \param line
+     * \param errorMessage
+     * \return
+     */
+    bool readOutputVariableOnOff(const QString &line, QString &errorMessage);
+
+    /*!
      * \brief writeOutput
      */
     void writeOutput();
@@ -839,6 +848,9 @@ class CSHCOMPONENT_EXPORT CSHModel : public QObject
 #ifdef USE_NETCDF
     ThreadSafeNcFile *m_outputNetCDF = nullptr; //NetCDF output file object
     std::unordered_map<std::string, ThreadSafeNcVar> m_outNetCDFVariables;
+    std::unordered_map<std::string, bool> m_outNetCDFVariablesOnOff;
+    std::unordered_map<std::string, WriteVariableToNetCDF> m_outNetCDFVariablesIOFunctions;
+    std::vector<std::string> m_optionalOutputVariables;
 #endif
 
     QTextStream m_outputCSVStream; //Output CSV filestream
