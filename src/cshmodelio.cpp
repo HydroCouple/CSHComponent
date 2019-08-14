@@ -690,8 +690,15 @@ bool CSHModel::initializeNetCDFOutputFile(list<string> &errors)
     elementVaporPressVar.putAtt("units", "kPa");
     m_outNetCDFVariables["element_vapor_pressure"] = elementVaporPressVar;
 
+<<<<<<< Updated upstream
     ThreadSafeNcVar elementSatVaporPressVar =  m_outputNetCDF->addVar("element_saturated_vapor_pressure", "float",
                                                                       std::vector<std::string>({"time", "elements"}));
+=======
+    if((m_outNetCDFVariablesOnOff["element_air_temp"] = varOnOff("element_air_temp")))
+    {
+      ThreadSafeNcVar elementAirTempVar =  m_outputNetCDF->addVar("element_air_temp", "float",
+                                                                  std::vector<std::string>({"time", "elements"}));
+>>>>>>> Stashed changes
 
     elementSatVaporPressVar.putAtt("long_name", "Saturated Vapor Pressure");
     elementSatVaporPressVar.putAtt("units", "kPa");
