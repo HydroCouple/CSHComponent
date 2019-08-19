@@ -41,7 +41,6 @@
 using namespace netCDF;
 using namespace netCDF::exceptions;
 
-
 #endif
 
 using namespace std;
@@ -943,7 +942,7 @@ bool CSHModel::initializeNetCDFOutputFile(list<string> &errors)
       };
     }
 
-    if((m_outNetCDFVariablesOnOff["element_air_temp"] = varOnOff("element_heat_flux")))
+    if((m_outNetCDFVariablesOnOff["element_air_temp"] = varOnOff("element_air_temp")))
     {
       ThreadSafeNcVar elementAirTempVar =  m_outputNetCDF->addVar("element_air_temp", "float",
                                                                   std::vector<std::string>({"time", "elements"}));
@@ -3195,7 +3194,7 @@ const unordered_map<string, int> CSHModel::m_inputFileFlags({
                                                               {"[METEOROLOGY]", 10},
                                                               {"[TIMESERIES]", 11},
                                                               {"[ELEMENT_HYDRAULIC_VARIABLES]", 12},
-                                                              {"[OUTPUTVARIABLES]", 13}
+                                                              {"[OUTPUTVARIABLES]", 13},
                                                             });
 
 const unordered_map<string, int> CSHModel::m_optionsFlags({
