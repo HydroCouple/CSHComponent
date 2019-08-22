@@ -1318,7 +1318,7 @@ bool CSHModel::initializeNetCDFOutputFile(list<string> &errors)
 
     for (const auto& pair : m_outNetCDFVariablesOnOff)
     {
-      if(pair.second)
+      if(pair.second && (m_outNetCDFVariablesIOFunctions.find(pair.first) != m_outNetCDFVariablesIOFunctions.end()))
         m_optionalOutputVariables.push_back(pair.first);
     }
 
