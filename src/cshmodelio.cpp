@@ -1179,7 +1179,7 @@ bool CSHModel::initializeNetCDFOutputFile(list<string> &errors)
         {
           if(elements.size())
           {
-            int numSolutes = elements[0]->numSolutes;
+            int numSolutes = elements[0]->model->numSolutes();
             float *solute_concentration = new float[elements.size() * numSolutes];
 
             for (size_t i = 0; i < elements.size(); i++)
@@ -1236,7 +1236,7 @@ bool CSHModel::initializeNetCDFOutputFile(list<string> &errors)
         {
           if(elements.size())
           {
-            int numSolutes = elements[0]->numSolutes;
+            int numSolutes = elements[0]->model->numSolutes();
             float *total_element_solute_mass_balance = new float[elements.size() * numSolutes];
 
             for (size_t i = 0; i < elements.size(); i++)
@@ -1265,7 +1265,7 @@ bool CSHModel::initializeNetCDFOutputFile(list<string> &errors)
         {
           if(elements.size())
           {
-            int numSolutes = elements[0]->numSolutes;
+            int numSolutes = elements[0]->model->numSolutes();
             float *total_element_adv_disp_solute_mass_balance = new float[elements.size() * numSolutes];
 
             for (size_t i = 0; i < elements.size(); i++)
@@ -1294,7 +1294,7 @@ bool CSHModel::initializeNetCDFOutputFile(list<string> &errors)
         {
           if(elements.size())
           {
-            int numSolutes = elements[0]->numSolutes;
+            int numSolutes = elements[0]->model->numSolutes();
             float *total_element_external_solute_flux_mass_balance = new float[elements.size() * numSolutes];
 
             for (size_t i = 0; i < elements.size(); i++)
@@ -1318,7 +1318,9 @@ bool CSHModel::initializeNetCDFOutputFile(list<string> &errors)
 
     for (const auto& pair : m_outNetCDFVariablesOnOff)
     {
-      if(pair.second)
+      auto found = m_outNetCDFVariablesIOFunctions.find(pair.first);
+
+      if(found != m_outNetCDFVariablesIOFunctions.end() && pair.second)
         m_optionalOutputVariables.push_back(pair.first);
     }
 
@@ -3083,7 +3085,7 @@ void CSHModel::writeNetCDFOutput()
     int nVars = static_cast<int>(m_optionalOutputVariables.size());
 
 #ifdef USE_OPENMP
-#pragma omp parallel for
+//#pragma omp parallel for
 #endif
     for (int i = 0; i < nVars; i++)
     {
