@@ -184,6 +184,9 @@ struct CSHCOMPONENT_EXPORT Element
     */
    double xSectionArea;
 
+
+   double STSXSectionArea = 0.0;
+
    /*!
     * \brief prevXSectionArea
     */
@@ -198,6 +201,9 @@ struct CSHCOMPONENT_EXPORT Element
     * \brief downstreamXSectionArea
     */
    double downstreamXSectionArea;
+
+
+   double STSWidthFraction = 0;
 
    /*!
     * \brief width (m)
@@ -443,6 +449,8 @@ struct CSHCOMPONENT_EXPORT Element
    double getAofQ(double Q);
 
    double getHofQ(double Q);
+
+   double getXSectionArea();
 
    double findRoots(double x, double y, GetXofY function, int maxIters = 10000, double derivStepSize = 1e-8, double eps = 1e-10);
 
@@ -781,6 +789,8 @@ struct CSHCOMPONENT_EXPORT Element
     * \brief volume
     */
    double volume;
+
+   double sol_volume;
 
    /*!
     * \brief prev_volume

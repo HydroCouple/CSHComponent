@@ -40,8 +40,10 @@ class CSHCOMPONENT_EXPORT ElementInput : public TimeGeometryInputDouble
     {
       Flow,
       XSectionArea,
+      STSXSectionArea,
       Depth,
       TopWidth,
+      STSWidthFraction,
       DVolumeDTime
     };
 

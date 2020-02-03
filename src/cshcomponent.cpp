@@ -518,6 +518,28 @@ void CSHComponent::createXSectionAreaInput()
   m_xSectionAreaInput->addTime(dt2);
 
   addInput(m_xSectionAreaInput);
+
+
+
+  ElementInput *STSXSectionAreaInput = new ElementInput("ElementSTSXSectionAreaInput",
+                                         m_timeDimension,
+                                         m_geometryDimension,
+                                         xSectionQuantity,
+                                         ElementInput::STSXSectionArea,
+                                         this);
+
+  STSXSectionAreaInput->setCaption("Element STS Zone Cross-Section Area(m^2)");
+
+
+  STSXSectionAreaInput->addGeometries(geometries);
+
+  SDKTemporal::DateTime *dt11 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime()- 1.0/1000000.0, STSXSectionAreaInput);
+  SDKTemporal::DateTime *dt22 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime(), STSXSectionAreaInput);
+
+  STSXSectionAreaInput->addTime(dt11);
+  STSXSectionAreaInput->addTime(dt22);
+
+  addInput(STSXSectionAreaInput);
 }
 
 void CSHComponent::createDepthInput()
@@ -580,6 +602,27 @@ void CSHComponent::createTopWidthInput()
   m_topWidthInput->addTime(dt2);
 
   addInput(m_topWidthInput);
+
+
+  ElementInput *STSTopWidthFractionInput = new ElementInput("ElementTopWidthFractionInput",
+                                     m_timeDimension,
+                                     m_geometryDimension,
+                                     widthQuantity,
+                                     ElementInput::STSWidthFraction,
+                                     this);
+
+  STSTopWidthFractionInput->setCaption("Element STS Top Width Fraction)");
+
+
+  STSTopWidthFractionInput->addGeometries(geometries);
+
+  SDKTemporal::DateTime *dt11 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime()- 1.0/1000000.0, STSTopWidthFractionInput);
+  SDKTemporal::DateTime *dt22 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime(), STSTopWidthFractionInput);
+
+  STSTopWidthFractionInput->addTime(dt11);
+  STSTopWidthFractionInput->addTime(dt22);
+
+  addInput(STSTopWidthFractionInput);
 }
 
 void CSHComponent::createExternalRadiationFluxInput()
@@ -896,7 +939,7 @@ void CSHComponent::createXSectionAreaOutput()
                                          m_timeDimension,
                                          m_geometryDimension,
                                          xSectionQuantity,
-                                         ElementOutput::XSectionArea,
+                                         ElementOutput::MCXSectionArea,
                                          this);
 
   xSectionAreaOutput->setCaption("Element Cross-Section Area (m^2)");
@@ -979,4 +1022,23 @@ void CSHComponent::createTopWidthOutput()
   topWidthOutput->addTime(dt2);
 
   addOutput(topWidthOutput);
+
+
+  ElementOutput *topMCWidthOutput = new ElementOutput("ElementMCTopWidthOutput",
+                                     m_timeDimension,
+                                     m_geometryDimension,
+                                     widthQuantity,
+                                     ElementOutput::MCTopWidth,
+                                     this);
+
+  topMCWidthOutput->setCaption("Element Main Channel Top Width (m)");
+
+
+  SDKTemporal::DateTime *dt11 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime()- 1.0/1000000.0, topMCWidthOutput);
+  SDKTemporal::DateTime *dt22 = new SDKTemporal::DateTime(m_modelInstance->currentDateTime(), topMCWidthOutput);
+
+  topMCWidthOutput->addTime(dt11);
+  topMCWidthOutput->addTime(dt22);
+
+  addOutput(topMCWidthOutput);
 }

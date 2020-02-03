@@ -171,6 +171,7 @@ void Element::initialize()
   xSectionArea = getAofH(depth);
   width = getWofH(depth);
   volume = xSectionArea * length;
+  sol_volume = (xSectionArea - STSXSectionArea) * length;
 
   for(int i = 0; i < numSolutes; i++)
   {
@@ -250,6 +251,7 @@ void Element::calculateQfromA(double A[])
   flow.value = getQofH(depth);
   width  = getWofH(depth);
   volume =  xSectionArea * length;
+  sol_volume = (xSectionArea - STSXSectionArea) * length;
 }
 
 double Element::getAofH(double H)
@@ -310,6 +312,11 @@ double Element::getHofQ(double Q)
   return h;
 }
 
+double Element::getXSectionArea()
+{
+  return max(0.0, xSectionArea);
+}
+
 double Element::findRoots(double x, double y, GetXofY function, int maxIters, double derivStepSize, double eps)
 {
   double error = 0;
@@ -345,11 +352,7 @@ void Element::computeHydraulicVariables()
   flow.value = getQofH(depth);
   width  = getWofH(depth);
   volume = xSectionArea * length;
-
-  //  if(!starting)
-  //  {
-  //    dvolume_dt.value = (volume - prev_volume) / model->m_prevTimeStep;
-  //  }
+  sol_volume = (xSectionArea - STSXSectionArea) * length;
 }
 
 double Element::computeDTDt(double dt, double T[])
@@ -523,12 +526,12 @@ double Element::computeDSoluteDt(double dt, double S[], int soluteIndex)
 
     //subtract chain rule volume derivative
     {
-      DSoluteDt -= (S[sIndex[soluteIndex]] * dvolume_dt.value) / volume;
+      DSoluteDt -= (S[sIndex[soluteIndex]] * dvolume_dt.value) / sol_volume;
     }
 
     //Add external sources
     {
-      DSoluteDt += externalSoluteFluxes[soluteIndex] / volume;
+      DSoluteDt += externalSoluteFluxes[soluteIndex] / sol_volume;
     }
   }
 
@@ -545,7 +548,7 @@ double Element::computeDSoluteDtAdv(double dt, double S[], int soluteIndex)
   //Downstream
   DSoluteDt += (*computeSoluteAdvDeriv[soluteIndex][1])(this, dt, S, soluteIndex);
 
-  DSoluteDt = DSoluteDt / volume;
+  DSoluteDt = DSoluteDt / sol_volume;
 
   return DSoluteDt;
 }
@@ -746,10 +749,11 @@ void Element::computeDerivedHydraulics()
   }
 
   volume  = xSectionArea * length;
+  sol_volume = (xSectionArea - STSXSectionArea) * length;
   rho_cp  = model->m_waterDensity * model->m_cp;
-  rho_vol = model->m_waterDensity * volume;
-  rho_cp_vol = rho_cp * volume;
-  top_area = length * width;
+  rho_vol = model->m_waterDensity * sol_volume;
+  rho_cp_vol = rho_cp * sol_volume;
+  top_area = length * max(0.0, width * (1.0 - STSWidthFraction));
 
 
   if(upstreamElement != nullptr)

@@ -104,8 +104,12 @@ class CSHCOMPONENT_EXPORT CSHComponent : public AbstractTimeModelComponent,
 
   protected:
 
+    /*!
+     * \brief removeClone
+     * \param component
+     * \return
+     */
     bool removeClone(CSHComponent *component);
-
 
     /*!
      * \brief intializeFailureCleanUp

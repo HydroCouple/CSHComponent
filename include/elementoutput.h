@@ -38,8 +38,10 @@ class CSHCOMPONENT_EXPORT ElementOutput: public TimeGeometryOutputDouble
     {
       Flow,
       XSectionArea,
+      MCXSectionArea,
       Depth,
       TopWidth,
+      MCTopWidth,
       Temperature,
       EvaporationRate,
       SoluteConc

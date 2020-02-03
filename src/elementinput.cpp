@@ -244,6 +244,21 @@ void ElementInput::applyData()
             }
           }
           break;
+        case STSXSectionArea:
+          {
+            for(auto it : m_geometryMapping)
+            {
+              double value1 = 0;
+              double value2 = 0;
+
+              timeGeometryDataItem->getValue(currentTimeIndex,it.second, &value1);
+              timeGeometryDataItem->getValue(previousTimeIndex,it.second, &value2);
+
+              Element *element =  m_component->modelInstance()->getElement(it.first);
+              element->STSXSectionArea = value2 + factor *(value1 - value2);
+            }
+          }
+          break;
         case Depth:
           {
             for(auto it : m_geometryMapping)
@@ -272,6 +287,21 @@ void ElementInput::applyData()
 
               Element *element =  m_component->modelInstance()->getElement(it.first);
               element->width = value2 + factor *(value1 - value2);
+            }
+          }
+          break;
+        case STSWidthFraction:
+          {
+            for(auto it : m_geometryMapping)
+            {
+              double value1 = 0;
+              double value2 = 0;
+
+              timeGeometryDataItem->getValue(currentTimeIndex,it.second, &value1);
+              timeGeometryDataItem->getValue(previousTimeIndex,it.second, &value2);
+
+              Element *element =  m_component->modelInstance()->getElement(it.first);
+              element->STSWidthFraction = value2 + factor *(value1 - value2);
             }
           }
           break;
@@ -319,6 +349,17 @@ void ElementInput::applyData()
             }
           }
           break;
+        case STSXSectionArea:
+          {
+            for(auto it : m_geometryMapping)
+            {
+              double value = 0;
+              timeGeometryDataItem->getValue(currentTimeIndex,it.second, & value);
+              Element *element =  m_component->modelInstance()->getElement(it.first);
+              element->STSXSectionArea = value;
+            }
+          }
+          break;
         case Depth:
           {
             for(auto it : m_geometryMapping)
@@ -338,6 +379,17 @@ void ElementInput::applyData()
               timeGeometryDataItem->getValue(currentTimeIndex,it.second, & value);
               Element *element =  m_component->modelInstance()->getElement(it.first);
               element->width = value;
+            }
+          }
+          break;
+        case STSWidthFraction:
+          {
+            for(auto it : m_geometryMapping)
+            {
+              double value = 0;
+              timeGeometryDataItem->getValue(currentTimeIndex,it.second, & value);
+              Element *element =  m_component->modelInstance()->getElement(it.first);
+              element->STSWidthFraction = value;
             }
           }
           break;
@@ -413,6 +465,21 @@ void ElementInput::applyData()
             }
           }
           break;
+        case STSXSectionArea:
+          {
+            for(auto it : m_geometryMapping)
+            {
+              double value1 = 0;
+              double value2 = 0;
+
+              timeIdBasedDataItem->getValue(currentTimeIndex,it.second, &value1);
+              timeIdBasedDataItem->getValue(previousTimeIndex,it.second, &value2);
+
+              Element *element =  m_component->modelInstance()->getElement(it.first);
+              element->STSXSectionArea = value2 + factor *(value1 - value2);
+            }
+          }
+          break;
         case Depth:
           {
             for(auto it : m_geometryMapping)
@@ -441,6 +508,21 @@ void ElementInput::applyData()
 
               Element *element =  m_component->modelInstance()->getElement(it.first);
               element->width = value2 + factor *(value1 - value2);
+            }
+          }
+          break;
+        case STSWidthFraction:
+          {
+            for(auto it : m_geometryMapping)
+            {
+              double value1 = 0;
+              double value2 = 0;
+
+              timeIdBasedDataItem->getValue(currentTimeIndex,it.second, &value1);
+              timeIdBasedDataItem->getValue(previousTimeIndex,it.second, &value2);
+
+              Element *element =  m_component->modelInstance()->getElement(it.first);
+              element->STSWidthFraction = value2 + factor *(value1 - value2);
             }
           }
           break;
@@ -488,6 +570,17 @@ void ElementInput::applyData()
             }
           }
           break;
+        case STSXSectionArea:
+          {
+            for(auto it : m_geometryMapping)
+            {
+              double value = 0;
+              timeIdBasedDataItem->getValue(currentTimeIndex,it.second, & value);
+              Element *element =  m_component->modelInstance()->getElement(it.first);
+              element->STSXSectionArea = value;
+            }
+          }
+          break;
         case Depth:
           {
             for(auto it : m_geometryMapping)
@@ -507,6 +600,17 @@ void ElementInput::applyData()
               timeIdBasedDataItem->getValue(currentTimeIndex,it.second, & value);
               Element *element =  m_component->modelInstance()->getElement(it.first);
               element->width = value;
+            }
+          }
+          break;
+        case STSWidthFraction:
+          {
+            for(auto it : m_geometryMapping)
+            {
+              double value = 0;
+              timeIdBasedDataItem->getValue(currentTimeIndex,it.second, & value);
+              Element *element =  m_component->modelInstance()->getElement(it.first);
+              element->STSWidthFraction = value;
             }
           }
           break;

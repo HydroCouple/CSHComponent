@@ -30,6 +30,8 @@ using namespace HydroCouple;
 using namespace HydroCouple::Spatial;
 using namespace SDKTemporal;
 
+using namespace std;
+
 ElementOutput::ElementOutput(const QString &id,
                              Dimension *timeDimension,
                              Dimension *geometryDimension,
@@ -119,6 +121,19 @@ void ElementOutput::updateValues()
         }
       }
       break;
+    case MCXSectionArea:
+      {
+        //#ifdef USE_OPENMP
+        //#pragma omp parallel for
+        //#endif
+        for(int i = 0 ; i < (int)m_geometries.size() ; i++)
+        {
+          Element *element = m_component->modelInstance()->getElement(i);
+          double value = max(0.0, element->xSectionArea - element->STSXSectionArea);
+          setValue(currentTimeIndex,i,&value);
+        }
+      }
+      break;
     case Depth:
       {
         //#ifdef USE_OPENMP
@@ -141,6 +156,19 @@ void ElementOutput::updateValues()
         {
           Element *element = m_component->modelInstance()->getElement(i);
           double value = element->width;
+          setValue(currentTimeIndex,i,&value);
+        }
+      }
+      break;
+    case MCTopWidth:
+      {
+        //#ifdef USE_OPENMP
+        //#pragma omp parallel for
+        //#endif
+        for(int i = 0 ; i <(int) m_geometries.size() ; i++)
+        {
+          Element *element = m_component->modelInstance()->getElement(i);
+          double value = max(0.0, element->width * (1.0 - element->STSWidthFraction));
           setValue(currentTimeIndex,i,&value);
         }
       }

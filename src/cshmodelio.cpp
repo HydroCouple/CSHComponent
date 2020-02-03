@@ -590,7 +590,6 @@ bool CSHModel::initializeNetCDFOutputFile(list<string> &errors)
       };
     }
 
-
     if((m_outNetCDFVariablesOnOff["width"] = varOnOff("width")))
     {
       ThreadSafeNcVar widthVar =  m_outputNetCDF->addVar("width", "float",
@@ -625,6 +624,26 @@ bool CSHModel::initializeNetCDFOutputFile(list<string> &errors)
         {
           Element *element = elements[i];
           xsection_area[i] = static_cast<float>(element->xSectionArea);
+        }
+        variable.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, elements.size()}), xsection_area);
+        delete[] xsection_area;
+      };
+    }
+
+    if((m_outNetCDFVariablesOnOff["xsection_area_sts"] = varOnOff("xsection_area_sts")))
+    {
+      ThreadSafeNcVar xsectAreaVar =  m_outputNetCDF->addVar("xsection_area_sts", "float",
+                                                             std::vector<std::string>({"time", "elements"}));
+      xsectAreaVar.putAtt("long_name", "Flow Cross-Sectional Area in STS Zone");
+      xsectAreaVar.putAtt("units", "m^2");
+      m_outNetCDFVariables["xsection_area_sts"] = xsectAreaVar;
+      m_outNetCDFVariablesIOFunctions["xsection_area_sts"] = [](size_t currentTime, ThreadSafeNcVar &variable, const std::vector<Element*>& elements)
+      {
+        float *xsection_area = new float[elements.size()];
+        for (size_t i = 0; i < elements.size(); i++)
+        {
+          Element *element = elements[i];
+          xsection_area[i] = static_cast<float>(element->STSXSectionArea);
         }
         variable.putVar(std::vector<size_t>({currentTime, 0}), std::vector<size_t>({1, elements.size()}), xsection_area);
         delete[] xsection_area;
@@ -735,7 +754,6 @@ bool CSHModel::initializeNetCDFOutputFile(list<string> &errors)
         delete[] total_element_heat_balance;
       };
     }
-
 
     if((m_outNetCDFVariablesOnOff["total_element_adv_disp_heat_balance"] = varOnOff("total_element_adv_disp_heat_balance")))
     {
@@ -1116,7 +1134,6 @@ bool CSHModel::initializeNetCDFOutputFile(list<string> &errors)
       m_outNetCDFVariables["total_evap_heat_balance"] = totalEvapHeatBalanceVar;
     }
 
-
     if((m_outNetCDFVariablesOnOff["total_conv_heat_balance"] = varOnOff("total_conv_heat_balance")))
     {
       ThreadSafeNcVar totalConvHeatBalanceVar =  m_outputNetCDF->addVar("total_conv_heat_balance", "float",
@@ -1134,7 +1151,6 @@ bool CSHModel::initializeNetCDFOutputFile(list<string> &errors)
       totalRadiationFluxHeatBalanceVar.putAtt("units", "KJ");
       m_outNetCDFVariables["total_radiation_flux_heat_balance"] = totalRadiationFluxHeatBalanceVar;
     }
-
 
     if((m_outNetCDFVariablesOnOff["total_external_heat_flux_balance"] = varOnOff("total_external_heat_flux_balance")))
     {
